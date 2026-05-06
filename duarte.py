@@ -448,33 +448,56 @@ elif menu == "despesas":
     # 🆕 NOVA DESPESA
     # =========================
     with tab1:
-        desc = st.text_input("Descrição")
-        valor = st.number_input("Valor", min_value=0.0, step=0.01)
-        categoria = st.selectbox("Categoria", categorias)
-        centro = st.selectbox("Centro de Custo", centros)
+     desc = st.text_input("Descrição")
+     valor = st.number_input("Valor", min_value=0.0, step=0.01)
+     categoria = st.selectbox("Categoria", categorias)
+     centro = st.selectbox("Centro de Custo", centros)
 
-        if st.button("Enviar Despesa"):
-            if not desc or valor == 0:
-                st.warning("Preencha os campos corretamente")
-            else:
-                conn = connect()
+    # 📎 ANEXO AQUI
+    arquivos = st.file_uploader(
+        "📎 Anexar arquivos (PDF, imagem, etc)",
+        accept_multiple_files=True
+    )
 
-                conn.execute("""
-                    INSERT INTO despesas (usuario, descricao, categoria, centro_custo, valor)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
-                    st.session_state["usuario"],
-                    desc,
-                    categoria,
-                    centro,
-                    valor
-                ))
+    if st.button("Enviar Despesa"):
 
-                conn.commit()
-                conn.close()
+        if not desc or valor == 0:
+            st.warning("Preencha os campos corretamente")
+        else:
+            lista_arquivos = []
 
-                st.success("Despesa enviada com sucesso!")
-                st.rerun()
+            # 💾 SALVAR ARQUIVOS
+            if arquivos:
+                for i, arq in enumerate(arquivos):
+                    nome = f"{datetime.now().timestamp()}_{i}_{arq.name}"
+                    caminho = os.path.join("uploads", nome)
+
+                    with open(caminho, "wb") as f:
+                        f.write(arq.read())
+
+                    lista_arquivos.append(caminho)
+
+            conn = connect()
+
+            conn.execute("""
+                INSERT INTO despesas 
+                (usuario, descricao, categoria, centro_custo, valor, arquivos)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                st.session_state["usuario"],
+                desc,
+                categoria,
+                centro,
+                valor,
+                ",".join(lista_arquivos)
+            ))
+
+            conn.commit()
+            conn.close()
+
+            st.success("💸 Despesa enviada com sucesso!")
+            st.balloons()
+            st.rerun()
 
     # =========================
     # 📋 MINHAS DESPESAS
@@ -523,21 +546,50 @@ elif menu == "reembolsos":
     else:
         for _, row in df.iterrows():
 
+    
             st.markdown(f"""
-            <div class="card">
-                👤 <b>{row['usuario']}</b><br>
-                💸 {row['descricao']}<br>
-                💰 R$ {row['valor']}<br>
-                📂 {row['categoria']} | {row['centro_custo']}<br>
-                📊 Status: <b>{row['status']}</b>
-            </div>
-            """, unsafe_allow_html=True)
+        <div class="card">
+        👤 <b>{row['usuario']}</b><br>
+        💸 {row['descricao']}<br>
+        💰 R$ {row['valor']}<br>
+        📂 {row['categoria']} | {row['centro_custo']}<br>
+        📊 Status: <b>{row['status']}</b>
+    </div>
+    """, unsafe_allow_html=True)
 
-            # 🔥 BOTÕES
-            col1, col2, col3, col4 = st.columns(4)
+    # ✅ ANEXOS TEM QUE FICAR AQUI DENTRO
+    if row["arquivos"]:
+        arquivos = row["arquivos"].split(",")
+
+        for i, arq in enumerate(arquivos):
+            if os.path.exists(arq):
+
+                if arq.lower().endswith((".png", ".jpg", ".jpeg")):
+                    st.image(arq, width=200)
+
+                elif arq.lower().endswith(".pdf"):
+                    with open(arq, "rb") as f:
+                        st.download_button(
+                            "📄 Baixar PDF",
+                            f,
+                            file_name=os.path.basename(arq),
+                            key=f"pdf_{row['id']}_{i}"
+                        )
+
+                else:
+                    with open(arq, "rb") as f:
+                        st.download_button(
+                            "📎 Baixar arquivo",
+                            f,
+                            file_name=os.path.basename(arq),
+                            key=f"file_{row['id']}_{i}"
+                        )
+
+    # 🔥 BOTÕES (também dentro do for)
+    col1, col2, col3, col4 = st.columns(4)
 
             # ✅ APROVAR
-            if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
+    if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
                 conn.execute(
                     "UPDATE despesas SET status='APROVADO' WHERE id=?",
                     (row["id"],)
@@ -547,7 +599,7 @@ elif menu == "reembolsos":
                 st.rerun()
 
             # ❌ REJEITAR
-            if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
+    if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
                 conn.execute(
                     "UPDATE despesas SET status='REJEITADO' WHERE id=?",
                     (row["id"],)
@@ -557,7 +609,7 @@ elif menu == "reembolsos":
                 st.rerun()
 
             # 💰 PAGAR (COM EMAIL)
-            if col3.button("💰 Marcar como Pago", key=f"pg_{row['id']}"):
+    if col3.button("💰 Marcar como Pago", key=f"pg_{row['id']}"):
 
                 if row["status"] == "PAGO":
                     st.warning("⚠️ Já está pago.")
@@ -594,12 +646,13 @@ elif menu == "reembolsos":
 
                     conn.commit()
 
-                    st.success("💰 Pago e email enviado!")
+                    st.markdown('<div class="success-check">✔ Pagamento realizado com sucesso!</div>', unsafe_allow_html=True)
                     st.balloons()
+
                     st.rerun()
 
             # 🗑️ EXCLUIR
-            if col4.button("🗑️ Excluir", key=f"del_{row['id']}"):
+    if col4.button("🗑️ Excluir", key=f"del_{row['id']}"):
                 conn.execute(
                     "DELETE FROM despesas WHERE id=?",
                     (row["id"],)
@@ -607,12 +660,3 @@ elif menu == "reembolsos":
                 conn.commit()
                 st.warning("🗑️ Excluído!")
                 st.rerun()
-
-    conn.close()
-        
-        
-    # 🔥 ANIMAÇÃO + ESTILO
-
-    st.markdown('<div class="success-check">✔ Pagamento realizado com sucesso!</div>', unsafe_allow_html=True)
-    st.balloons()
-    st.rerun()
