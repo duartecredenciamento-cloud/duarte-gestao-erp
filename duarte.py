@@ -533,7 +533,8 @@ elif menu == "reembolsos":
             </div>
             """, unsafe_allow_html=True)
 
-            col1, col2, col3 = st.columns(3)
+            # 🔥 BOTÕES
+            col1, col2, col3, col4 = st.columns(4)
 
             # ✅ APROVAR
             if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
@@ -542,7 +543,7 @@ elif menu == "reembolsos":
                     (row["id"],)
                 )
                 conn.commit()
-                st.success("Aprovado!")
+                st.success("✅ Aprovado!")
                 st.rerun()
 
             # ❌ REJEITAR
@@ -552,48 +553,66 @@ elif menu == "reembolsos":
                     (row["id"],)
                 )
                 conn.commit()
-                st.warning("Rejeitado!")
+                st.warning("❌ Rejeitado!")
                 st.rerun()
 
-            # 💰 PAGAR
-if col3.button("💰 Marcar como Pago", key=f"pg_{row['id']}"):
+            # 💰 PAGAR (COM EMAIL)
+            if col3.button("💰 Marcar como Pago", key=f"pg_{row['id']}"):
 
-    if row["status"] == "PAGO":
-        st.warning("Já está pago.")
-    else:
-        c = conn.cursor()
+                if row["status"] == "PAGO":
+                    st.warning("⚠️ Já está pago.")
+                else:
+                    c = conn.cursor()
 
-        c.execute("""
-            SELECT nome, email FROM usuarios WHERE usuario=?
-        """, (row["usuario"],))
+                    c.execute("""
+                        SELECT nome, email FROM usuarios WHERE usuario=?
+                    """, (row["usuario"],))
 
-        user_data = c.fetchone()
+                    user_data = c.fetchone()
 
-        if user_data:
-            nome = user_data[0]
-            email = user_data[1]
+                    if user_data:
+                        nome = user_data[0]
+                        email = user_data[1]
 
-            data_pagamento = datetime.now().strftime("%d/%m/%Y %H:%M")
+                        data_pagamento = datetime.now().strftime("%d/%m/%Y %H:%M")
 
-            enviar_email(
-                email,
-                nome,
-                row["descricao"],
-                row["valor"],
-                row["categoria"],
-                row["centro_custo"],
-                data_pagamento
-            )
+                        enviar_email(
+                            email,
+                            nome,
+                            row["descricao"],
+                            row["valor"],
+                            row["categoria"],
+                            row["centro_custo"],
+                            data_pagamento
+                        )
 
-        conn.execute("""
-            UPDATE despesas 
-            SET status='PAGO', data_pagamento=?
-            WHERE id=?
-        """, (datetime.now(), row["id"]))
+                    conn.execute("""
+                        UPDATE despesas 
+                        SET status='PAGO', data_pagamento=?
+                        WHERE id=?
+                    """, (datetime.now(), row["id"]))
 
-        conn.commit()
+                    conn.commit()
 
-        # 🔥 ANIMAÇÃO + ESTILO
-        st.markdown('<div class="success-check">✔ Pagamento realizado com sucesso!</div>', unsafe_allow_html=True)
-        st.balloons()
-        st.rerun()
+                    st.success("💰 Pago e email enviado!")
+                    st.balloons()
+                    st.rerun()
+
+            # 🗑️ EXCLUIR
+            if col4.button("🗑️ Excluir", key=f"del_{row['id']}"):
+                conn.execute(
+                    "DELETE FROM despesas WHERE id=?",
+                    (row["id"],)
+                )
+                conn.commit()
+                st.warning("🗑️ Excluído!")
+                st.rerun()
+
+    conn.close()
+        
+        
+    # 🔥 ANIMAÇÃO + ESTILO
+
+    st.markdown('<div class="success-check">✔ Pagamento realizado com sucesso!</div>', unsafe_allow_html=True)
+    st.balloons()
+    st.rerun()
