@@ -7,25 +7,177 @@ import bcrypt
 from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
+import smtplib
+from email.mime.text import MIMEText
+
+EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
+SENHA_EMAIL = "mzia irrz yimu jhnu"
 
 st.set_page_config(page_title="Duarte Gestão", layout="wide")
+def enviar_email(destinatario, nome, descricao, valor, categoria, centro_custo, data_pagamento):
 
-# =========================
-# 🎨 ESTILO
-# =========================
+    try:
+        corpo = f"""
+Olá {nome},
+
+Seu reembolso foi processado com sucesso! 💰
+
+📄 Descrição: {descricao}
+📂 Categoria: {categoria}
+🏢 Centro de Custo: {centro_custo}
+💰 Valor: R$ {valor}
+📅 Data do Pagamento: {data_pagamento}
+
+⚠️ NÃO RESPONDA ESTE EMAIL
+
+Atenciosamente,  
+Duarte Gestão
+"""
+
+        msg = MIMEText(corpo)
+        msg["Subject"] = "💰 Reembolso Pago"
+        msg["From"] = EMAIL_REMETENTE
+        msg["To"] = destinatario
+
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(EMAIL_REMETENTE, SENHA_EMAIL)
+        server.send_message(msg)
+        server.quit()
+
+    except Exception as e:
+        print("Erro ao enviar email:", e)
+
 st.markdown("""
 <style>
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #020617, #0f172a);
+
+/* =========================
+🎯 BASE GLOBAL
+========================= */
+html, body, [class*="css"] {
+    font-family: 'Segoe UI', sans-serif;
 }
 
-.card {
-    background: #111827;
-    padding: 15px;
-    border-radius: 10px;
-    margin-bottom: 10px;
-    color: white;
+/* =========================
+🔥 SIDEBAR PREMIUM
+========================= */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #020617, #0f172a);
+    border-right: 1px solid rgba(255,255,255,0.05);
 }
+
+/* =========================
+📦 CARDS MODERNOS
+========================= */
+.card {
+    background: linear-gradient(145deg, #111827, #1f2937);
+    padding: 18px;
+    border-radius: 16px;
+    margin-bottom: 15px;
+    color: #e5e7eb;
+    border: 1px solid rgba(255,255,255,0.05);
+    
+    transition: all 0.3s ease;
+    animation: fadeInUp 0.5s ease;
+}
+
+.card:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+}
+
+/* =========================
+✨ ANIMAÇÃO DE ENTRADA
+========================= */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* =========================
+🔥 BOTÕES ESTILO PRO
+========================= */
+.stButton>button {
+    background: linear-gradient(90deg, #2563eb, #1d4ed8);
+    color: white;
+    border-radius: 12px;
+    padding: 10px 16px;
+    border: none;
+    font-weight: 600;
+
+    transition: all 0.25s ease;
+}
+
+.stButton>button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 20px rgba(37,99,235,0.5);
+}
+
+/* =========================
+✅ SUCCESS ANIMADO
+========================= */
+.success-check {
+    background: linear-gradient(90deg,#22c55e,#16a34a);
+    padding: 14px;
+    border-radius: 12px;
+    color: white;
+    text-align: center;
+    font-weight: bold;
+
+    animation: popIn 0.4s ease;
+}
+
+@keyframes popIn {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* =========================
+📊 SCROLLBAR CUSTOM
+========================= */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #020617;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #1d4ed8;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #2563eb;
+}
+
+/* =========================
+📌 INPUTS MAIS BONITOS
+========================= */
+input, textarea, select {
+    border-radius: 10px !important;
+}
+
+/* =========================
+📱 TRANSIÇÃO GLOBAL SUAVE
+========================= */
+* {
+    transition: all 0.2s ease;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -355,5 +507,93 @@ elif menu == "despesas":
 # 💰 REEMBOLSOS
 # =========================
 elif menu == "reembolsos":
-    st.title("💰 Reembolsos")
-    st.info("Reembolsos functionality coming soon!")
+
+    st.title("💰 Gestão de Reembolsos")
+
+    # 🔒 Permissão
+    if st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
+        st.warning("🚫 Você não tem permissão para acessar essa área.")
+        st.stop()
+
+    conn = connect()
+    df = pd.read_sql("SELECT * FROM despesas ORDER BY id DESC", conn)
+
+    if df.empty:
+        st.info("Nenhuma despesa cadastrada.")
+    else:
+        for _, row in df.iterrows():
+
+            st.markdown(f"""
+            <div class="card">
+                👤 <b>{row['usuario']}</b><br>
+                💸 {row['descricao']}<br>
+                💰 R$ {row['valor']}<br>
+                📂 {row['categoria']} | {row['centro_custo']}<br>
+                📊 Status: <b>{row['status']}</b>
+            </div>
+            """, unsafe_allow_html=True)
+
+            col1, col2, col3 = st.columns(3)
+
+            # ✅ APROVAR
+            if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
+                conn.execute(
+                    "UPDATE despesas SET status='APROVADO' WHERE id=?",
+                    (row["id"],)
+                )
+                conn.commit()
+                st.success("Aprovado!")
+                st.rerun()
+
+            # ❌ REJEITAR
+            if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
+                conn.execute(
+                    "UPDATE despesas SET status='REJEITADO' WHERE id=?",
+                    (row["id"],)
+                )
+                conn.commit()
+                st.warning("Rejeitado!")
+                st.rerun()
+
+            # 💰 PAGAR
+if col3.button("💰 Marcar como Pago", key=f"pg_{row['id']}"):
+
+    if row["status"] == "PAGO":
+        st.warning("Já está pago.")
+    else:
+        c = conn.cursor()
+
+        c.execute("""
+            SELECT nome, email FROM usuarios WHERE usuario=?
+        """, (row["usuario"],))
+
+        user_data = c.fetchone()
+
+        if user_data:
+            nome = user_data[0]
+            email = user_data[1]
+
+            data_pagamento = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+            enviar_email(
+                email,
+                nome,
+                row["descricao"],
+                row["valor"],
+                row["categoria"],
+                row["centro_custo"],
+                data_pagamento
+            )
+
+        conn.execute("""
+            UPDATE despesas 
+            SET status='PAGO', data_pagamento=?
+            WHERE id=?
+        """, (datetime.now(), row["id"]))
+
+        conn.commit()
+
+        # 🔥 ANIMAÇÃO + ESTILO
+        st.markdown('<div class="success-check">✔ Pagamento realizado com sucesso!</div>', unsafe_allow_html=True)
+        st.balloons()
+        st.rerun()
