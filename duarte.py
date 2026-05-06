@@ -15,12 +15,16 @@ SENHA_EMAIL = "mzia irrz yimu jhnu"
 
 st.set_page_config(page_title="Duarte Gestão", layout="wide")
 def enviar_email(destinatario, nome, descricao, valor, categoria, centro_custo, data_pagamento):
-
     try:
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)  # ⬅️ timeout importante
+        server.starttls()
+
+        server.login(EMAIL_REMETENTE, SENHA_EMAIL)
+
         corpo = f"""
 Olá {nome},
 
-Seu reembolso foi processado com sucesso! 💰
+Seu reembolso foi pago com sucesso! 💰
 
 📄 Descrição: {descricao}
 📂 Categoria: {categoria}
@@ -29,8 +33,6 @@ Seu reembolso foi processado com sucesso! 💰
 📅 Data do Pagamento: {data_pagamento}
 
 ⚠️ NÃO RESPONDA ESTE EMAIL
-
-Atenciosamente,  
 Duarte Gestão
 """
 
@@ -39,14 +41,14 @@ Duarte Gestão
         msg["From"] = EMAIL_REMETENTE
         msg["To"] = destinatario
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(EMAIL_REMETENTE, SENHA_EMAIL)
         server.send_message(msg)
         server.quit()
 
+        return True  # 🔥 sucesso
+
     except Exception as e:
-        print("Erro ao enviar email:", e)
+        print("ERRO EMAIL:", e)
+        return False  # 🔥 erro controlado
 
 st.markdown("""
 <style>
@@ -546,89 +548,93 @@ elif menu == "reembolsos":
     else:
         for _, row in df.iterrows():
 
-    
+            # =========================
+            # 🎴 CARD
+            # =========================
             st.markdown(f"""
-        <div class="card">
-        👤 <b>{row['usuario']}</b><br>
-        💸 {row['descricao']}<br>
-        💰 R$ {row['valor']}<br>
-        📂 {row['categoria']} | {row['centro_custo']}<br>
-        📊 Status: <b>{row['status']}</b>
-    </div>
-    """, unsafe_allow_html=True)
+            <div class="card">
+                👤 <b>{row['usuario']}</b><br>
+                💸 {row['descricao']}<br>
+                💰 R$ {row['valor']}<br>
+                📂 {row['categoria']} | {row['centro_custo']}<br>
+                📊 Status: <b>{row['status']}</b>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # ✅ ANEXOS TEM QUE FICAR AQUI DENTRO
-    if row["arquivos"]:
-        arquivos = row["arquivos"].split(",")
+            # =========================
+            # 📎 ANEXOS (DENTRO DO FOR ✅)
+            # =========================
+            if row["arquivos"] and row["arquivos"] != "":
+                arquivos = row["arquivos"].split(",")
 
-        for i, arq in enumerate(arquivos):
-            if os.path.exists(arq):
+                for i, arq in enumerate(arquivos):
+                    if os.path.exists(arq):
 
-                if arq.lower().endswith((".png", ".jpg", ".jpeg")):
-                    st.image(arq, width=200)
+                        if arq.lower().endswith((".png", ".jpg", ".jpeg")):
+                            st.image(arq, width=200)
 
-                elif arq.lower().endswith(".pdf"):
-                    with open(arq, "rb") as f:
-                        st.download_button(
-                            "📄 Baixar PDF",
-                            f,
-                            file_name=os.path.basename(arq),
-                            key=f"pdf_{row['id']}_{i}"
-                        )
+                        else:
+                            with open(arq, "rb") as f:
+                                st.download_button(
+                                    "📎 Baixar arquivo",
+                                    f,
+                                    file_name=os.path.basename(arq),
+                                    key=f"file_{row['id']}_{i}"
+                                )
 
-                else:
-                    with open(arq, "rb") as f:
-                        st.download_button(
-                            "📎 Baixar arquivo",
-                            f,
-                            file_name=os.path.basename(arq),
-                            key=f"file_{row['id']}_{i}"
-                        )
-
-    # 🔥 BOTÕES (também dentro do for)
-    col1, col2, col3, col4 = st.columns(4)
+            # =========================
+            # 🔥 BOTÕES COM IMPACTO
+            # =========================
+            col1, col2, col3, col4 = st.columns(4)
 
             # ✅ APROVAR
-    if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
-                conn.execute(
-                    "UPDATE despesas SET status='APROVADO' WHERE id=?",
-                    (row["id"],)
-                )
+            if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
+                conn.execute("UPDATE despesas SET status='APROVADO' WHERE id=?", (row["id"],))
                 conn.commit()
-                st.success("✅ Aprovado!")
+
+                st.markdown("""
+                <div style="background:linear-gradient(90deg,#22c55e,#16a34a);
+                padding:10px;border-radius:10px;color:white;text-align:center;
+                animation: pop 0.3s ease;">
+                ✅ Aprovado com sucesso
+                </div>
+                """, unsafe_allow_html=True)
+
+                st.balloons()
                 st.rerun()
 
             # ❌ REJEITAR
-    if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
-                conn.execute(
-                    "UPDATE despesas SET status='REJEITADO' WHERE id=?",
-                    (row["id"],)
-                )
+            if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
+                conn.execute("UPDATE despesas SET status='REJEITADO' WHERE id=?", (row["id"],))
                 conn.commit()
-                st.warning("❌ Rejeitado!")
+
+                st.markdown("""
+                <div style="background:linear-gradient(90deg,#ef4444,#b91c1c);
+                padding:10px;border-radius:10px;color:white;text-align:center;
+                animation: pop 0.3s ease;">
+                ❌ Rejeitado
+                </div>
+                """, unsafe_allow_html=True)
+
                 st.rerun()
 
-            # 💰 PAGAR (COM EMAIL)
-    if col3.button("💰 Marcar como Pago", key=f"pg_{row['id']}"):
+            # 💰 PAGAR
+            if col3.button("💰 Pagar", key=f"pg_{row['id']}"):
 
                 if row["status"] == "PAGO":
                     st.warning("⚠️ Já está pago.")
                 else:
                     c = conn.cursor()
 
-                    c.execute("""
-                        SELECT nome, email FROM usuarios WHERE usuario=?
-                    """, (row["usuario"],))
-
+                    c.execute("SELECT nome, email FROM usuarios WHERE usuario=?", (row["usuario"],))
                     user_data = c.fetchone()
 
                     if user_data:
-                        nome = user_data[0]
-                        email = user_data[1]
+                        nome, email = user_data
 
                         data_pagamento = datetime.now().strftime("%d/%m/%Y %H:%M")
 
-                        enviar_email(
+                        enviado = enviar_email(
                             email,
                             nome,
                             row["descricao"],
@@ -637,26 +643,42 @@ elif menu == "reembolsos":
                             row["centro_custo"],
                             data_pagamento
                         )
-
+                    if enviado:
+                        st.success("📧 Email enviado!")
+                    else:
+                        st.warning("⚠️ Pagamento feito, mas email falhou.")
+                    
                     conn.execute("""
                         UPDATE despesas 
-                        SET status='PAGO', data_pagamento=?
+                        SET status='PAGO', data_pagamento=? 
                         WHERE id=?
                     """, (datetime.now(), row["id"]))
 
                     conn.commit()
 
-                    st.markdown('<div class="success-check">✔ Pagamento realizado com sucesso!</div>', unsafe_allow_html=True)
-                    st.balloons()
+                    st.markdown("""
+                    <div style="background:linear-gradient(90deg,#16a34a,#22c55e);
+                    padding:12px;border-radius:10px;color:white;text-align:center;
+                    font-weight:bold;animation: pop 0.3s ease;">
+                    💰 PAGAMENTO REALIZADO
+                    </div>
+                    """, unsafe_allow_html=True)
 
+                    st.balloons()
                     st.rerun()
 
             # 🗑️ EXCLUIR
-    if col4.button("🗑️ Excluir", key=f"del_{row['id']}"):
-                conn.execute(
-                    "DELETE FROM despesas WHERE id=?",
-                    (row["id"],)
-                )
+            if col4.button("🗑️ Excluir", key=f"del_{row['id']}"):
+                conn.execute("DELETE FROM despesas WHERE id=?", (row["id"],))
                 conn.commit()
-                st.warning("🗑️ Excluído!")
+
+                st.markdown("""
+                <div style="background:#111827;padding:10px;border-radius:10px;
+                color:white;text-align:center;">
+                🗑️ Excluído
+                </div>
+                """, unsafe_allow_html=True)
+
                 st.rerun()
+
+    conn.close()
