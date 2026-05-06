@@ -16,15 +16,10 @@ SENHA_EMAIL = "mzia irrz yimu jhnu"
 st.set_page_config(page_title="Duarte Gestão", layout="wide")
 def enviar_email(destinatario, nome, descricao, valor, categoria, centro_custo, data_pagamento):
     try:
-        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)  # ⬅️ timeout importante
-        server.starttls()
-
-        server.login(EMAIL_REMETENTE, SENHA_EMAIL)
-
         corpo = f"""
 Olá {nome},
 
-Seu reembolso foi pago com sucesso! 💰
+Seu reembolso foi aprovado e pago com sucesso! 🎉
 
 📄 Descrição: {descricao}
 📂 Categoria: {categoria}
@@ -32,7 +27,8 @@ Seu reembolso foi pago com sucesso! 💰
 💰 Valor: R$ {valor}
 📅 Data do Pagamento: {data_pagamento}
 
-⚠️ NÃO RESPONDA ESTE EMAIL
+⚠️ NÃO RESPONDER ESTE EMAIL
+
 Duarte Gestão
 """
 
@@ -41,14 +37,22 @@ Duarte Gestão
         msg["From"] = EMAIL_REMETENTE
         msg["To"] = destinatario
 
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+
+        print("Conectando no email...")
+        server.login(EMAIL_REMETENTE, SENHA_EMAIL)
+
+        print("Enviando email...")
         server.send_message(msg)
+
         server.quit()
 
-        return True  # 🔥 sucesso
+        st.success("📧 Email enviado com sucesso!")
 
     except Exception as e:
-        print("ERRO EMAIL:", e)
-        return False  # 🔥 erro controlado
+        st.error(f"❌ Erro ao enviar email: {e}")
+        print("ERRO REAL:", e)
 
 st.markdown("""
 <style>
@@ -242,7 +246,7 @@ def criar_admins():
 
     usuarios = [
         ("Admin","admin","admin@email.com","11999999999","00000000000","123456","admin"),
-        ("Financeiro","financeiro","financeiro@email.com","11999999999","00000000000","123456","financeiro"),
+        ("Financeiro","financeiro","financeiro.duartegestao@gmail.com","11999999999","00000000000","123456","financeiro"),
         ("Operacional","operacional","operacional@email.com","11999999999","00000000000","123456","operacional")
     ]
 
