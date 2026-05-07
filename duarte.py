@@ -671,28 +671,27 @@ elif menu == "despesas":
 # =========================
 elif menu == "reembolsos":
 
-   st.title("💰 Gestão de Reembolsos")
+    st.title("💰 Gestão de Reembolsos")
 
-if st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
+    if st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
         st.warning("🚫 Você não tem permissão.")
         st.stop()
 
-        conn = connect()
+    conn = connect()
 
-        df = pd.read_sql("""
+    df = pd.read_sql("""
         SELECT * FROM despesas 
         WHERE status != 'PAGO'
         ORDER BY id DESC
     """, conn)
 
-        if df.empty:
-            st.info("Nenhuma despesa cadastrada.")
+    if df.empty:
+        st.info("Nenhuma despesa cadastrada.")
 
-        else:
+    else:
+        for _, row in df.iterrows():
 
-                for _, row in df.iterrows():
-
-                    st.markdown(f"""
+            st.markdown(f"""
             <div class="card">
                 👤 <b>{row['usuario']}</b><br>
                 💸 {row['descricao']}<br>
@@ -702,35 +701,39 @@ if st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
             </div>
             """, unsafe_allow_html=True)
 
-                col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4 = st.columns(4)
 
-                if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
-
-                    conn.execute(
+            if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
+                conn.execute(
                     "UPDATE despesas SET status='APROVADO' WHERE id=?",
                     (row["id"],)
                 )
-
                 conn.commit()
-
-                st.success("✅ Aprovado!")
+                st.success("Aprovado")
                 st.rerun()
 
-                if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
-
-                    conn.execute(
+            if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
+                conn.execute(
                     "UPDATE despesas SET status='REJEITADO' WHERE id=?",
                     (row["id"],)
                 )
-
                 conn.commit()
-
-                st.warning("❌ Rejeitado!")
+                st.warning("Rejeitado")
                 st.rerun()
 
-                if col3.button("💰 Pagar", key=f"pg_{row['id']}"):
+            if col3.button("💰 Pagar", key=f"pg_{row['id']}"):
 
-                    conn.execute("""
+                enviado = enviar_email(
+                    st.session_state["email"],
+                    st.session_state["nome"],
+                    row["descricao"],
+                    row["valor"],
+                    row["categoria"],
+                    row["centro_custo"],
+                    datetime.now().strftime("%d/%m/%Y")
+                )
+
+                conn.execute("""
                     UPDATE despesas 
                     SET status='PAGO',
                     data_pagamento=?
@@ -739,24 +742,20 @@ if st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
 
                 conn.commit()
 
-                st.success("💰 Pagamento realizado!")
-                st.balloons()
-                import time
-
-                time.sleep(2)
+                if enviado:
+                    st.success("💰 Pago + email enviado")
+                else:
+                    st.warning("Pago mas email falhou")
 
                 st.rerun()
-                
-                if col4.button("🗑️ Excluir", key=f"del_{row['id']}"):
 
-                    conn.execute(
+            if col4.button("🗑️ Excluir", key=f"del_{row['id']}"):
+                conn.execute(
                     "DELETE FROM despesas WHERE id=?",
                     (row["id"],)
                 )
-
                 conn.commit()
-
-                st.warning("🗑️ Excluído!")
+                st.warning("Excluído")
                 st.rerun()
 
-conn.close()
+    conn.close()
