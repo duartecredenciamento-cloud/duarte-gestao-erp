@@ -495,7 +495,170 @@ if menu == "dashboard":
         )
 
         st.plotly_chart(fig2, use_container_width=True)
+# =========================
+# 💸 DESPESAS
+# =========================
+elif menu == "despesas":
 
+    st.title("💸 Despesas")
+
+    tab1, tab2 = st.tabs(["Nova Despesa", "Minhas Despesas"])
+
+    categorias = [
+        "Limpeza",
+        "Remuneração Sócios",
+        "Alimentação",
+        "Telefonia e Internet",
+        "Software e Licenças",
+        "Transportes / Logística",
+        "Material de Escritório",
+        "Equipamentos de Informática",
+        "Estacionamento",
+        "Móveis e Utensílios",
+        "Despesas de Viagens",
+        "Máquinas e Equipamentos"
+    ]
+
+    centros = [
+        "CREDENCIAMENTO",
+        "REDE",
+        "DIRETORIA",
+        "DUARTE GESTÃO",
+        "MARKETING",
+        "FINANCEIRO"
+    ]
+
+    # =========================
+    # 🆕 NOVA DESPESA
+    # =========================
+    with tab1:
+
+        desc = st.text_input("Descrição")
+        valor = st.number_input("Valor", min_value=0.0, step=0.01)
+
+        categoria = st.selectbox(
+            "Categoria",
+            categorias
+        )
+
+        centro = st.selectbox(
+            "Centro de Custo",
+            centros
+        )
+
+        arquivos = st.file_uploader(
+            "📎 Anexar arquivos",
+            accept_multiple_files=True
+        )
+
+        if st.button("Enviar Despesa"):
+
+            if not desc or valor == 0:
+
+                st.warning("⚠️ Preencha os campos corretamente.")
+
+            else:
+
+                lista_arquivos = []
+
+                if arquivos:
+
+                    for i, arq in enumerate(arquivos):
+
+                        nome = f"{datetime.now().timestamp()}_{i}_{arq.name}"
+
+                        caminho = os.path.join(
+                            "uploads",
+                            nome
+                        )
+
+                        with open(caminho, "wb") as f:
+                            f.write(arq.read())
+
+                        lista_arquivos.append(caminho)
+
+                conn = connect()
+
+                conn.execute("""
+                    INSERT INTO despesas
+                    (
+                        usuario,
+                        descricao,
+                        categoria,
+                        centro_custo,
+                        valor,
+                        arquivos
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    st.session_state["usuario"],
+                    desc,
+                    categoria,
+                    centro,
+                    valor,
+                    ",".join(lista_arquivos)
+                ))
+
+                conn.commit()
+                conn.close()
+
+                st.success("✅ Despesa enviada!")
+                st.balloons()
+
+                st.rerun()
+
+    # =========================
+    # 📋 MINHAS DESPESAS
+    # =========================
+    with tab2:
+
+        conn = connect()
+
+        df = pd.read_sql(
+            """
+            SELECT * FROM despesas
+            WHERE usuario=?
+            ORDER BY id DESC
+            """,
+            conn,
+            params=(st.session_state["usuario"],)
+        )
+
+        conn.close()
+
+        if df.empty:
+
+            st.info("Nenhuma despesa encontrada.")
+
+        else:
+
+            for _, row in df.iterrows():
+
+                st.markdown(f"""
+                <div class="card">
+                    💸 <b>{row['descricao']}</b><br>
+                    💰 R$ {row['valor']}<br>
+                    📂 {row['categoria']} | {row['centro_custo']}<br>
+                    📊 Status: {row['status']}
+                </div>
+                """, unsafe_allow_html=True)
+
+                if row["arquivos"]:
+
+                    arquivos = row["arquivos"].split(",")
+
+                    for i, arq in enumerate(arquivos):
+
+                        if os.path.exists(arq):
+
+                            with open(arq, "rb") as f:
+
+                                st.download_button(
+                                    "📎 Baixar arquivo",
+                                    f,
+                                    file_name=os.path.basename(arq),
+                                    key=f"dw_{row['id']}_{i}"
+                                )
 # =========================
 # 💰 REEMBOLSOS
 # =========================
