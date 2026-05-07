@@ -46,7 +46,7 @@ def enviar_email(destinatario, nome, descricao, valor, categoria, centro_custo, 
 
     try:
 
-        st.write("DESTINO:", destinatario)
+        st.info(f"📨 Tentando enviar email para: {destinatario}")
 
         corpo = f"""
 Olá {nome},
@@ -58,8 +58,6 @@ Seu reembolso foi processado com sucesso! 💰
 🏢 Centro de Custo: {centro_custo}
 💵 Valor: R$ {valor}
 📅 Data do Pagamento: {data_pagamento}
-
-⚠️ NÃO RESPONDER ESTE EMAIL
 
 Atenciosamente,
 Duarte Gestão
@@ -73,27 +71,34 @@ Duarte Gestão
 
         server = smtplib.SMTP("smtp.gmail.com", 587)
 
+        server.set_debuglevel(1)
+
         server.ehlo()
 
         server.starttls()
 
-        server.login(EMAIL_REMETENTE, SENHA_EMAIL)
-
-        retorno = server.sendmail(
+        server.login(
             EMAIL_REMETENTE,
-            [destinatario],
+            SENHA_EMAIL
+        )
+
+        resultado = server.sendmail(
+            EMAIL_REMETENTE,
+            destinatario,
             msg.as_string()
         )
 
         server.quit()
 
-        st.write("RETORNO SMTP:", retorno)
+        st.success("✅ Email enviado!")
+
+        st.write(resultado)
 
         return True
 
     except Exception as e:
 
-        st.error(f"❌ ERRO EMAIL: {e}")
+        st.error(f"❌ ERRO SMTP: {e}")
 
         return False
 
@@ -575,11 +580,13 @@ elif menu == "despesas":
                         with open(caminho, "wb") as f:
                             f.write(arq.read())
 
+                        upload_drive(caminho, arq.name)
+
                         lista_arquivos.append(caminho)
 
-                conn = connect()
+                        conn = connect()
 
-                conn.execute("""
+                        conn.execute("""
                     INSERT INTO despesas
                     (
                         usuario,
@@ -599,13 +606,13 @@ elif menu == "despesas":
                     ",".join(lista_arquivos)
                 ))
 
-                conn.commit()
-                conn.close()
+                        conn.commit()
+                    conn.close()
 
                 st.success("✅ Despesa enviada!")
                 st.balloons()
 
-                st.rerun()
+            st.rerun()
 
     # =========================
     # 📋 MINHAS DESPESAS
@@ -664,28 +671,28 @@ elif menu == "despesas":
 # =========================
 elif menu == "reembolsos":
 
-    st.title("💰 Gestão de Reembolsos")
+   st.title("💰 Gestão de Reembolsos")
 
-    if st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
+if st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
         st.warning("🚫 Você não tem permissão.")
         st.stop()
 
-    conn = connect()
+        conn = connect()
 
-    df = pd.read_sql("""
+        df = pd.read_sql("""
         SELECT * FROM despesas 
         WHERE status != 'PAGO'
         ORDER BY id DESC
     """, conn)
 
-    if df.empty:
-        st.info("Nenhuma despesa cadastrada.")
+        if df.empty:
+            st.info("Nenhuma despesa cadastrada.")
 
-    else:
+        else:
 
-        for _, row in df.iterrows():
+                for _, row in df.iterrows():
 
-            st.markdown(f"""
+                    st.markdown(f"""
             <div class="card">
                 👤 <b>{row['usuario']}</b><br>
                 💸 {row['descricao']}<br>
@@ -695,11 +702,11 @@ elif menu == "reembolsos":
             </div>
             """, unsafe_allow_html=True)
 
-            col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3, col4 = st.columns(4)
 
-            if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
+                if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
 
-                conn.execute(
+                    conn.execute(
                     "UPDATE despesas SET status='APROVADO' WHERE id=?",
                     (row["id"],)
                 )
@@ -709,9 +716,9 @@ elif menu == "reembolsos":
                 st.success("✅ Aprovado!")
                 st.rerun()
 
-            if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
+                if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
 
-                conn.execute(
+                    conn.execute(
                     "UPDATE despesas SET status='REJEITADO' WHERE id=?",
                     (row["id"],)
                 )
@@ -721,9 +728,9 @@ elif menu == "reembolsos":
                 st.warning("❌ Rejeitado!")
                 st.rerun()
 
-            if col3.button("💰 Pagar", key=f"pg_{row['id']}"):
+                if col3.button("💰 Pagar", key=f"pg_{row['id']}"):
 
-                conn.execute("""
+                    conn.execute("""
                     UPDATE despesas 
                     SET status='PAGO',
                     data_pagamento=?
@@ -740,9 +747,9 @@ elif menu == "reembolsos":
 
                 st.rerun()
                 
-            if col4.button("🗑️ Excluir", key=f"del_{row['id']}"):
+                if col4.button("🗑️ Excluir", key=f"del_{row['id']}"):
 
-                conn.execute(
+                    conn.execute(
                     "DELETE FROM despesas WHERE id=?",
                     (row["id"],)
                 )
@@ -752,4 +759,4 @@ elif menu == "reembolsos":
                 st.warning("🗑️ Excluído!")
                 st.rerun()
 
-    conn.close()
+conn.close()
