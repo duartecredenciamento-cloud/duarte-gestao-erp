@@ -1,0 +1,19 @@
+# 🔐 SEGURANÇA
+credenciais.json
+.env
+
+# 🐍 PYTHON
+__pycache__/
+*.pyc
+
+# 📦 BANCO LOCAL
+banco.db
+
+# 📎 UPLOADS
+uploads/
+
+# ⚙️ STREAMLIT
+.streamlit/
+
+# OS
+.DS_Store

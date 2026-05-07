@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 import sqlite3
 import os
@@ -5,54 +6,82 @@ import pandas as pd
 import plotly.express as px
 import bcrypt
 from datetime import datetime
-import smtplib
 from email.mime.text import MIMEText
 import smtplib
-from email.mime.text import MIMEText
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from google.oauth2 import service_account
+from dotenv import load_dotenv
 
-EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
-SENHA_EMAIL = "mzia irrz yimu jhnu"
+load_dotenv()
 
-st.set_page_config(page_title="Duarte Gestão", layout="wide")
+EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE")
+SENHA_EMAIL = os.getenv("SENHA_EMAIL")
+
+SCOPES = ['https://www.googleapis.com/auth/drive']
+
+import json
+from google.oauth2 import service_account
+import os
+
+creds = service_account.Credentials.from_service_account_file(
+    'credenciais.json',
+    scopes=SCOPES
+)
+
+service = build('drive', 'v3', credentials=creds)
+EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE")
+SENHA_EMAIL = os.getenv("SENHA_EMAIL")
+
 def enviar_email(destinatario, nome, descricao, valor, categoria, centro_custo, data_pagamento):
+
     try:
+
         corpo = f"""
 Olá {nome},
 
-Seu reembolso foi aprovado e pago com sucesso! 🎉
+Seu reembolso foi processado com sucesso!
 
-📄 Descrição: {descricao}
-📂 Categoria: {categoria}
-🏢 Centro de Custo: {centro_custo}
-💰 Valor: R$ {valor}
-📅 Data do Pagamento: {data_pagamento}
-
-⚠️ NÃO RESPONDER ESTE EMAIL
+Descrição: {descricao}
+Categoria: {categoria}
+Centro de Custo: {centro_custo}
+Valor: R$ {valor}
+Data: {data_pagamento}
 
 Duarte Gestão
 """
 
         msg = MIMEText(corpo)
-        msg["Subject"] = "💰 Reembolso Pago"
+
+        msg["Subject"] = "Reembolso Pago"
         msg["From"] = EMAIL_REMETENTE
         msg["To"] = destinatario
 
+        st.write("DESTINATARIO:", destinatario)
+
         server = smtplib.SMTP("smtp.gmail.com", 587)
+
         server.starttls()
 
-        print("Conectando no email...")
         server.login(EMAIL_REMETENTE, SENHA_EMAIL)
 
-        print("Enviando email...")
-        server.send_message(msg)
+        resultado = server.sendmail(
+            EMAIL_REMETENTE,
+            destinatario,
+            msg.as_string()
+        )
 
         server.quit()
 
-        st.success("📧 Email enviado com sucesso!")
+        st.write("RESULTADO:", resultado)
+
+        return True
 
     except Exception as e:
-        st.error(f"❌ Erro ao enviar email: {e}")
-        print("ERRO REAL:", e)
+
+        st.error(f"ERRO EMAIL: {e}")
+
+        return False
 
 st.markdown("""
 <style>
@@ -202,6 +231,26 @@ def connect():
     os.makedirs("uploads", exist_ok=True)
     return sqlite3.connect("banco.db", check_same_thread=False)
 
+PASTA_DRIVE_ID = "1WYimpG2XS_nl_jBKGe8tb8eYIKsJT7lt"
+
+def upload_drive(caminho_arquivo, nome_arquivo):
+
+    file_metadata = {
+        'name': nome_arquivo,
+        'parents': [PASTA_DRIVE_ID]
+    }
+
+    media = MediaFileUpload(caminho_arquivo, resumable=True)
+
+    arquivo = service.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields='id',
+        supportsAllDrives=True
+    ).execute()
+
+    return arquivo.get('id')
+
 def criar_tabelas():
     conn = connect()
     c = conn.cursor()
@@ -332,6 +381,7 @@ if not st.session_state["logado"]:
 
         if st.button("Criar Conta", key="btn_criar"):
             conn = connect()
+            
 
             try:
                 hash_senha = bcrypt.hashpw(senha.encode(), bcrypt.gensalt()).decode()
@@ -364,7 +414,8 @@ menu = st.sidebar.radio(
         "dashboard": "📊 Dashboard",
         "despesas": "💸 Despesas",
         "reembolsos": "💰 Reembolsos"
-    }[x]
+    }[x],
+    key="menu"
 )
 
 # =========================
@@ -432,6 +483,7 @@ if menu == "dashboard":
 # 💸 DESPESAS
 # =========================
 elif menu == "despesas":
+
     st.title("💸 Despesas")
 
     tab1, tab2 = st.tabs(["Nova Despesa", "Minhas Despesas"])
@@ -454,73 +506,79 @@ elif menu == "despesas":
     # 🆕 NOVA DESPESA
     # =========================
     with tab1:
-     desc = st.text_input("Descrição")
-     valor = st.number_input("Valor", min_value=0.0, step=0.01)
-     categoria = st.selectbox("Categoria", categorias)
-     centro = st.selectbox("Centro de Custo", centros)
 
-    # 📎 ANEXO AQUI
-    arquivos = st.file_uploader(
-        "📎 Anexar arquivos (PDF, imagem, etc)",
-        accept_multiple_files=True
-    )
+        desc = st.text_input("Descrição")
+        valor = st.number_input("Valor", min_value=0.0, step=0.01)
+        categoria = st.selectbox("Categoria", categorias)
+        centro = st.selectbox("Centro de Custo", centros)
 
-    if st.button("Enviar Despesa"):
+        arquivos = st.file_uploader(
+            "📎 Anexar arquivos",
+            accept_multiple_files=True
+        )
 
-        if not desc or valor == 0:
-            st.warning("Preencha os campos corretamente")
-        else:
-            lista_arquivos = []
+        if st.button("Enviar Despesa"):
 
-            # 💾 SALVAR ARQUIVOS
-            if arquivos:
-                for i, arq in enumerate(arquivos):
-                    nome = f"{datetime.now().timestamp()}_{i}_{arq.name}"
-                    caminho = os.path.join("uploads", nome)
+            if not desc or valor == 0:
+                st.warning("Preencha os campos corretamente")
 
-                    with open(caminho, "wb") as f:
-                        f.write(arq.read())
+            else:
 
-                    lista_arquivos.append(caminho)
+                lista_arquivos = []
 
-            conn = connect()
+                if arquivos:
+                    for i, arq in enumerate(arquivos):
 
-            conn.execute("""
-                INSERT INTO despesas 
-                (usuario, descricao, categoria, centro_custo, valor, arquivos)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                st.session_state["usuario"],
-                desc,
-                categoria,
-                centro,
-                valor,
-                ",".join(lista_arquivos)
-            ))
+                        nome = f"{st.session_state['usuario']}_{centro}_{arq.name}"
 
-            conn.commit()
-            conn.close()
+                        caminho = os.path.join("uploads", nome)
 
-            st.success("💸 Despesa enviada com sucesso!")
-            st.balloons()
-            st.rerun()
+                        with open(caminho, "wb") as f:
+                            f.write(arq.read())
+
+                        lista_arquivos.append(caminho)
+
+                conn = connect()
+
+                conn.execute("""
+                    INSERT INTO despesas 
+                    (usuario, descricao, categoria, centro_custo, valor, arquivos)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    st.session_state["usuario"],
+                    desc,
+                    categoria,
+                    centro,
+                    valor,
+                    ",".join(lista_arquivos)
+                ))
+
+                conn.commit()
+                conn.close()
+
+                st.success("✅ Despesa enviada com sucesso!")
+                st.balloons()
+                st.rerun()
 
     # =========================
     # 📋 MINHAS DESPESAS
     # =========================
     with tab2:
+
         conn = connect()
 
-        df = pd.read_sql(f"""
-            SELECT * FROM despesas 
-            WHERE usuario='{st.session_state["usuario"]}'
-            ORDER BY id DESC
-        """, conn)
+        df = pd.read_sql(
+    "SELECT * FROM despesas WHERE usuario=? ORDER BY id DESC",
+    conn,
+    params=(st.session_state["usuario"],)
+)
 
         if df.empty:
             st.info("Nenhuma despesa encontrada.")
+
         else:
             for _, row in df.iterrows():
+
                 st.markdown(f"""
                 <div class="card">
                     💸 <b>{row['descricao']}</b><br>
@@ -539,22 +597,25 @@ elif menu == "reembolsos":
 
     st.title("💰 Gestão de Reembolsos")
 
-    # 🔒 Permissão
     if st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
-        st.warning("🚫 Você não tem permissão para acessar essa área.")
+        st.warning("🚫 Você não tem permissão.")
         st.stop()
 
     conn = connect()
-    df = pd.read_sql("SELECT * FROM despesas ORDER BY id DESC", conn)
+
+    df = pd.read_sql("""
+        SELECT * FROM despesas 
+        WHERE status != 'PAGO'
+        ORDER BY id DESC
+    """, conn)
 
     if df.empty:
         st.info("Nenhuma despesa cadastrada.")
+
     else:
+
         for _, row in df.iterrows():
 
-            # =========================
-            # 🎴 CARD
-            # =========================
             st.markdown(f"""
             <div class="card">
                 👤 <b>{row['usuario']}</b><br>
@@ -565,124 +626,61 @@ elif menu == "reembolsos":
             </div>
             """, unsafe_allow_html=True)
 
-            # =========================
-            # 📎 ANEXOS (DENTRO DO FOR ✅)
-            # =========================
-            if row["arquivos"] and row["arquivos"] != "":
-                arquivos = row["arquivos"].split(",")
-
-                for i, arq in enumerate(arquivos):
-                    if os.path.exists(arq):
-
-                        if arq.lower().endswith((".png", ".jpg", ".jpeg")):
-                            st.image(arq, width=200)
-
-                        else:
-                            with open(arq, "rb") as f:
-                                st.download_button(
-                                    "📎 Baixar arquivo",
-                                    f,
-                                    file_name=os.path.basename(arq),
-                                    key=f"file_{row['id']}_{i}"
-                                )
-
-            # =========================
-            # 🔥 BOTÕES COM IMPACTO
-            # =========================
             col1, col2, col3, col4 = st.columns(4)
 
-            # ✅ APROVAR
             if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
-                conn.execute("UPDATE despesas SET status='APROVADO' WHERE id=?", (row["id"],))
+
+                conn.execute(
+                    "UPDATE despesas SET status='APROVADO' WHERE id=?",
+                    (row["id"],)
+                )
+
                 conn.commit()
 
-                st.markdown("""
-                <div style="background:linear-gradient(90deg,#22c55e,#16a34a);
-                padding:10px;border-radius:10px;color:white;text-align:center;
-                animation: pop 0.3s ease;">
-                ✅ Aprovado com sucesso
-                </div>
-                """, unsafe_allow_html=True)
-
-                st.balloons()
+                st.success("✅ Aprovado!")
                 st.rerun()
 
-            # ❌ REJEITAR
             if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
-                conn.execute("UPDATE despesas SET status='REJEITADO' WHERE id=?", (row["id"],))
+
+                conn.execute(
+                    "UPDATE despesas SET status='REJEITADO' WHERE id=?",
+                    (row["id"],)
+                )
+
                 conn.commit()
 
-                st.markdown("""
-                <div style="background:linear-gradient(90deg,#ef4444,#b91c1c);
-                padding:10px;border-radius:10px;color:white;text-align:center;
-                animation: pop 0.3s ease;">
-                ❌ Rejeitado
-                </div>
-                """, unsafe_allow_html=True)
-
+                st.warning("❌ Rejeitado!")
                 st.rerun()
 
-            # 💰 PAGAR
             if col3.button("💰 Pagar", key=f"pg_{row['id']}"):
 
-                if row["status"] == "PAGO":
-                    st.warning("⚠️ Já está pago.")
-                else:
-                    c = conn.cursor()
+                conn.execute("""
+                    UPDATE despesas 
+                    SET status='PAGO',
+                    data_pagamento=?
+                    WHERE id=?
+                """, (datetime.now(), row["id"]))
 
-                    c.execute("SELECT nome, email FROM usuarios WHERE usuario=?", (row["usuario"],))
-                    user_data = c.fetchone()
-
-                    if user_data:
-                        nome, email = user_data
-
-                        data_pagamento = datetime.now().strftime("%d/%m/%Y %H:%M")
-
-                        enviado = enviar_email(
-                            email,
-                            nome,
-                            row["descricao"],
-                            row["valor"],
-                            row["categoria"],
-                            row["centro_custo"],
-                            data_pagamento
-                        )
-                    if enviado:
-                        st.success("📧 Email enviado!")
-                    else:
-                        st.warning("⚠️ Pagamento feito, mas email falhou.")
-                    
-                    conn.execute("""
-                        UPDATE despesas 
-                        SET status='PAGO', data_pagamento=? 
-                        WHERE id=?
-                    """, (datetime.now(), row["id"]))
-
-                    conn.commit()
-
-                    st.markdown("""
-                    <div style="background:linear-gradient(90deg,#16a34a,#22c55e);
-                    padding:12px;border-radius:10px;color:white;text-align:center;
-                    font-weight:bold;animation: pop 0.3s ease;">
-                    💰 PAGAMENTO REALIZADO
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    st.balloons()
-                    st.rerun()
-
-            # 🗑️ EXCLUIR
-            if col4.button("🗑️ Excluir", key=f"del_{row['id']}"):
-                conn.execute("DELETE FROM despesas WHERE id=?", (row["id"],))
                 conn.commit()
 
-                st.markdown("""
-                <div style="background:#111827;padding:10px;border-radius:10px;
-                color:white;text-align:center;">
-                🗑️ Excluído
-                </div>
-                """, unsafe_allow_html=True)
+                st.success("💰 Pagamento realizado!")
+                st.balloons()
+                import time
 
+                time.sleep(2)
+
+                st.rerun()
+                
+            if col4.button("🗑️ Excluir", key=f"del_{row['id']}"):
+
+                conn.execute(
+                    "DELETE FROM despesas WHERE id=?",
+                    (row["id"],)
+                )
+
+                conn.commit()
+
+                st.warning("🗑️ Excluído!")
                 st.rerun()
 
     conn.close()

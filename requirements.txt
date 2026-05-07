@@ -2,3 +2,6 @@ streamlit==1.33.0
 pandas
 plotly
 bcrypt
+google-api-python-client
+google-auth
+python-dotenv
