@@ -440,28 +440,31 @@ if menu == "dashboard":
     st.title("📊 Dashboard")
 
     conn = connect()
+
+    # 👑 ADMIN / FINANCEIRO
     if st.session_state["tipo"] in ["admin", "financeiro", "operacional"]:
 
-     df = pd.read_sql(
-        "SELECT * FROM despesas",
-        conn
-    )
+        df = pd.read_sql(
+            "SELECT * FROM despesas",
+            conn
+        )
 
-else:
+    # 👤 USUÁRIO NORMAL
+    else:
 
-    df = pd.read_sql(
-        "SELECT * FROM despesas WHERE usuario=?",
-        conn,
-        params=(st.session_state["usuario"],)
-    )
+        df = pd.read_sql(
+            "SELECT * FROM despesas WHERE usuario=?",
+            conn,
+            params=(st.session_state["usuario"],)
+        )
+
     conn.close()
 
     if df.empty:
         st.warning("⚠️ Nenhuma despesa cadastrada ainda.")
+
     else:
-        # =========================
-        # 🔥 KPIs
-        # =========================
+
         total = df["valor"].sum()
         qtd = len(df)
         media = df["valor"].mean()
@@ -472,150 +475,26 @@ else:
         col2.metric("📦 Registros", qtd)
         col3.metric("📊 Média", f"R$ {media:.2f}")
 
-        # =========================
-        # 🧠 GARANTE COLUNAS
-        # =========================
-        if "categoria" in df.columns and "valor" in df.columns:
+        st.subheader("📊 Despesas por Categoria")
 
-            st.subheader("📊 Despesas por Categoria")
-
-            fig1 = px.pie(
-                df,
-                names="categoria",
-                values="valor",
-                hole=0.5
-            )
-
-            st.plotly_chart(fig1, use_container_width=True)
-
-        else:
-            st.info("Sem dados de categoria ainda.")
-
-        # =========================
-        # 🏢 CENTRO DE CUSTO
-        # =========================
-        if "centro_custo" in df.columns:
-
-            st.subheader("🏢 Gastos por Centro de Custo")
-
-            fig2 = px.bar(
-                df,
-                x="centro_custo",
-                y="valor"
-            )
-
-            st.plotly_chart(fig2, use_container_width=True)
-
-# =========================
-# 💸 DESPESAS
-# =========================
-if menu == "despesas":
- 
-    st.title("💸 Despesas")
-
-    tab1, tab2 = st.tabs(["Nova Despesa", "Minhas Despesas"])
-
-    categorias = [
-        "Limpeza", "Remuneração Sócios", "Alimentação",
-        "Telefonia e Internet", "Software e Licenças",
-        "Transportes / Logística", "Material de Escritório",
-        "Equipamentos de Informática", "Estacionamento",
-        "Móveis e Utensílios", "Despesas de Viagens",
-        "Máquinas e Equipamentos"
-    ]
-
-    centros = [
-        "CREDENCIAMENTO", "REDE", "DIRETORIA",
-        "DUARTE GESTÃO", "MARKETING", "FINANCEIRO"
-    ]
-
-    # =========================
-    # 🆕 NOVA DESPESA
-    # =========================
-    with tab1:
-
-        desc = st.text_input("Descrição")
-        valor = st.number_input("Valor", min_value=0.0, step=0.01)
-        categoria = st.selectbox("Categoria", categorias)
-        centro = st.selectbox("Centro de Custo", centros)
-
-        arquivos = st.file_uploader(
-            "📎 Anexar arquivos",
-            accept_multiple_files=True
+        fig1 = px.pie(
+            df,
+            names="categoria",
+            values="valor",
+            hole=0.5
         )
 
-        if st.button("Enviar Despesa"):
+        st.plotly_chart(fig1, use_container_width=True)
 
-            if not desc or valor == 0:
-                st.warning("Preencha os campos corretamente")
+        st.subheader("🏢 Gastos por Centro de Custo")
 
-            else:
+        fig2 = px.bar(
+            df,
+            x="centro_custo",
+            y="valor"
+        )
 
-                lista_arquivos = []
-
-                if arquivos:
-                    for i, arq in enumerate(arquivos):
-
-                        nome = f"{st.session_state['usuario']}_{centro}_{arq.name}"
-
-                        caminho = os.path.join("uploads", nome)
-
-                        with open(caminho, "wb") as f:
-                            f.write(arq.read())
-
-                        lista_arquivos.append(caminho)
-
-                conn = connect()
-
-                conn.execute("""
-                    INSERT INTO despesas 
-                    (usuario, descricao, categoria, centro_custo, valor, arquivos)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    st.session_state["usuario"],
-                    desc,
-                    categoria,
-                    centro,
-                    valor,
-                    ",".join(lista_arquivos)
-                ))
-
-                conn.commit()
-                conn.close()
-
-                st.success("✅ Despesa enviada com sucesso!")
-                st.balloons()
-                st.rerun()
-
-    # =========================
-    # 📋 MINHAS DESPESAS
-    # =========================
-    with tab2:
-
-        conn = connect()
-
-        df = pd.read_sql(
-    "SELECT * FROM despesas WHERE usuario=? ORDER BY id DESC",
-    conn,
-    params=(st.session_state["usuario"],)
-)
-
-        if df.empty:
-            st.info("Nenhuma despesa encontrada.")
-
-        else:
-            for _, row in df.iterrows():
-
-                st.markdown(f"""
-                <div class="card">
-                    💸 <b>{row['descricao']}</b><br>
-                    💰 R$ {row['valor']}<br>
-                    📂 {row['categoria']} | {row['centro_custo']}<br>
-                    📊 Status: {row['status']}
-                </div>
-                """, unsafe_allow_html=True)
-
-        conn.close()
+        st.plotly_chart(fig2, use_container_width=True)
 
 # =========================
 # 💰 REEMBOLSOS
