@@ -255,20 +255,20 @@ PASTA_DRIVE_ID = "1WYimpG2XS_nl_jBKGe8tb8eYIKsJT7lt"
 def upload_drive(caminho_arquivo, nome_arquivo):
 
     file_metadata = {
-        'name': nome_arquivo,
-        'parents': [PASTA_DRIVE_ID]
+        "name": nome_arquivo,
+        "parents": [PASTA_DRIVE_ID]
     }
 
     media = MediaFileUpload(caminho_arquivo, resumable=True)
 
-    arquivo = service.files().create(
+    file = service.files().create(
         body=file_metadata,
         media_body=media,
-        fields='id',
+        fields="id",
         supportsAllDrives=True
     ).execute()
 
-    return arquivo.get('id')
+    return file.get("id")
 
 def criar_tabelas():
     conn = connect()
