@@ -46,49 +46,54 @@ def enviar_email(destinatario, nome, descricao, valor, categoria, centro_custo, 
 
     try:
 
+        st.write("DESTINO:", destinatario)
+
         corpo = f"""
 Olá {nome},
 
-Seu reembolso foi processado com sucesso!
+Seu reembolso foi processado com sucesso! 💰
 
-Descrição: {descricao}
-Categoria: {categoria}
-Centro de Custo: {centro_custo}
-Valor: R$ {valor}
-Data: {data_pagamento}
+📄 Descrição: {descricao}
+📂 Categoria: {categoria}
+🏢 Centro de Custo: {centro_custo}
+💵 Valor: R$ {valor}
+📅 Data do Pagamento: {data_pagamento}
 
+⚠️ NÃO RESPONDER ESTE EMAIL
+
+Atenciosamente,
 Duarte Gestão
 """
 
-        msg = MIMEText(corpo)
+        msg = MIMEText(corpo, "plain", "utf-8")
 
-        msg["Subject"] = "Reembolso Pago"
+        msg["Subject"] = "💰 Reembolso Pago"
         msg["From"] = EMAIL_REMETENTE
         msg["To"] = destinatario
 
-        st.write("DESTINATARIO:", destinatario)
-
         server = smtplib.SMTP("smtp.gmail.com", 587)
+
+        server.ehlo()
 
         server.starttls()
 
         server.login(EMAIL_REMETENTE, SENHA_EMAIL)
 
-        resultado = server.sendmail(
+        retorno = server.sendmail(
             EMAIL_REMETENTE,
-            destinatario,
+            [destinatario],
             msg.as_string()
         )
 
         server.quit()
 
-        st.write("RESULTADO:", resultado)
+        st.write("RETORNO SMTP:", retorno)
 
         return True
 
     except Exception as e:
 
-        st.error(f"ERRO EMAIL: {e}")
+        st.error(f"❌ ERRO EMAIL: {e}")
 
         return False
 
@@ -435,7 +440,20 @@ if menu == "dashboard":
     st.title("📊 Dashboard")
 
     conn = connect()
-    df = pd.read_sql("SELECT * FROM despesas", conn)
+    if st.session_state["tipo"] in ["admin", "financeiro", "operacional"]:
+
+     df = pd.read_sql(
+        "SELECT * FROM despesas",
+        conn
+    )
+
+else:
+
+    df = pd.read_sql(
+        "SELECT * FROM despesas WHERE usuario=?",
+        conn,
+        params=(st.session_state["usuario"],)
+    )
     conn.close()
 
     if df.empty:
@@ -491,8 +509,8 @@ if menu == "dashboard":
 # =========================
 # 💸 DESPESAS
 # =========================
-elif menu == "despesas":
-
+if menu == "despesas":
+ 
     st.title("💸 Despesas")
 
     tab1, tab2 = st.tabs(["Nova Despesa", "Minhas Despesas"])
