@@ -25,7 +25,13 @@ from google.oauth2 import service_account
 import os
 
 
-cred_json = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+google_creds = os.getenv("GOOGLE_CREDENTIALS")
+
+if not google_creds:
+    st.error("❌ GOOGLE_CREDENTIALS não encontrada no Railway")
+    st.stop()
+
+cred_json = json.loads(google_creds)
 
 creds = service_account.Credentials.from_service_account_info(
     cred_json,
