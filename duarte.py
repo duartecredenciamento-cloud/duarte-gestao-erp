@@ -24,8 +24,11 @@ import json
 from google.oauth2 import service_account
 import os
 
-creds = service_account.Credentials.from_service_account_file(
-    'credenciais.json',
+
+cred_json = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
+
+creds = service_account.Credentials.from_service_account_info(
+    cred_json,
     scopes=SCOPES
 )
 
