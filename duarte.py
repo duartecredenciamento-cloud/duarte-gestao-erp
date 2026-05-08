@@ -1,4 +1,5 @@
 import time
+from tkinter import INSERT
 import streamlit as st
 import sqlite3
 import os
@@ -46,8 +47,6 @@ def enviar_email(destinatario, nome, descricao, valor, categoria, centro_custo, 
 
     try:
 
-        st.info(f"📨 Tentando enviar email para: {destinatario}")
-
         corpo = f"""
 Olá {nome},
 
@@ -64,25 +63,18 @@ Duarte Gestão
 """
 
         msg = MIMEText(corpo, "plain", "utf-8")
-
         msg["Subject"] = "💰 Reembolso Pago"
         msg["From"] = EMAIL_REMETENTE
         msg["To"] = destinatario
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-
-        server.set_debuglevel(1)
-
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=30)
+        server.ehlo()
+        server.starttls()
         server.ehlo()
 
-        server.starttls()
+        server.login(EMAIL_REMETENTE, SENHA_EMAIL)
 
-        server.login(
-            EMAIL_REMETENTE,
-            SENHA_EMAIL
-        )
-
-        resultado = server.sendmail(
+        server.sendmail(
             EMAIL_REMETENTE,
             destinatario,
             msg.as_string()
@@ -90,16 +82,10 @@ Duarte Gestão
 
         server.quit()
 
-        st.success("✅ Email enviado!")
-
-        st.write(resultado)
-
         return True
 
     except Exception as e:
-
-        st.error(f"❌ ERRO SMTP: {e}")
-
+        st.error(f"❌ ERRO EMAIL: {e}")
         return False
 
 st.markdown("""
@@ -568,51 +554,56 @@ elif menu == "despesas":
 
                 if arquivos:
 
-                    for i, arq in enumerate(arquivos):
+                    lista_arquivos = []
 
-                        nome = f"{datetime.now().timestamp()}_{i}_{arq.name}"
+if arquivos:
 
-                        caminho = os.path.join(
-                            "uploads",
-                            nome
-                        )
+    lista_arquivos = []
 
-                        with open(caminho, "wb") as f:
-                            f.write(arq.read())
+if arquivos:
 
-                        upload_drive(caminho, arq.name)
+    for i, arq in enumerate(arquivos):
 
-                        lista_arquivos.append(caminho)
+        nome = f"{datetime.now().timestamp()}_{i}_{arq.name}"
+        caminho = os.path.join("uploads", nome)
 
-                        conn = connect()
+        with open(caminho, "wb") as f:
+            f.write(arq.read())
 
-                        conn.execute("""
-                    INSERT INTO despesas
-                    (
-                        usuario,
-                        descricao,
-                        categoria,
-                        centro_custo,
-                        valor,
-                        arquivos
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    st.session_state["usuario"],
-                    desc,
-                    categoria,
-                    centro,
-                    valor,
-                    ",".join(lista_arquivos)
-                ))
+        file_id = upload_drive(caminho, arq.name)
 
-                        conn.commit()
-                    conn.close()
+        link_drive = f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
 
-                st.success("✅ Despesa enviada!")
-                st.balloons()
+        lista_arquivos.append(link_drive)
+         
+        conn = connect()
 
-            st.rerun()
+    conn.execute("""
+    INSERT INTO despesas
+    (
+        usuario,
+        descricao,
+        categoria,
+        centro_custo,
+        valor,
+        arquivos
+    )
+    VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        st.session_state["usuario"],
+        desc,
+        categoria,
+        centro,
+        valor,
+        ",".join(lista_arquivos)
+    ))
+
+    conn.commit()
+    conn.close()
+
+    st.success("✅ Despesa enviada!")
+    st.balloons()
+    st.rerun()
 
     # =========================
     # 📋 MINHAS DESPESAS
@@ -724,7 +715,7 @@ elif menu == "reembolsos":
             if col3.button("💰 Pagar", key=f"pg_{row['id']}"):
 
                 enviado = enviar_email(
-                    st.session_state["email"],
+                    row["email"],
                     st.session_state["nome"],
                     row["descricao"],
                     row["valor"],
@@ -733,12 +724,13 @@ elif menu == "reembolsos":
                     datetime.now().strftime("%d/%m/%Y")
                 )
 
-                conn.execute("""
-                    UPDATE despesas 
-                    SET status='PAGO',
-                    data_pagamento=?
-                    WHERE id=?
-                """, (datetime.now(), row["id"]))
+                df = pd.read_sql("""
+                SELECT d.*, u.email
+                FROM despesas d
+                JOIN usuarios u ON d.usuario = u.usuario
+                WHERE d.status != 'PAGO'
+                ORDER BY d.id DESC
+            """, conn)
 
                 conn.commit()
 
@@ -758,4 +750,4 @@ elif menu == "reembolsos":
                 st.warning("Excluído")
                 st.rerun()
 
-    conn.close()
+conn.close()
