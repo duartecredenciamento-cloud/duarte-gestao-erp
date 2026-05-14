@@ -213,8 +213,17 @@ h1, h2, h3 {
 # 🔥 LOGO
 # =========================
 st.markdown("""
-<div style="text-align:center;">
-<img src="https://www.duartegestao.com.br/images/logo-duartegestao.png" width="200">
+<div style="text-align:center; margin-bottom:20px;">
+    <a href="https://duartegestao.com.br/" target="_blank">
+        <img 
+            src="https://www.duartegestao.com.br/images/logo-duartegestao.png" 
+            width="220"
+            style="
+                transition:0.3s;
+                cursor:pointer;
+            "
+        >
+    </a>
 </div>
 """, unsafe_allow_html=True)
 # =========================
@@ -595,9 +604,9 @@ elif menu == "despesas":
 # =========================
 # 📋 MINHAS DESPESAS
 # =========================
-with tab2:
+    with tab2:
 
-    conn = connect()
+        conn = connect()
 
     df = pd.read_sql(
         """
