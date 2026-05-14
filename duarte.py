@@ -59,44 +59,50 @@ Em caso de dúvidas, entrar em contato diretamente com o Financeiro.
 st.markdown("""
 <style>
 
-/* FUNDO */
+/* FUNDO GERAL */
 .stApp {
-    background: linear-gradient(135deg, #020617, #0f172a);
-    color: white;
+    background-color: #f5f7fb;
 }
 
 /* SIDEBAR */
 section[data-testid="stSidebar"] {
-    background: #020617;
-    border-right: 1px solid rgba(255,255,255,0.08);
+    background: white;
+    border-right: 1px solid #e5e7eb;
 }
 
 /* TITULOS */
 h1, h2, h3 {
-    color: white !important;
-    font-weight: 700;
+    color: #111827 !important;
+    font-weight: 700 !important;
 }
 
 /* CARDS */
 .card {
-    background: rgba(255,255,255,0.04);
-    backdrop-filter: blur(14px);
+
+    background: white;
 
     padding: 22px;
-    border-radius: 22px;
 
-    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+
+    border: 1px solid #e5e7eb;
 
     margin-bottom: 18px;
 
-    animation: fadeUp 0.5s ease;
+    box-shadow:
+        0 4px 12px rgba(0,0,0,0.04);
 
+    animation: fadeUp 0.4s ease;
+    
     transition: 0.3s;
 }
 
 .card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+
+    transform: translateY(-4px);
+
+    box-shadow:
+        0 12px 24px rgba(0,0,0,0.08);
 }
 
 /* BOTÕES */
@@ -104,53 +110,71 @@ h1, h2, h3 {
 
     width: 100%;
 
-    border-radius: 16px;
+    border-radius: 14px;
 
     border: none;
 
-    padding: 12px;
-
-    font-weight: bold;
-
-    background: linear-gradient(90deg,#2563eb,#1d4ed8);
+    background: linear-gradient(
+        90deg,
+        #2563eb,
+        #1d4ed8
+    );
 
     color: white;
+
+    font-weight: 600;
+
+    padding: 12px;
 
     transition: 0.3s;
 }
 
 .stButton > button:hover {
 
-    transform: scale(1.03);
+    transform: scale(1.02);
 
-    box-shadow: 0 0 25px rgba(37,99,235,0.5);
-
+    box-shadow:
+        0 10px 20px rgba(37,99,235,0.25);
 }
 
 /* INPUTS */
 .stTextInput input,
-.stNumberInput input,
-.stSelectbox div {
+.stNumberInput input {
 
-    border-radius: 14px !important;
+    border-radius: 12px !important;
 
-    background: rgba(255,255,255,0.05) !important;
+    border: 1px solid #d1d5db !important;
 
-    color: white !important;
+    background: white !important;
 }
 
-/* METRICS */
+/* SELECT */
+.stSelectbox div[data-baseweb="select"] {
+
+    border-radius: 12px !important;
+}
+
+/* METRICAS */
 [data-testid="metric-container"] {
 
-    background: rgba(255,255,255,0.05);
+    background: white;
 
-    border-radius: 20px;
+    border-radius: 18px;
 
-    padding: 20px;
+    padding: 18px;
 
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid #e5e7eb;
 
-    animation: fadeUp 0.5s ease;
+    box-shadow:
+        0 4px 10px rgba(0,0,0,0.04);
+}
+
+/* TABELAS */
+[data-testid="stDataFrame"] {
+
+    background: white;
+
+    border-radius: 16px;
 }
 
 /* ANIMAÇÃO */
@@ -158,7 +182,7 @@ h1, h2, h3 {
 
     from {
         opacity: 0;
-        transform: translateY(25px);
+        transform: translateY(15px);
     }
 
     to {
@@ -173,8 +197,13 @@ h1, h2, h3 {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #2563eb;
+    background: #cbd5e1;
     border-radius: 10px;
+}
+
+/* MENU RADIO */
+.stRadio > div {
+    gap: 10px;
 }
 
 </style>
@@ -425,14 +454,36 @@ if menu == "dashboard":
         )
 
         st.plotly_chart(fig2, use_container_width=True)
+
 # =========================
 # 💸 DESPESAS
 # =========================
 elif menu == "despesas":
 
-    st.title("💸 Despesas")
+    st.markdown("""
+    <div style="
+        background: linear-gradient(90deg,#2563eb,#60a5fa);
+        padding:20px;
+        border-radius:18px;
+        margin-bottom:20px;
+        color:white;
+        box-shadow:0 10px 25px rgba(0,0,0,0.12);
+    ">
+        <h1 style="margin:0;">💸 Gestão de Despesas</h1>
+        <p style="margin:0;font-size:16px;">
+            Controle inteligente de reembolsos e despesas corporativas
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-    tab1, tab2 = st.tabs(["Nova Despesa", "Minhas Despesas"])
+    tab1, tab2 = st.tabs([
+        "➕ Nova Despesa",
+        "📋 Minhas Despesas"
+    ])
+
+    with tab1:
+
+        st.write("teste")
 
     categorias = [
         "Limpeza",
@@ -461,11 +512,11 @@ elif menu == "despesas":
     # =========================
 # 🆕 NOVA DESPESA
 # =========================
-with tab1:
+    with tab1:
 
-    desc = st.text_input("Descrição")
+        desc = st.text_input("Descrição")
 
-    valor = st.number_input(
+        valor = st.number_input(
         "Valor",
         min_value=0.0,
         step=0.01
