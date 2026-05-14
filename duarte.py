@@ -1,4 +1,6 @@
 import time
+from supabase import create_client
+import uuid
 from tkinter import INSERT
 import streamlit as st
 import sqlite3
@@ -9,84 +11,59 @@ import bcrypt
 from datetime import datetime
 from email.mime.text import MIMEText
 import smtplib
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from google.oauth2 import service_account
-from dotenv import load_dotenv
-
-load_dotenv()
-
-EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE")
-SENHA_EMAIL = os.getenv("SENHA_EMAIL")
-
-SCOPES = ['https://www.googleapis.com/auth/drive']
-
-import json
-from google.oauth2 import service_account
+from supabase import create_client
 import os
+from dotenv import load_dotenv
+import os
+from supabase import create_client
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 
-google_creds = os.getenv("GOOGLE_CREDENTIALS")
+def enviar_email(destinatario, descricao, valor, usuario, categoria, centro_custo):
 
-if not google_creds:
-    st.error("❌ GOOGLE_CREDENTIALS não encontrada no Railway")
-    st.stop()
+    remetente = "financeiro.duartegestao@gmail.com"
+    senha = "hiop pryk oors gfqr"
 
-cred_json = json.loads(google_creds)
+    assunto = "Nova solicitação de reembolso"
 
-creds = service_account.Credentials.from_service_account_info(
-    cred_json,
-    scopes=SCOPES
-)
+    corpo = f"""
+Nova solicitação de reembolso registrada no sistema.
 
-service = build('drive', 'v3', credentials=creds)
-EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE")
-SENHA_EMAIL = os.getenv("SENHA_EMAIL")
+👤 Usuário: {usuario}
 
-def enviar_email(destinatario, nome, descricao, valor, categoria, centro_custo, data_pagamento):
+📝 Descrição: {descricao}
 
-    try:
+💰 Valor: R$ {valor}
 
-        corpo = f"""
-Olá {nome},
-
-Seu reembolso foi processado com sucesso! 💰
-
-📄 Descrição: {descricao}
 📂 Categoria: {categoria}
-🏢 Centro de Custo: {centro_custo}
-💵 Valor: R$ {valor}
-📅 Data do Pagamento: {data_pagamento}
 
-Atenciosamente,
-Duarte Gestão
+🏢 Centro de custo: {centro_custo}
+
+Este é um e-mail automático.
+
+Por gentileza, não responder esta mensagem.
+Em caso de dúvidas, entrar em contato diretamente com o Financeiro.
 """
 
-        msg = MIMEText(corpo, "plain", "utf-8")
-        msg["Subject"] = "💰 Reembolso Pago"
-        msg["From"] = EMAIL_REMETENTE
-        msg["To"] = destinatario
+    msg = MIMEMultipart()
 
-        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=30)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
+    msg["From"] = remetente
+    msg["To"] = destinatario
+    msg["Subject"] = assunto
 
-        server.login(EMAIL_REMETENTE, SENHA_EMAIL)
+    msg.attach(MIMEText(corpo, "plain"))
 
-        server.sendmail(
-            EMAIL_REMETENTE,
-            destinatario,
-            msg.as_string()
-        )
+    servidor = smtplib.SMTP("smtp.gmail.com", 587)
 
-        server.quit()
+    servidor.starttls()
 
-        return True
+    servidor.login(remetente, senha)
 
-    except Exception as e:
-        st.error(f"❌ ERRO EMAIL: {e}")
-        return False
+    servidor.send_message(msg)
+
+    servidor.quit()
 
 st.markdown("""
 <style>
@@ -235,26 +212,6 @@ st.markdown("""
 def connect():
     os.makedirs("uploads", exist_ok=True)
     return sqlite3.connect("banco.db", check_same_thread=False)
-
-PASTA_DRIVE_ID = "1WYimpG2XS_nl_jBKGe8tb8eYIKsJT7lt"
-
-def upload_drive(caminho_arquivo, nome_arquivo):
-
-    file_metadata = {
-        "name": nome_arquivo,
-        "parents": [PASTA_DRIVE_ID]
-    }
-
-    media = MediaFileUpload(caminho_arquivo, resumable=True)
-
-    file = service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields="id",
-        supportsAllDrives=True
-    ).execute()
-
-    return file.get("id")
 
 def criar_tabelas():
     conn = connect()
@@ -520,151 +477,148 @@ elif menu == "despesas":
     ]
 
     # =========================
-    # 🆕 NOVA DESPESA
-    # =========================
-    with tab1:
+# 🆕 NOVA DESPESA
+# =========================
+with tab1:
 
-        desc = st.text_input("Descrição")
-        valor = st.number_input("Valor", min_value=0.0, step=0.01)
+    desc = st.text_input("Descrição")
 
-        categoria = st.selectbox(
-            "Categoria",
-            categorias
-        )
-
-        centro = st.selectbox(
-            "Centro de Custo",
-            centros
-        )
-
-        arquivos = st.file_uploader(
-            "📎 Anexar arquivos",
-            accept_multiple_files=True
-        )
-
-        if st.button("Enviar Despesa"):
-
-            if not desc or valor == 0:
-
-                st.warning("⚠️ Preencha os campos corretamente.")
-
-            else:
-
-                lista_arquivos = []
-
-                if arquivos:
-
-                    lista_arquivos = []
-
-if arquivos:
-
-    lista_arquivos = []
-
-if arquivos:
-
-    for i, arq in enumerate(arquivos):
-
-        nome = f"{datetime.now().timestamp()}_{i}_{arq.name}"
-        caminho = os.path.join("uploads", nome)
-
-        with open(caminho, "wb") as f:
-            f.write(arq.read())
-
-        file_id = upload_drive(caminho, arq.name)
-
-        link_drive = f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
-
-        lista_arquivos.append(link_drive)
-         
-        conn = connect()
-
-    conn.execute("""
-    INSERT INTO despesas
-    (
-        usuario,
-        descricao,
-        categoria,
-        centro_custo,
-        valor,
-        arquivos
+    valor = st.number_input(
+        "Valor",
+        min_value=0.0,
+        step=0.01
     )
-    VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        st.session_state["usuario"],
-        desc,
-        categoria,
-        centro,
-        valor,
-        ",".join(lista_arquivos)
-    ))
 
-    conn.commit()
-    conn.close()
+    categoria = st.selectbox(
+        "Categoria",
+        categorias
+    )
 
-    st.success("✅ Despesa enviada!")
-    st.balloons()
-    st.rerun()
+    centro = st.selectbox(
+        "Centro de Custo",
+        centros
+    )
 
-    # =========================
-    # 📋 MINHAS DESPESAS
-    # =========================
-    with tab2:
+    arquivos = st.file_uploader(
+        "📎 Anexar arquivos",
+        accept_multiple_files=True
+    )
 
-        conn = connect()
+    if st.button("Enviar Despesa"):
 
-        df = pd.read_sql(
-            """
-            SELECT * FROM despesas
-            WHERE usuario=?
-            ORDER BY id DESC
-            """,
-            conn,
-            params=(st.session_state["usuario"],)
-        )
+        if not desc or valor == 0:
 
-        conn.close()
-
-        if df.empty:
-
-            st.info("Nenhuma despesa encontrada.")
+            st.warning("⚠️ Preencha os campos corretamente.")
 
         else:
 
-            for _, row in df.iterrows():
+            lista_arquivos = []
 
-                st.markdown(f"""
-                <div class="card">
-                    💸 <b>{row['descricao']}</b><br>
-                    💰 R$ {row['valor']}<br>
-                    📂 {row['categoria']} | {row['centro_custo']}<br>
-                    📊 Status: {row['status']}
-                </div>
-                """, unsafe_allow_html=True)
+            if arquivos:
 
-                if row["arquivos"]:
+                os.makedirs("uploads", exist_ok=True)
 
-                    arquivos = row["arquivos"].split(",")
+                for i, arq in enumerate(arquivos):
 
-                    for i, arq in enumerate(arquivos):
+                    nome = f"{datetime.now().timestamp()}_{i}_{arq.name}"
 
-                        if os.path.exists(arq):
+                    caminho = os.path.join("uploads", nome)
 
-                            with open(arq, "rb") as f:
+                    with open(caminho, "wb") as f:
+                        f.write(arq.read())
 
-                                st.download_button(
-                                    "📎 Baixar arquivo",
-                                    f,
-                                    file_name=os.path.basename(arq),
-                                    key=f"dw_{row['id']}_{i}"
-                                )
+                    lista_arquivos.append(caminho)
+
+            arquivos_str = ",".join(lista_arquivos)
+
+            conn = connect()
+
+            conn.execute("""
+                INSERT INTO despesas (
+                    usuario,
+                    descricao,
+                    categoria,
+                    centro_custo,
+                    valor,
+                    arquivos
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                st.session_state["usuario"],
+                desc,
+                categoria,
+                centro,
+                valor,
+                arquivos_str
+            ))
+
+            conn.commit()
+            conn.close()
+
+            st.success("✅ Despesa enviada!")
+            st.balloons()
+            st.rerun()
+
+# =========================
+# 📋 MINHAS DESPESAS
+# =========================
+with tab2:
+
+    conn = connect()
+
+    df = pd.read_sql(
+        """
+        SELECT * FROM despesas
+        WHERE usuario=?
+        ORDER BY id DESC
+        """,
+        conn,
+        params=(st.session_state["usuario"],)
+    )
+
+    conn.close()
+
+    if df.empty:
+
+        st.info("Nenhuma despesa encontrada.")
+
+    else:
+
+        for _, row in df.iterrows():
+
+            st.markdown(f"""
+            <div class="card">
+                💸 <b>{row['descricao']}</b><br>
+                💰 R$ {row['valor']}<br>
+                📂 {row['categoria']} | {row['centro_custo']}<br>
+                📊 Status: {row['status']}
+            </div>
+            """, unsafe_allow_html=True)
+
+            if row["arquivos"]:
+
+                arquivos = row["arquivos"].split(",")
+
+                for i, arq in enumerate(arquivos):
+
+                    if os.path.exists(arq):
+
+                        with open(arq, "rb") as f:
+
+                            st.download_button(
+                                "📎 Baixar arquivo",
+                                f,
+                                file_name=os.path.basename(arq),
+                                key=f"dw_{row['id']}_{i}"
+                            )
 # =========================
 # 💰 REEMBOLSOS
 # =========================
-elif menu == "reembolsos":
+            elif menu == "reembolsos":
 
-    st.title("💰 Gestão de Reembolsos")
+                st.title("💰 Gestão de Reembolsos")
 
-    if st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
+    if  st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
         st.warning("🚫 Você não tem permissão.")
         st.stop()
 
@@ -718,14 +672,13 @@ elif menu == "reembolsos":
 
                 if col3.button("💰 Pagar", key=f"pg_{row['id']}"):
 
-                    enviado = enviar_email(
+                    enviar_email(
                         row["email"],
-                        row["usuario"],
                         row["descricao"],
                         row["valor"],
+                        row["usuario"],
                         row["categoria"],
-                        row["centro_custo"],
-                        datetime.now().strftime("%d/%m/%Y")
+                        row["centro_custo"]
                     )
 
                     conn.execute("""
@@ -737,10 +690,7 @@ elif menu == "reembolsos":
 
                     conn.commit()
 
-                    if enviado:
-                        st.success("💰 Pago + email enviado")
-                    else:
-                        st.warning("Pago mas email falhou")
+                    st.success("💰 Pago + email enviado")
 
                     st.rerun()
 
