@@ -470,28 +470,17 @@ if menu == "dashboard":
 elif menu == "despesas":
 
     categorias = [
-    "Limpeza",
-    "Remuneração Sócios",
-    "Alimentação",
-    "Telefonia e Internet",
-    "Software e Licenças",
-    "Transportes / Logística",
-    "Material de Escritório",
-    "Equipamentos de Informática",
-    "Estacionamento",
-    "Móveis e Utensílios",
-    "Despesas de Viagens",
-    "Máquinas e Equipamentos"
-]
+
+    ]
 
     centros = [
-    "CREDENCIAMENTO",
-    "REDE",
-    "DIRETORIA",
-    "DUARTE GESTÃO",
-    "MARKETING",
-    "FINANCEIRO"
-]
+
+    ]
+
+    tab1, tab2 = st.tabs([
+        "➕ Nova Despesa",
+        "📋 Minhas Despesas"
+    ])
 
     st.markdown("""
     <div style="
@@ -508,11 +497,6 @@ elif menu == "despesas":
         </p>
     </div>
     """, unsafe_allow_html=True)
-
-    tab1, tab2 = st.tabs([
-        "➕ Nova Despesa",
-        "📋 Minhas Despesas"
-    ])
 
     # =========================
     # NOVA DESPESA
