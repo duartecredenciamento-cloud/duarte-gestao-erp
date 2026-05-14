@@ -1,7 +1,4 @@
 import time
-from supabase import create_client
-import uuid
-from tkinter import INSERT
 import streamlit as st
 import sqlite3
 import os
@@ -9,14 +6,8 @@ import pandas as pd
 import plotly.express as px
 import bcrypt
 from datetime import datetime
-from email.mime.text import MIMEText
 import smtplib
-from supabase import create_client
-import os
-from dotenv import load_dotenv
-import os
-from supabase import create_client
-import smtplib
+
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
@@ -68,131 +59,122 @@ Em caso de dúvidas, entrar em contato diretamente com o Financeiro.
 st.markdown("""
 <style>
 
-/* =========================
-🎯 BASE GLOBAL
-========================= */
-html, body, [class*="css"] {
-    font-family: 'Segoe UI', sans-serif;
+/* FUNDO */
+.stApp {
+    background: linear-gradient(135deg, #020617, #0f172a);
+    color: white;
 }
 
-/* =========================
-🔥 SIDEBAR PREMIUM
-========================= */
+/* SIDEBAR */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #020617, #0f172a);
-    border-right: 1px solid rgba(255,255,255,0.05);
+    background: #020617;
+    border-right: 1px solid rgba(255,255,255,0.08);
 }
 
-/* =========================
-📦 CARDS MODERNOS
-========================= */
+/* TITULOS */
+h1, h2, h3 {
+    color: white !important;
+    font-weight: 700;
+}
+
+/* CARDS */
 .card {
-    background: linear-gradient(145deg, #111827, #1f2937);
-    padding: 18px;
-    border-radius: 16px;
-    margin-bottom: 15px;
-    color: #e5e7eb;
-    border: 1px solid rgba(255,255,255,0.05);
-    
-    transition: all 0.3s ease;
-    animation: fadeInUp 0.5s ease;
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(14px);
+
+    padding: 22px;
+    border-radius: 22px;
+
+    border: 1px solid rgba(255,255,255,0.08);
+
+    margin-bottom: 18px;
+
+    animation: fadeUp 0.5s ease;
+
+    transition: 0.3s;
 }
 
 .card:hover {
-    transform: translateY(-6px) scale(1.02);
-    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
 }
 
-/* =========================
-✨ ANIMAÇÃO DE ENTRADA
-========================= */
-@keyframes fadeInUp {
+/* BOTÕES */
+.stButton > button {
+
+    width: 100%;
+
+    border-radius: 16px;
+
+    border: none;
+
+    padding: 12px;
+
+    font-weight: bold;
+
+    background: linear-gradient(90deg,#2563eb,#1d4ed8);
+
+    color: white;
+
+    transition: 0.3s;
+}
+
+.stButton > button:hover {
+
+    transform: scale(1.03);
+
+    box-shadow: 0 0 25px rgba(37,99,235,0.5);
+
+}
+
+/* INPUTS */
+.stTextInput input,
+.stNumberInput input,
+.stSelectbox div {
+
+    border-radius: 14px !important;
+
+    background: rgba(255,255,255,0.05) !important;
+
+    color: white !important;
+}
+
+/* METRICS */
+[data-testid="metric-container"] {
+
+    background: rgba(255,255,255,0.05);
+
+    border-radius: 20px;
+
+    padding: 20px;
+
+    border: 1px solid rgba(255,255,255,0.08);
+
+    animation: fadeUp 0.5s ease;
+}
+
+/* ANIMAÇÃO */
+@keyframes fadeUp {
+
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(25px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
     }
 }
 
-/* =========================
-🔥 BOTÕES ESTILO PRO
-========================= */
-.stButton>button {
-    background: linear-gradient(90deg, #2563eb, #1d4ed8);
-    color: white;
-    border-radius: 12px;
-    padding: 10px 16px;
-    border: none;
-    font-weight: 600;
-
-    transition: all 0.25s ease;
-}
-
-.stButton>button:hover {
-    transform: scale(1.05);
-    box-shadow: 0 8px 20px rgba(37,99,235,0.5);
-}
-
-/* =========================
-✅ SUCCESS ANIMADO
-========================= */
-.success-check {
-    background: linear-gradient(90deg,#22c55e,#16a34a);
-    padding: 14px;
-    border-radius: 12px;
-    color: white;
-    text-align: center;
-    font-weight: bold;
-
-    animation: popIn 0.4s ease;
-}
-
-@keyframes popIn {
-    from {
-        transform: scale(0.8);
-        opacity: 0;
-    }
-    to {
-        transform: scale(1);
-        opacity: 1;
-    }
-}
-
-/* =========================
-📊 SCROLLBAR CUSTOM
-========================= */
+/* SCROLL */
 ::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: #020617;
+    width: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #1d4ed8;
-    border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
     background: #2563eb;
-}
-
-/* =========================
-📌 INPUTS MAIS BONITOS
-========================= */
-input, textarea, select {
-    border-radius: 10px !important;
-}
-
-/* =========================
-📱 TRANSIÇÃO GLOBAL SUAVE
-========================= */
-* {
-    transition: all 0.2s ease;
+    border-radius: 10px;
 }
 
 </style>
@@ -658,7 +640,8 @@ with tab2:
                         (row["id"],)
                     )
                     conn.commit()
-                    st.success("Aprovado")
+                    st.toast("✅ Reembolso aprovado!", icon="✅")
+                    st.balloons()
                     st.rerun()
 
                 if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
@@ -667,7 +650,7 @@ with tab2:
                         (row["id"],)
                     )
                     conn.commit()
-                    st.warning("Rejeitado")
+                    st.toast("❌ Reembolso rejeitado!", icon="❌")
                     st.rerun()
 
                 if col3.button("💰 Pagar", key=f"pg_{row['id']}"):
@@ -690,7 +673,10 @@ with tab2:
 
                     conn.commit()
 
-                    st.success("💰 Pago + email enviado")
+                    st.toast("💸 Reembolso pago com sucesso!", icon="💸")
+                    st.balloons()
+
+                    time.sleep(1)
 
                     st.rerun()
 
@@ -700,7 +686,7 @@ with tab2:
                         (row["id"],)
                     )
                     conn.commit()
-                    st.warning("Excluído")
+                    st.toast("🗑️ Reembolso excluído!", icon="🗑️")
                     st.rerun()
 
     finally:
