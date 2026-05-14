@@ -469,6 +469,30 @@ if menu == "dashboard":
 # =========================
 elif menu == "despesas":
 
+    categorias = [
+    "Limpeza",
+    "Remuneração Sócios",
+    "Alimentação",
+    "Telefonia e Internet",
+    "Software e Licenças",
+    "Transportes / Logística",
+    "Material de Escritório",
+    "Equipamentos de Informática",
+    "Estacionamento",
+    "Móveis e Utensílios",
+    "Despesas de Viagens",
+    "Máquinas e Equipamentos"
+]
+
+    centros = [
+    "CREDENCIAMENTO",
+    "REDE",
+    "DIRETORIA",
+    "DUARTE GESTÃO",
+    "MARKETING",
+    "FINANCEIRO"
+]
+
     st.markdown("""
     <div style="
         background: linear-gradient(90deg,#2563eb,#60a5fa);
@@ -489,121 +513,47 @@ elif menu == "despesas":
         "➕ Nova Despesa",
         "📋 Minhas Despesas"
     ])
-     
-    st.write("teste")
-    
-    categorias = [
-        "Limpeza",
-        "Remuneração Sócios",
-        "Alimentação",
-        "Telefonia e Internet",
-        "Software e Licenças",
-        "Transportes / Logística",
-        "Material de Escritório",
-        "Equipamentos de Informática",
-        "Estacionamento",
-        "Móveis e Utensílios",
-        "Despesas de Viagens",
-        "Máquinas e Equipamentos"
-    ]
-
-    centros = [
-        "CREDENCIAMENTO",
-        "REDE",
-        "DIRETORIA",
-        "DUARTE GESTÃO",
-        "MARKETING",
-        "FINANCEIRO"
-    ]
 
     # =========================
-# 🆕 NOVA DESPESA
-# =========================
+    # NOVA DESPESA
+    # =========================
     with tab1:
 
         desc = st.text_input("Descrição")
 
         valor = st.number_input(
-        "Valor",
-        min_value=0.0,
-        step=0.01
-    )
+            "Valor",
+            min_value=0.0,
+            step=0.01
+        )
 
-    categoria = st.selectbox(
-        "Categoria",
-        categorias
-    )
+        categoria = st.selectbox(
+            "Categoria",
+            categorias
+        )
 
-    centro = st.selectbox(
-        "Centro de Custo",
-        centros
-    )
+        centro = st.selectbox(
+            "Centro de Custo",
+            centros
+        )
 
-    arquivos = st.file_uploader(
-        "📎 Anexar arquivos",
-        accept_multiple_files=True
-    )
+        arquivos = st.file_uploader(
+            "📎 Anexar arquivos",
+            accept_multiple_files=True
+        )
 
-    if st.button("Enviar Despesa"):
+        if st.button("Enviar Despesa"):
 
-        if not desc or valor == 0:
+            st.success("✅ Enviado")
 
-            st.warning("⚠️ Preencha os campos corretamente.")
 
-        else:
 
-            lista_arquivos = []
-
-            if arquivos:
-
-                os.makedirs("uploads", exist_ok=True)
-
-                for i, arq in enumerate(arquivos):
-
-                    nome = f"{datetime.now().timestamp()}_{i}_{arq.name}"
-
-                    caminho = os.path.join("uploads", nome)
-
-                    with open(caminho, "wb") as f:
-                        f.write(arq.read())
-
-                    lista_arquivos.append(caminho)
-
-            arquivos_str = ",".join(lista_arquivos)
-
-            conn = connect()
-
-            conn.execute("""
-                INSERT INTO despesas (
-                    usuario,
-                    descricao,
-                    categoria,
-                    centro_custo,
-                    valor,
-                    arquivos
-                )
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                st.session_state["usuario"],
-                desc,
-                categoria,
-                centro,
-                valor,
-                arquivos_str
-            ))
-
-            conn.commit()
-            conn.close()
-
-            st.success("✅ Despesa enviada!")
-            st.balloons()
-            st.rerun()
-
-# =========================
-# 📋 MINHAS DESPESAS
-# =========================
+    # =========================
+    # MINHAS DESPESAS
+    # =========================
     with tab2:
 
+        st.write("LISTA AQUI")
         conn = connect()
 
     df = pd.read_sql(
