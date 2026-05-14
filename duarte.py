@@ -469,15 +469,37 @@ if menu == "dashboard":
 # =========================
 elif menu == "despesas":
 
-    categorias = [
+    st.title("💸 Despesas")
 
+    tab1, tab2 = st.tabs(["Nova Despesa", "Minhas Despesas"])
+
+    categorias = [
+        "Limpeza",
+        "Remuneração Sócios",
+        "Alimentação",
+        "Telefonia e Internet",
+        "Software e Licenças",
+        "Transportes / Logística",
+        "Material de Escritório",
+        "Equipamentos de Informática",
+        "Estacionamento",
+        "Móveis e Utensílios",
+        "Despesas de Viagens",
+        "Máquinas e Equipamentos"
     ]
 
     centros = [
-
+        "CREDENCIAMENTO",
+        "REDE",
+        "DIRETORIA",
+        "DUARTE GESTÃO",
+        "MARKETING",
+        "FINANCEIRO"
     ]
 
-    tab1, tab2 = st.tabs([
+    with tab1:
+
+        tab1, tab2 = st.tabs([
         "➕ Nova Despesa",
         "📋 Minhas Despesas"
     ])
