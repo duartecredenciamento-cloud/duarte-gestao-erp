@@ -489,11 +489,9 @@ elif menu == "despesas":
         "➕ Nova Despesa",
         "📋 Minhas Despesas"
     ])
-
-    with tab1:
-
-        st.write("teste")
-
+     
+    st.write("teste")
+    
     categorias = [
         "Limpeza",
         "Remuneração Sócios",
@@ -658,7 +656,21 @@ elif menu == "despesas":
 # =========================
             elif menu == "reembolsos":
 
-                st.title("💰 Gestão de Reembolsos")
+                st.markdown("""
+<div style="
+    background: linear-gradient(90deg,#16a34a,#4ade80);
+    padding:20px;
+    border-radius:18px;
+    margin-bottom:20px;
+    color:white;
+    box-shadow:0 10px 25px rgba(0,0,0,0.12);
+">
+    <h1 style="margin:0;">💰 Gestão de Reembolsos</h1>
+    <p style="margin:0;font-size:16px;">
+        Aprovação, pagamento e controle financeiro
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
     if  st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
         st.warning("🚫 Você não tem permissão.")
