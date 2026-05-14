@@ -497,15 +497,9 @@ elif menu == "despesas":
         "FINANCEIRO"
     ]
 
-    with tab1:
-
-        tab1, tab2 = st.tabs([
-        "➕ Nova Despesa",
-        "📋 Minhas Despesas"
-    ])
-
+    
     st.markdown("""
-    <div style="
+    div style="
         background: linear-gradient(90deg,#2563eb,#60a5fa);
         padding:20px;
         border-radius:18px;
@@ -513,12 +507,12 @@ elif menu == "despesas":
         color:white;
         box-shadow:0 10px 25px rgba(0,0,0,0.12);
     ">
-        <h1 style="margin:0;">💸 Gestão de Despesas</h1>
-        <p style="margin:0;font-size:16px;">
+            <h1 style="margin:0;">💸 Gestão de Despesas</h1>
+            <p style="margin:0;font-size:16px;">
             Controle inteligente de reembolsos e despesas corporativas
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+         </p>
+        </div>
+        """, unsafe_allow_html=True)
 
     # =========================
     # NOVA DESPESA
@@ -559,8 +553,8 @@ elif menu == "despesas":
     # =========================
     with tab2:
 
-        st.write("LISTA AQUI")
-        conn = connect()
+            st.write("LISTA AQUI")
+    conn = connect()
 
     df = pd.read_sql(
         """
@@ -610,23 +604,23 @@ elif menu == "despesas":
 # =========================
 # 💰 REEMBOLSOS
 # =========================
-            elif menu == "reembolsos":
+elif menu == "reembolsos":
 
-                st.markdown("""
-<div style="
+    st.markdown("""
+    <div style="
     background: linear-gradient(90deg,#16a34a,#4ade80);
     padding:20px;
     border-radius:18px;
     margin-bottom:20px;
     color:white;
     box-shadow:0 10px 25px rgba(0,0,0,0.12);
-">
+    ">
     <h1 style="margin:0;">💰 Gestão de Reembolsos</h1>
     <p style="margin:0;font-size:16px;">
         Aprovação, pagamento e controle financeiro
     </p>
-</div>
-""", unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
 
     if  st.session_state["tipo"] not in ["admin", "financeiro", "operacional"]:
         st.warning("🚫 Você não tem permissão.")
