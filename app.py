@@ -8,7 +8,7 @@ from datetime import datetime
 import plotly.express as px
 
 # =========================
-# CONFIG
+# CONFIG DA PÁGINA
 # =========================
 st.set_page_config(
     page_title="Duarte Gestão ERP",
@@ -17,70 +17,113 @@ st.set_page_config(
 )
 
 # =========================
-# CSS PREMIUM
+# ESTILO VISUAL PREMIUM
 # =========================
 st.markdown("""
 <style>
 
-html, body, [class*="css"] {
-    font-family: 'Segoe UI', sans-serif;
+.stApp {
+    background: linear-gradient(135deg, #163B73, #1F4E95);
+    color: white;
 }
 
+/* SIDEBAR */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #020617, #0f172a);
+    background: #0F274B;
 }
 
-.stButton>button {
-    background: linear-gradient(90deg,#2563eb,#1d4ed8);
+/* BOTÕES */
+.stButton > button {
+    background: linear-gradient(90deg,#F59E0B,#F97316);
     color: white;
-    border-radius: 10px;
     border: none;
+    border-radius: 14px;
+    padding: 10px 20px;
     font-weight: bold;
+    transition: 0.3s;
 }
 
+.stButton > button:hover {
+    transform: scale(1.05);
+    box-shadow: 0px 0px 20px rgba(255,165,0,0.5);
+}
+
+/* INPUTS */
+.stTextInput input,
+.stNumberInput input,
+.stSelectbox div {
+    border-radius: 12px !important;
+}
+
+/* CARDS */
 .card {
-    background: #111827;
-    padding: 15px;
-    border-radius: 15px;
-    margin-bottom: 10px;
-    color: white;
+    background: rgba(255,255,255,0.08);
+    padding: 20px;
+    border-radius: 18px;
+    backdrop-filter: blur(10px);
+    margin-bottom: 15px;
+    animation: fadeUp 0.5s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    transition: 0.3s;
+}
+
+/* ANIMAÇÃO */
+@keyframes fadeUp {
+    from {
+        opacity:0;
+        transform:translateY(20px);
+    }
+    to {
+        opacity:1;
+        transform:translateY(0px);
+    }
+}
+
+/* TÍTULOS */
+h1, h2, h3 {
+    color: white !important;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
 # =========================
-# PASTA UPLOADS
+# LOGO DA DUARTE
 # =========================
+col1, col2 = st.columns([1,4])
+
+with col1:
+    st.image("logo.png", width=180)
+
+with col2:
+    st.markdown("""
+    <h1 style='margin-top:35px;'>
+        Duarte Gestão ERP
+    </h1>
+    """, unsafe_allow_html=True)
+
+st.markdown("---")
+# =========================================
+# BANCO
+# =========================================
 os.makedirs("uploads", exist_ok=True)
 
-# =========================
-# BANCO
-# =========================
-conn = sqlite3.connect(
-    "duarte.db",
-    check_same_thread=False
-)
-
+conn = sqlite3.connect("duarte.db", check_same_thread=False)
 cursor = conn.cursor()
 
-# =========================
-# TABELA USUARIOS
-# =========================
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nome TEXT,
     usuario TEXT UNIQUE,
-    email TEXT,
     senha TEXT,
-    tipo TEXT
+    perfil TEXT
 )
 """)
 
-# =========================
-# TABELA DESPESAS
-# =========================
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS despesas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,116 +134,65 @@ CREATE TABLE IF NOT EXISTS despesas (
     valor REAL,
     arquivo TEXT,
     status TEXT DEFAULT 'PENDENTE',
-    data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    data_pagamento TIMESTAMP
+    data TEXT
+)
+""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario TEXT,
+    acao TEXT,
+    data_hora TEXT
 )
 """)
 
 conn.commit()
 
-# =========================
-# CRIAR ADMINS
-# =========================
-def criar_admins():
+# =========================================
+# SENHA
+# =========================================
+def hash_senha(senha):
+    return bcrypt.hashpw(senha.encode(), bcrypt.gensalt()).decode()
+
+def verificar_senha(senha, senha_hash):
+    return bcrypt.checkpw(senha.encode(), senha_hash.encode())
+
+# =========================================
+# USUÁRIOS PADRÃO
+# =========================================
+def criar_usuarios():
 
     usuarios = [
-        (
-            "Admin",
-            "admin",
-            "admin@email.com",
-            "123456",
-            "admin"
-        ),
-        (
-            "Financeiro",
-            "financeiro",
-            "financeiro@email.com",
-            "123456",
-            "financeiro"
-        ),
-        (
-            "Operacional",
-            "operacional",
-            "operacional@email.com",
-            "123456",
-            "operacional"
-        )
+        ("Administrador", "admin", "1234", "admin"),
+        ("Financeiro", "financeiro", "1234", "financeiro"),
+        ("Operacional", "operacional", "1234", "operacional")
     ]
 
-    for nome, usuario, email, senha, tipo in usuarios:
+    for nome, usuario, senha, perfil in usuarios:
 
-        hash_senha = bcrypt.hashpw(
-            senha.encode(),
-            bcrypt.gensalt()
-        ).decode()
+        senha_hash = hash_senha(senha)
 
         try:
-
             cursor.execute("""
-            INSERT INTO usuarios
-            (
-                nome,
-                usuario,
-                email,
-                senha,
-                tipo
-            )
-            VALUES (?, ?, ?, ?, ?)
-            """, (
-                nome,
-                usuario,
-                email,
-                hash_senha,
-                tipo
-            ))
+            INSERT INTO usuarios (nome, usuario, senha, perfil)
+            VALUES (?, ?, ?, ?)
+            """, (nome, usuario, senha_hash, perfil))
 
         except:
             pass
 
     conn.commit()
 
-criar_admins()
+criar_usuarios()
 
-# =========================
+# =========================================
 # LOGIN
-# =========================
-def verificar_login(usuario, senha):
-
-    cursor.execute(
-        "SELECT * FROM usuarios WHERE usuario=?",
-        (usuario,)
-    )
-
-    user = cursor.fetchone()
-
-    if user:
-
-        senha_hash = user[4]
-
-        if bcrypt.checkpw(
-            senha.encode(),
-            senha_hash.encode()
-        ):
-            return user
-
-    return None
-
-# =========================
-# SESSION
-# =========================
+# =========================================
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
-# =========================
-# LOGIN TELA
-# =========================
 if not st.session_state["logado"]:
-
-    st.markdown("""
-    <div style='text-align:center'>
-        <img src='https://www.duartegestao.com.br/images/logo-duartegestao.png' width='250'>
-    </div>
-    """, unsafe_allow_html=True)
 
     st.title("🔐 Login")
 
@@ -209,152 +201,108 @@ if not st.session_state["logado"]:
 
     if st.button("Entrar"):
 
-        resultado = verificar_login(
-            usuario,
-            senha
-        )
+        cursor.execute("""
+        SELECT * FROM usuarios
+        WHERE usuario=?
+        """, (usuario,))
 
-        if resultado:
+        user = cursor.fetchone()
+
+        if user and verificar_senha(senha, user[3]):
 
             st.session_state["logado"] = True
-            st.session_state["usuario"] = resultado[2]
-            st.session_state["nome"] = resultado[1]
-            st.session_state["tipo"] = resultado[5]
+            st.session_state["usuario"] = user[2]
+            st.session_state["perfil"] = user[4]
+            st.session_state["nome"] = user[1]
 
-            st.success("✅ Login realizado")
-
+            st.success("Login realizado!")
             time.sleep(1)
 
             st.rerun()
 
         else:
-            st.error("❌ Usuário ou senha inválidos")
+            st.error("Usuário ou senha inválidos")
 
     st.stop()
 
-# =========================
-# LOGO
-# =========================
-st.markdown("""
-<div style="text-align:center; margin-bottom:20px;">
+# =========================================
+# LOGS
+# =========================================
+def registrar_log(acao):
 
-<a href="https://duartegestao.com.br/" target="_blank">
+    cursor.execute("""
+    INSERT INTO logs (usuario, acao, data_hora)
+    VALUES (?, ?, ?)
+    """, (
+        st.session_state["usuario"],
+        acao,
+        datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    ))
 
-<img 
-src="https://duartegestao.com.br/wp-content/uploads/2026/02/logoduarte.webp" 
-width="260"
-style="cursor:pointer;"
->
+    conn.commit()
 
-</a>
-
-</div>
-""", unsafe_allow_html=True)
-    
-    st.title(f"💼 ERP Duarte Gestão - {st.session_state.perfil.upper()}")
-
-# =========================
+# =========================================
 # MENU
-# =========================
+# =========================================
 menu = st.sidebar.radio(
     "Menu",
     [
-        "Dashboard",
-        "Despesas",
-        "Reembolsos"
+        "📊 Dashboard",
+        "💸 Nova Despesa",
+        "📋 Minhas Despesas",
+        "💰 Reembolsos",
+        "📜 Logs"
     ]
 )
 
-# =========================
+# =========================================
 # DASHBOARD
-# =========================
-if menu == "Dashboard":
+# =========================================
+if menu == "📊 Dashboard":
 
     st.title("📊 Dashboard")
 
-    # ADMIN VE TUDO
-    if st.session_state["tipo"] in [
-        "admin",
-        "financeiro",
-        "operacional"
-    ]:
+    df = pd.read_sql("SELECT * FROM despesas", conn)
 
-        df = pd.read_sql(
-            "SELECT * FROM despesas",
-            conn
-        )
+    total = df["valor"].sum() if not df.empty else 0
+    qtd = len(df)
 
-    # USUARIO VE APENAS O DELE
-    else:
+    col1, col2 = st.columns(2)
 
-        df = pd.read_sql(
-            """
-            SELECT * FROM despesas
-            WHERE usuario=?
-            """,
-            conn,
-            params=(st.session_state["usuario"],)
-        )
+    col1.metric("💰 Total", f"R$ {total:,.2f}")
+    col2.metric("📦 Registros", qtd)
 
-    if df.empty:
+    if not df.empty:
 
-        st.warning("Nenhuma despesa encontrada")
-
-    else:
-
-        total = df["valor"].sum()
-        qtd = len(df)
-        media = df["valor"].mean()
-
-        col1, col2, col3 = st.columns(3)
-
-        col1.metric(
-            "💰 Total",
-            f"R$ {total:.2f}"
-        )
-
-        col2.metric(
-            "📦 Registros",
-            qtd
-        )
-
-        col3.metric(
-            "📊 Média",
-            f"R$ {media:.2f}"
-        )
-
-        fig1 = px.pie(
+        fig = px.pie(
             df,
             names="categoria",
             values="valor",
             hole=0.5
         )
 
-        st.plotly_chart(
-            fig1,
-            use_container_width=True
-        )
+        st.plotly_chart(fig, use_container_width=True)
 
-# =========================
-# DESPESAS
-# =========================
-elif menu == "Despesas":
+# =========================================
+# NOVA DESPESA
+# =========================================
+elif menu == "💸 Nova Despesa":
 
-    st.title("💸 Despesas")
+    st.title("💸 Nova Despesa")
 
     categorias = [
         "Alimentação",
         "Transporte",
-        "Internet",
-        "Software",
-        "Equipamentos",
+        "Software e Licenças",
+        "Material Escritório",
+        "Marketing",
         "Outros"
     ]
 
     centros = [
+        "FINANCEIRO",
         "CREDENCIAMENTO",
         "REDE",
-        "FINANCEIRO",
         "MARKETING",
         "DIRETORIA"
     ]
@@ -377,32 +325,22 @@ elif menu == "Despesas":
         centros
     )
 
-    arquivo = st.file_uploader(
-        "Anexar comprovante"
-    )
+    arquivo = st.file_uploader("Anexar comprovante")
 
-    if st.button("Enviar Despesa"):
+    if st.button("Salvar Despesa"):
 
-        caminho = ""
+        caminho_arquivo = ""
 
         if arquivo:
 
-            nome_arquivo = f"""
-            {datetime.now().timestamp()}_
-            {arquivo.name}
-            """
+            nome_arquivo = f"{datetime.now().timestamp()}_{arquivo.name}"
 
-            nome_arquivo = nome_arquivo.replace(
-                " ",
-                "_"
-            )
-
-            caminho = os.path.join(
+            caminho_arquivo = os.path.join(
                 "uploads",
                 nome_arquivo
             )
 
-            with open(caminho, "wb") as f:
+            with open(caminho_arquivo, "wb") as f:
                 f.write(arquivo.read())
 
         cursor.execute("""
@@ -413,125 +351,115 @@ elif menu == "Despesas":
             categoria,
             centro_custo,
             valor,
-            arquivo
+            arquivo,
+            data
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             st.session_state["usuario"],
             descricao,
             categoria,
             centro,
             valor,
-            caminho
+            caminho_arquivo,
+            datetime.now().strftime("%d/%m/%Y")
         ))
 
         conn.commit()
 
-        st.success("✅ Despesa enviada")
+        registrar_log("Nova despesa cadastrada")
 
+        st.success("✅ Despesa cadastrada!")
         st.balloons()
 
-        time.sleep(1)
+# =========================================
+# MINHAS DESPESAS
+# =========================================
+elif menu == "📋 Minhas Despesas":
 
-        st.rerun()
-
-    st.divider()
-
-    st.subheader("📋 Minhas Despesas")
-
-    minhas = pd.read_sql("""
-    SELECT *
-    FROM despesas
-    WHERE usuario=?
-    ORDER BY id DESC
-    """, conn, params=(
-        st.session_state["usuario"],
-    ))
-
-    if minhas.empty:
-
-        st.info("Nenhuma despesa")
-
-    else:
-
-        for _, row in minhas.iterrows():
-
-            st.markdown(f"""
-            <div class='card'>
-
-            💸 <b>{row['descricao']}</b><br>
-            💰 R$ {row['valor']}<br>
-            📂 {row['categoria']}<br>
-            📊 {row['status']}
-
-            </div>
-            """, unsafe_allow_html=True)
-
-            if row["arquivo"]:
-
-                if os.path.exists(row["arquivo"]):
-
-                    with open(
-                        row["arquivo"],
-                        "rb"
-                    ) as f:
-
-                        st.download_button(
-                            "📎 Baixar Arquivo",
-                            f,
-                            file_name=os.path.basename(
-                                row["arquivo"]
-                            ),
-                            key=row["id"]
-                        )
-
-# =========================
-# REEMBOLSOS
-# =========================
-elif menu == "Reembolsos":
-
-    if st.session_state["tipo"] not in [
-        "admin",
-        "financeiro",
-        "operacional"
-    ]:
-
-        st.warning("🚫 Sem permissão")
-        st.stop()
-
-    st.title("💰 Gestão de Reembolsos")
+    st.title("📋 Minhas Despesas")
 
     df = pd.read_sql("""
-    SELECT *
-    FROM despesas
+    SELECT * FROM despesas
+    WHERE usuario=?
     ORDER BY id DESC
-    """, conn)
+    """, conn, params=(st.session_state["usuario"],))
 
     if df.empty:
 
-        st.info("Nenhuma despesa")
+        st.warning("Nenhuma despesa encontrada.")
 
     else:
 
         for _, row in df.iterrows():
 
             st.markdown(f"""
-            <div class='card'>
+            <div class="card">
+                <h3>{row['descricao']}</h3>
+
+                💰 R$ {row['valor']}<br>
+                📂 {row['categoria']}<br>
+                🏢 {row['centro_custo']}<br>
+                📅 {row['data']}<br>
+                📊 Status: <b>{row['status']}</b>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if row["arquivo"] and os.path.exists(row["arquivo"]):
+
+                with open(row["arquivo"], "rb") as file:
+
+                    st.download_button(
+                        "📥 Baixar Comprovante",
+                        file,
+                        file_name=os.path.basename(row["arquivo"]),
+                        key=row["id"]
+                    )
+
+# =========================================
+# REEMBOLSOS
+# =========================================
+elif menu == "💰 Reembolsos":
+
+    st.title("💰 Gestão de Reembolsos")
+
+    if st.session_state["perfil"] not in [
+        "admin",
+        "financeiro",
+        "operacional"
+    ]:
+
+        st.warning("Sem permissão.")
+        st.stop()
+
+    df = pd.read_sql("""
+    SELECT * FROM despesas
+    ORDER BY id DESC
+    """, conn)
+
+    if df.empty:
+
+        st.warning("Sem despesas.")
+
+    else:
+
+        for _, row in df.iterrows():
+
+            st.markdown(f"""
+            <div class="card">
 
             👤 <b>{row['usuario']}</b><br>
             💸 {row['descricao']}<br>
             💰 R$ {row['valor']}<br>
-            📊 {row['status']}
+            📂 {row['categoria']}<br>
+            📊 STATUS: <b>{row['status']}</b>
 
             </div>
             """, unsafe_allow_html=True)
 
             col1, col2, col3 = st.columns(3)
 
-            if col1.button(
-                "✅ Aprovar",
-                key=f"ap_{row['id']}"
-            ):
+            if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
 
                 cursor.execute("""
                 UPDATE despesas
@@ -541,14 +469,12 @@ elif menu == "Reembolsos":
 
                 conn.commit()
 
-                st.success("Aprovado")
+                registrar_log(f"Aprovou ID {row['id']}")
 
+                st.success("Aprovado!")
                 st.rerun()
 
-            if col2.button(
-                "❌ Rejeitar",
-                key=f"rej_{row['id']}"
-            ):
+            if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
 
                 cursor.execute("""
                 UPDATE despesas
@@ -558,29 +484,38 @@ elif menu == "Reembolsos":
 
                 conn.commit()
 
-                st.warning("Rejeitado")
+                registrar_log(f"Rejeitou ID {row['id']}")
 
+                st.warning("Rejeitado!")
                 st.rerun()
 
-            if col3.button(
-                "💰 Pagar",
-                key=f"pg_{row['id']}"
-            ):
+            if col3.button("💰 Pago", key=f"pg_{row['id']}"):
 
                 cursor.execute("""
                 UPDATE despesas
-                SET status='PAGO',
-                data_pagamento=?
+                SET status='PAGO'
                 WHERE id=?
-                """, (
-                    datetime.now(),
-                    row["id"]
-                ))
+                """, (row["id"],))
 
                 conn.commit()
 
-                st.success("Pagamento realizado")
+                registrar_log(f"Pagou ID {row['id']}")
 
+                st.success("Pagamento realizado!")
                 st.balloons()
 
                 st.rerun()
+
+# =========================================
+# LOGS
+# =========================================
+elif menu == "📜 Logs":
+
+    st.title("📜 Logs")
+
+    logs = pd.read_sql("""
+    SELECT * FROM logs
+    ORDER BY id DESC
+    """, conn)
+
+    st.dataframe(logs, use_container_width=True)
