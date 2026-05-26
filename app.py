@@ -128,9 +128,8 @@ st.markdown("""
     font-family: 'Inter', sans-serif;
 }
 
-/* CORREÇÃO: Garante que o botão de abrir/fechar a sidebar continue visível */
+/* Mantém o rodapé oculto, mas preserva a Toolbar e Sidebar do Streamlit */
 footer {visibility: hidden;}
-div[data-testid="stToolbar"] {visibility: hidden;}
 
 /* Textos do Sistema */
 h1, h2, h3, p, label {
@@ -188,63 +187,17 @@ h1, h2, h3, p, label {
     box-shadow: 0 1px 2px rgba(0,0,0,0.02);
 }
 
-/* 💎 SIDEBAR PRESTÍGIO - REESTRUTURAÇÃO COMPLETA 💎 */
+/* Sidebar Limpa e Organizada */
 section[data-testid="stSidebar"] {
     background-color: #ffffff !important;
     border-right: 1px solid #e2e8f0;
 }
 
-/* Força a direção vertical das opções */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-}
-
-/* Configuração dos botões do menu (Não selecionados) */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
-    background-color: #f8fafc !important; /* Fundo cinza bem claro */
-    padding: 12px 16px !important;
-    border-radius: 8px !important;
-    border: 1px solid #e2e8f0 !important;
-    transition: all 0.2s ease-in-out !important;
-    cursor: pointer !important;
-    width: 100% !important;
-    display: flex !important;
-    align-items: center !important;
-}
-
-/* Garante que o texto das opções NÃO selecionadas fique bem visível */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label p {
-    color: #475569 !important; /* Cinza escuro corporativo */
+/* Customização dos textos do menu lateral para boa leitura */
+section[data-testid="stSidebar"] .stRadio label p {
+    color: #334155 !important;
+    font-size: 15px !important;
     font-weight: 500 !important;
-    font-size: 14px !important;
-    margin: 0 !important;
-}
-
-/* 🎯 ITEM SELECIONADO (ACTIVE) - Muda o fundo para Azul e o texto para Branco */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:has(input[type="radio"]:checked) {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-    border-color: #1d4ed8 !important;
-    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2) !important;
-}
-
-/* Garante que o texto do item SELECIONADO mude para BRANCO */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:has(input[type="radio"]:checked) p {
-    color: #ffffff !important;
-    font-weight: 600 !important;
-}
-
-/* Esconde o círculo padrão do radio button */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div:first-child {
-    display: none !important;
-}
-
-/* Efeito Hover (Passar o mouse nos itens não selecionados) */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:not(:has(input[type="radio"]:checked)):hover {
-    background-color: #f1f5f9 !important;
-    border-color: #cbd5e1 !important;
-    transform: translateX(4px);
 }
 
 /* Caixa do Usuário Logado Premium */
@@ -331,7 +284,7 @@ if not st.session_state["logado"]:
     st.stop()
 
 # =========================================
-# INTERFACE LOGADA (SIDEBAR REESTRUTURADA COMPLETAMENTE)
+# INTERFACE LOGADA (SIDEBAR CORRIGIDA)
 # =========================================
 st.sidebar.markdown(f"""
 <div class="user-box">
@@ -343,12 +296,13 @@ st.sidebar.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-st.sidebar.markdown("<p style='color: #64748b; font-size: 11px; font-weight: 600; margin-bottom: 10px;'>MENU DE NAVEGAÇÃO</p>", unsafe_allow_html=True)
+st.sidebar.markdown("<p style='color: #64748b; font-size: 11px; font-weight: 600; margin-bottom: 5px;'>MENU DE NAVEGAÇÃO</p>", unsafe_allow_html=True)
 
+# Navegação limpa e 100% visível para o chefe entender o que está selecionado
 menu = st.sidebar.radio(
     "Navegação",
     ["📊 Dashboard Geral", "💸 Lançar Despesa", "📋 Relatório de Despesas", "📜 Auditoria (Logs)"],
-    label_visibility="collapsed" # Oculta o título padrão para usar o nosso estilizado acima
+    label_visibility="collapsed"
 )
 
 st.sidebar.markdown("<br><hr style='margin: 10px 0; border-color: #f1f5f9;'><br>", unsafe_allow_html=True)
@@ -357,9 +311,13 @@ if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
     st.clear()
     st.rerun()
 
+# =========================================
+# FLUXOS DE MENUS
+# =========================================
+
 # 📊 DASHBOARD
 if menu == "📊 Dashboard Geral":
-    st.title("📊 Dashboard Executivo")
+    st.title("📊 Painel Executivo")
     
     if st.session_state["perfil"] in ["admin", "financeiro"]:
         df = pd.read_sql("SELECT * FROM despesas", conn)
@@ -398,7 +356,7 @@ if menu == "📊 Dashboard Geral":
         )
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("Nenhuma movimentação financeira encontrada para gerar gráficos.")
+        st.info("Nenhuma transferência financeira encontrada para gerar gráficos.")
 
 # 💸 LANÇAR DESPESA
 elif menu == "💸 Lançar Despesa":
@@ -454,7 +412,6 @@ elif menu == "📋 Relatório de Despesas":
         st.warning("Nenhum lançamento pendente ou registrado.")
     else:
         for _, row in df.iterrows():
-            # Define cor do status
             cor_status = "#eab308" if row['status'] == "PENDENTE" else "#16a34a" if row['status'] in ["APROVADO", "PAGO"] else "#dc2626"
             
             st.markdown(f"""
@@ -473,7 +430,6 @@ elif menu == "📋 Relatório de Despesas":
             </div>
             """, unsafe_allow_html=True)
             
-            # Painel de Decisão do Gestor
             if st.session_state["perfil"] in ["admin", "financeiro"] and row['status'] == 'PENDENTE':
                 col1, col2, col3, _ = st.columns([1, 1, 1, 3])
                 with col1:
@@ -501,7 +457,7 @@ elif menu == "📋 Relatório de Despesas":
                         st.rerun()
             st.markdown("<br>", unsafe_allow_html=True)
 
-# 📜 TIMELINE DE AUDITORIA (LOGS REESTRUTURADOS)
+# 📜 TIMELINE DE AUDITORIA (LOGS)
 elif menu == "📜 Auditoria (Logs)":
     st.title("📜 Trilha de Auditoria e Segurança")
     st.markdown("<p style='color:#64748b;'>Histórico de ações críticas realizadas na plataforma para compliance e controle interno.</p>", unsafe_allow_html=True)
@@ -512,7 +468,6 @@ elif menu == "📜 Auditoria (Logs)":
         if df_logs.empty:
             st.info("Nenhuma atividade registrada até o momento.")
         else:
-            # Renderização de Linha do Tempo Executiva em HTML limpo
             for _, log in df_logs.iterrows():
                 st.markdown(f"""
                 <div class="card-log">
