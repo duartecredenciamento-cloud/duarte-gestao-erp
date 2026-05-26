@@ -119,6 +119,9 @@ def enviar_email(destinatario, descricao, valor):
 # =========================================
 # ESTILO CORPORATIVO CLEAN PREMIUM (WHITE MODE)
 # =========================================
+# =========================================
+# ESTILO CORPORATIVO CLEAN PREMIUM (WHITE MODE)
+# =========================================
 st.markdown("""
 <style>
 /* Fundo Branco e Fontes Limpas */
@@ -128,8 +131,9 @@ st.markdown("""
     font-family: 'Inter', sans-serif;
 }
 
-/* Ocultar elementos padrão */
-#MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
+/* CORREÇÃO: Garante que o botão de abrir/fechar a sidebar continue visível */
+footer {visibility: hidden;}
+div[data-testid="stToolbar"] {visibility: hidden;}
 
 /* Textos do Sistema */
 h1, h2, h3, p, label {
@@ -187,13 +191,61 @@ h1, h2, h3, p, label {
     box-shadow: 0 1px 2px rgba(0,0,0,0.02);
 }
 
-/* Sidebar Executiva */
+/* 💎 SIDEBAR PRESTÍGIO - REESTRUTURAÇÃO COMPLETA 💎 */
 section[data-testid="stSidebar"] {
     background-color: #ffffff !important;
     border-right: 1px solid #e2e8f0;
 }
-section[data-testid="stSidebar"] .stRadio label {
-    color: #334155 !important;
+
+/* Esconde as bolinhas nativas do st.radio para parecer abas de app de verdade */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
+    background: #f1f5f9 !important;
+    padding: 12px 16px !important;
+    border-radius: 8px !important;
+    margin-bottom: 8px !important;
+    border: 1px solid #e2e8f0 !important;
+    transition: all 0.2s ease-in-out !important;
+    cursor: pointer !important;
+    width: 100% !important;
+}
+
+/* Remove a bolinha física do radio */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] {
+    font-weight: 500 !important;
+    color: #475569 !important;
+    font-size: 14px !important;
+}
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] [data-testid="stWidgetMarkdownProcessed"] p {
+    color: #475569 !important;
+}
+
+/* Item selecionado (Active) */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] input[type="radio"]:checked + div + div p {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:has(input[type="radio"]:checked) {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2) !important;
+}
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div:first-child {
+    display: none !important; /* Esconde o círculo do radio button */
+}
+
+/* Efeito de passar o mouse nos itens desmarcados (Hover) */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover {
+    background-color: #e2e8f0 !important;
+    transform: translateX(2px);
+}
+
+/* Caixa do Usuário Logado Premium */
+.user-box {
+    background: #f8fafc;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 25px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -273,15 +325,26 @@ if not st.session_state["logado"]:
 # =========================================
 # INTERFACE LOGADA (SIDEBAR CLEAN)
 # =========================================
-st.sidebar.markdown(f"<div style='padding: 10px 0;'>Usuário: <b>{st.session_state.get('nome_completo')}</b><br>Perfil: <span style='color:#2563eb; font-weight:600;'>{st.session_state.get('perfil').upper()}</span></div>", unsafe_allow_html=True)
+st.sidebar.markdown(f"""
+<div class="user-box">
+    <span style="color: #64748b; font-size: 11px; font-weight: 600; letter-spacing: 0.5px;">OPERADOR ATIVO</span>
+    <div style="color: #0f172a; font-weight: 700; font-size: 15px; margin-top: 2px;">{st.session_state.get('nome_completo')}</div>
+    <span style="background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block; margin-top: 6px;">
+        💼 {st.session_state.get('perfil').upper()}
+    </span>
+</div>
+""", unsafe_allow_html=True)
+
+st.sidebar.markdown("<p style='color: #64748b; font-size: 11px; font-weight: 600; margin-bottom: 10px;'>MENU DE NAVEGAÇÃO</p>", unsafe_allow_html=True)
 
 menu = st.sidebar.radio(
     "Navegação",
-    ["📊 Dashboard Geral", "💸 Lançar Despesa", "📋 Relatório de Despesas", "📜 Auditoria (Logs)"]
+    ["📊 Dashboard Geral", "💸 Lançar Despesa", "📋 Relatório de Despesas", "📜 Auditoria (Logs)"],
+    label_visibility="collapsed" # Esconde o título feio padrão do radio
 )
 
-st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-if st.sidebar.button("🚪 Sair do Sistema"):
+st.sidebar.markdown("<br><hr style='margin: 10px 0; border-color: #f1f5f9;'><br>", unsafe_allow_html=True)
+if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
     st.session_state["logado"] = False
     st.clear()
     st.rerun()
