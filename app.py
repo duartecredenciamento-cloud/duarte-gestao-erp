@@ -10,7 +10,7 @@ import smtplib
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
-# CONFIGURAÇÃO DA PÁGINA (Deve ser a PRIMEIRA instrução Streamlit do script)
+# CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução)
 st.set_page_config(
     page_title="Duarte | Gestão Inteligente",
     page_icon="🏢",
@@ -23,7 +23,6 @@ load_dotenv()
 EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE")
 SENHA_EMAIL = os.getenv("SENHA_EMAIL")
 
-# Cria diretório de uploads se não existir
 os.makedirs("uploads", exist_ok=True)
 
 # Inicialização estável do banco de dados
@@ -68,7 +67,6 @@ def init_db():
 
 init_db()
 
-# Criptografia de senhas
 def hash_senha(senha):
     return bcrypt.hashpw(senha.encode(), bcrypt.gensalt()).decode()
 
@@ -118,107 +116,180 @@ def enviar_email(destinatario, descricao, valor):
     except Exception as e:
         print(f"Erro ao enviar e-mail: {e}")
 
-# INTERFACE VISUAL (Header)
-col1, col2 = st.columns([1, 5])
-with col1:
-    if os.path.exists("assets/logo.png"):
-        st.image("assets/logo.png", width=120)
-    else:
-        st.markdown("<h1 style='margin:0;'>🏢</h1>", unsafe_allow_html=True)
-
-with col2:
-    st.markdown("""
-    <div style="padding-top:10px;">
-        <h1 style="margin:0; color:#e5e7eb;">Duarte Gestão ERP</h1>
-        <p style="margin:0; color:#94a3b8;">Sistema inteligente para gestão empresarial</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-# Estilo SaaS Premium CSS
+# =========================================
+# ESTILO CORPORATIVO CLEAN PREMIUM (WHITE MODE)
+# =========================================
 st.markdown("""
 <style>
-.stApp { background: radial-gradient(circle at top, #0f172a, #0b1220); color: #e5e7eb; font-family: 'Inter', sans-serif; }
+/* Fundo Branco e Fontes Limpas */
+.stApp {
+    background-color: #f8fafc;
+    color: #1e293b;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Ocultar elementos padrão */
 #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-h1, h2, h3, p, label { color: #e5e7eb !important; }
-.stTextInput input { background: #111827 !important; color: white !important; border-radius: 12px !important; border: 1px solid #334155 !important; padding: 12px !important; }
-.stButton > button { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border-radius: 12px; font-weight: 700; padding: 12px; border: none; }
-.stButton > button:hover { transform: scale(1.02); }
-.card { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 10px; }
-section[data-testid="stSidebar"] { background: linear-gradient(180deg, #0b1220, #111827); }
+
+/* Textos do Sistema */
+h1, h2, h3, p, label {
+    color: #0f172a !important;
+}
+
+/* Customização dos Inputs (Estilo Clean) */
+.stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+    border-radius: 8px !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 10px !important;
+}
+
+/* Botões Modernos Corporativos */
+.stButton > button {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    color: white !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    padding: 10px 24px !important;
+    border: none !important;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2) !important;
+    transition: all 0.2s ease;
+}
+.stButton > button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px -2px rgba(37, 99, 235, 0.3) !important;
+}
+
+/* Cards Executivos de Despesas */
+.card-despesa {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 15px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Cards de Log Estilo Timeline */
+.card-log {
+    background: #ffffff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    border-left: 4px solid #3b82f6;
+    border-top: 1px solid #f1f5f9;
+    border-right: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f1f5f9;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+/* Sidebar Executiva */
+section[data-testid="stSidebar"] {
+    background-color: #ffffff !important;
+    border-right: 1px solid #e2e8f0;
+}
+section[data-testid="stSidebar"] .stRadio label {
+    color: #334155 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# SISTEMA DE AUTENTICAÇÃO
+# HEADER DA PÁGINA
+col1, col2 = st.columns([1, 6])
+with col1:
+    if os.path.exists("assets/logo.png"):
+        st.image("assets/logo.png", width=90)
+    else:
+        st.markdown("<h1 style='margin:0; font-size: 50px;'>🏢</h1>", unsafe_allow_html=True)
+
+with col2:
+    st.markdown("""
+    <div style="padding-top:5px;">
+        <h2 style="margin:0; color:#0f172a; font-weight:700;">Duarte Gestão ERP</h2>
+        <p style="margin:0; color:#64748b; font-size:14px;">Plataforma Corporativa de Controle Financeiro</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# SISTEMA DE SESSÃO
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
 if not st.session_state["logado"]:
-    abas = st.tabs(["🔐 Entrar", "📝 Criar Conta"])
-    
-    with abas[0]:
-        st.subheader("🔐 Entrar")
-        usuario_input = st.text_input("Usuário", key="login_usuario")
-        senha_input = st.text_input("Senha", type="password", key="login_senha")
+    col_login, _ = st.columns([1, 1])
+    with col_login:
+        abas = st.tabs(["🔐 Acessar Sistema", "📝 Cadastrar Colaborador"])
         
-        if st.button("Entrar", key="btn_login"):
-            cursor.execute("SELECT * FROM usuarios WHERE usuario=?", (usuario_input,))
-            user = cursor.fetchone()
+        with abas[0]:
+            st.markdown("<br>", unsafe_allow_html=True)
+            usuario_input = st.text_input("Usuário", key="login_usuario")
+            senha_input = st.text_input("Senha", type="password", key="login_senha")
             
-            if user and verificar_senha(senha_input, user[6]):
-                st.session_state["logado"] = True
-                st.session_state["usuario"] = user[2]  # Guarda o 'usuario' (username) para os filtros de banco
-                st.session_state["nome_completo"] = user[1]
-                st.session_state["perfil"] = user[7]
-                st.success("✅ Login realizado!")
-                time.sleep(0.5)
-                st.rerun()
-            else:
-                st.error("❌ Usuário ou senha inválidos")
+            if st.button("Entrar no ERP", key="btn_login"):
+                cursor.execute("SELECT * FROM usuarios WHERE usuario=?", (usuario_input,))
+                user = cursor.fetchone()
                 
-    with abas[1]:
-        st.subheader("📝 Criar Conta")
-        nome = st.text_input("Nome Completo", key="cad_nome")
-        usuario_novo = st.text_input("Usuário", key="cad_usuario")
-        email = st.text_input("E-mail", key="cad_email")
-        telefone = st.text_input("Telefone", key="cad_telefone")
-        cpf = st.text_input("CPF", key="cad_cpf")
-        senha_nova = st.text_input("Senha", type="password", key="cad_senha")
-        
-        if st.button("Criar Conta", key="btn_criar"):
-            if nome and usuario_novo and senha_nova:
-                senha_hash = hash_senha(senha_nova)
-                try:
-                    cursor.execute("""
-                    INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (nome, usuario_novo, email, telefone, cpf, senha_hash, "usuario"))
-                    conn.commit()
-                    st.success("✅ Conta criada com sucesso! Mude para a aba de login.")
-                except sqlite3.IntegrityError:
-                    st.error("❌ Usuário já existe.")
-            else:
-                st.warning("⚠️ Preencha os campos obrigatórios (Nome, Usuário e Senha).")
+                if user and verificar_senha(senha_input, user[6]):
+                    st.session_state["logado"] = True
+                    st.session_state["usuario"] = user[2]
+                    st.session_state["nome_completo"] = user[1]
+                    st.session_state["perfil"] = user[7]
+                    st.success("✅ Autenticado com sucesso!")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("❌ Credenciais incorretas.")
+                    
+        with abas[1]:
+            st.markdown("<br>", unsafe_allow_html=True)
+            nome = st.text_input("Nome Completo", key="cad_nome")
+            usuario_novo = st.text_input("Nome de Usuário", key="cad_usuario")
+            email = st.text_input("E-mail Corporativo", key="cad_email")
+            telefone = st.text_input("Telefone", key="cad_telefone")
+            cpf = st.text_input("CPF", key="cad_cpf")
+            senha_nova = st.text_input("Senha de Acesso", type="password", key="cad_senha")
+            
+            if st.button("Finalizar Cadastro", key="btn_criar"):
+                if nome and usuario_novo and senha_nova:
+                    senha_hash = hash_senha(senha_nova)
+                    try:
+                        cursor.execute("""
+                        INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (nome, usuario_novo, email, telefone, cpf, senha_hash, "usuario"))
+                        conn.commit()
+                        st.success("✅ Conta criada! Prossiga para a aba de Login.")
+                    except sqlite3.IntegrityError:
+                        st.error("❌ Este nome de usuário já está em uso.")
+                else:
+                    st.warning("⚠️ Preencha Nome, Usuário e Senha.")
     st.stop()
 
 # =========================================
-# INTERFACE LOGADA
+# INTERFACE LOGADA (SIDEBAR CLEAN)
 # =========================================
-st.sidebar.markdown(f"Olá, **{st.session_state.get('nome_completo')}** 💼")
+st.sidebar.markdown(f"<div style='padding: 10px 0;'>Usuário: <b>{st.session_state.get('nome_completo')}</b><br>Perfil: <span style='color:#2563eb; font-weight:600;'>{st.session_state.get('perfil').upper()}</span></div>", unsafe_allow_html=True)
+
 menu = st.sidebar.radio(
-    "Menu",
-    ["📊 Dashboard", "💸 Nova Despesa", "📋 Minhas Despesas", "📜 Logs"]
+    "Navegação",
+    ["📊 Dashboard Geral", "💸 Lançar Despesa", "📋 Relatório de Despesas", "📜 Auditoria (Logs)"]
 )
 
-if st.sidebar.button("🚪 Sair"):
+st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
+if st.sidebar.button("🚪 Sair do Sistema"):
     st.session_state["logado"] = False
     st.clear()
     st.rerun()
 
 # 📊 DASHBOARD
-if menu == "📊 Dashboard":
+if menu == "📊 Dashboard Geral":
     st.title("📊 Dashboard Executivo")
     
-    # Se for admin/financeiro vê tudo, senão vê só o dele
     if st.session_state["perfil"] in ["admin", "financeiro"]:
         df = pd.read_sql("SELECT * FROM despesas", conn)
     else:
@@ -227,115 +298,161 @@ if menu == "📊 Dashboard":
     total = df["valor"].sum() if not df.empty else 0
     qtd = len(df)
     
-    col1, col2 = st.columns(2)
-    col1.metric("💰 Total em Despesas", f"R$ {total:,.2f}")
-    col2.metric("📦 Quantidade de Registros", qtd)
+    # KPIs Estilo Clean Moderno
+    m1, m2 = st.columns(2)
+    with m1:
+        st.markdown(f"""
+        <div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <span style="color:#64748b; font-size:14px; font-weight:600;">VALOR TOTAL LANÇADO</span>
+            <h2 style="margin:5px 0 0 0; color:#1e293b; font-weight:700;">R$ {total:,.2f}</h2>
+        </div>
+        """, unsafe_allow_html=True)
+    with m2:
+        st.markdown(f"""
+        <div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <span style="color:#64748b; font-size:14px; font-weight:600;">SOLICITAÇÕES REGISTRADAS</span>
+            <h2 style="margin:5px 0 0 0; color:#1e293b; font-weight:700;">{qtd} registros</h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    st.markdown("<br>", unsafe_allow_html=True)
     
     if not df.empty:
-        fig = px.pie(df, names="categoria", values="valor", hole=0.4, title="Despesas por Categoria")
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
+        fig = px.pie(df, names="categoria", values="valor", hole=0.4, title="Distribuição de Custos por Categoria")
+        fig.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font_color="#1e293b",
+            title_font_size=18
+        )
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("Nenhum dado lançado para exibir no gráfico.")
+        st.info("Nenhuma movimentação financeira encontrada para gerar gráficos.")
 
-# 💸 NOVA DESPESA
-elif menu == "💸 Nova Despesa":
-    st.title("💸 Solicitar Reembolso / Nova Despesa")
+# 💸 LANÇAR DESPESA
+elif menu == "💸 Lançar Despesa":
+    st.title("💸 Nova Solicitação de Reembolso")
     
-    categorias = ["Alimentação", "Transporte", "Software e Licenças", "Material Escritório", "Marketing", "Outros"]
-    centros = ["FINANCEIRO", "CREDENCIAMENTO", "REDE", "MARKETING", "DIRETORIA"]
-    
-    descricao = st.text_input("Descrição do Gasto")
-    valor = st.number_input("Valor (R$)", min_value=0.0, step=0.01)
-    categoria = st.selectbox("Categoria", categorias)
-    centro = st.selectbox("Centro de Custo", centros)
-    arquivo = st.file_uploader("Anexar comprovante (Imagem/PDF)")
-    
-    if st.button("Salvar Despesa"):
-        if not descricao or valor <= 0:
-            st.error("Por favor, informe uma descrição e um valor válido.")
-        else:
-            caminho_arquivo = ""
-            if arquivo:
-                nome_arquivo = f"{datetime.now().timestamp()}_{arquivo.name}"
-                caminho_arquivo = os.path.join("uploads", nome_arquivo)
-                with open(caminho_arquivo, "wb") as f:
-                    f.write(arquivo.read())
+    col_form, _ = st.columns([2, 1])
+    with col_form:
+        descricao = st.text_input("Descrição Clara do Gasto")
+        valor = st.number_input("Valor da Despesa (R$)", min_value=0.0, step=0.01)
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            categoria = st.selectbox("Categoria do Gasto", ["Alimentação", "Transporte", "Software e Licenças", "Material Escritório", "Marketing", "Outros"])
+        with c2:
+            centro = st.selectbox("Centro de Custo", ["FINANCEIRO", "CREDENCIAMENTO", "REDE", "MARKETING", "DIRETORIA"])
             
-            cursor.execute("""
-            INSERT INTO despesas (usuario, descricao, categoria, centro_custo, valor, arquivo, status, data)
-            VALUES (?, ?, ?, ?, ?, ?, 'PENDENTE', ?)
-            """, (st.session_state["usuario"], descricao, categoria, centro, valor, caminho_arquivo, datetime.now().strftime("%d/%m/%Y")))
-            conn.commit()
-            
-            registrar_log(st.session_state["usuario"], f"Cadastrou despesa: {descricao} (R$ {valor})")
-            st.success("✅ Despesa cadastrada com sucesso!")
-            st.balloons()
+        arquivo = st.file_uploader("Anexar Comprovante Fiscal (Imagem/PDF)")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Enviar para Aprovação"):
+            if not descricao or valor <= 0:
+                st.error("Preencha a descrição e defina um valor válido superior a R$ 0,00.")
+            else:
+                caminho_arquivo = ""
+                if arquivo:
+                    nome_arquivo = f"{datetime.now().timestamp()}_{arquivo.name}"
+                    caminho_arquivo = os.path.join("uploads", nome_arquivo)
+                    with open(caminho_arquivo, "wb") as f:
+                        f.write(arquivo.read())
+                
+                cursor.execute("""
+                INSERT INTO despesas (usuario, descricao, categoria, centro_custo, valor, arquivo, status, data)
+                VALUES (?, ?, ?, ?, ?, ?, 'PENDENTE', ?)
+                """, (st.session_state["usuario"], descricao, categoria, centro, valor, caminho_arquivo, datetime.now().strftime("%d/%m/%Y")))
+                conn.commit()
+                
+                registrar_log(st.session_state["usuario"], f"Solicitou Reembolso: {descricao} (R$ {valor:.2f})")
+                st.success("✅ Solicitação enviada com sucesso ao departamento financeiro!")
+                time.sleep(0.5)
+                st.rerun()
 
-# 📋 MINHAS DESPESAS & GESTÃO
-elif menu == "📋 Minhas Despesas":
-    st.title("📋 Painel de Despesas e Aprovações")
+# 📋 RELATÓRIO DE DESPESAS
+elif menu == "📋 Relatório de Despesas":
+    st.title("📋 Painel de Prestação de Contas")
     
-    # Controle de visualização de acordo com nível de acesso
     if st.session_state["perfil"] in ["admin", "financeiro"]:
-        st.markdown("💡 *Modo Gestor: Exibindo todas as despesas abertas no sistema.*")
+        st.markdown("<p style='color:#2563eb; font-weight:500;'>💼 Visão de Gestor: Exibindo lançamentos de toda a empresa.</p>", unsafe_allow_html=True)
         df = pd.read_sql("SELECT * FROM despesas ORDER BY id DESC", conn)
     else:
         df = pd.read_sql("SELECT * FROM despesas WHERE usuario=? ORDER BY id DESC", conn, params=(st.session_state["usuario"],))
         
     if df.empty:
-        st.warning("Nenhuma despesa encontrada.")
+        st.warning("Nenhum lançamento pendente ou registrado.")
     else:
         for _, row in df.iterrows():
+            # Define cor do status
+            cor_status = "#eab308" if row['status'] == "PENDENTE" else "#16a34a" if row['status'] in ["APROVADO", "PAGO"] else "#dc2626"
+            
             st.markdown(f"""
-            <div class="card">
-                <b>Funcionário:</b> {row['usuario']} | <b>Descrição:</b> {row['descricao']}<br>
-                💰 <b>R$ {row['valor']:.2f}</b> | 📂 Categoria: {row['categoria']} | 🏢 Centro: {row['centro_custo']}<br>
-                📅 Data: {row['data']} | 📊 Status: <b>{row['status']}</b>
+            <div class="card-despesa">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:18px; font-weight:700; color:#0f172a;">{row['descricao']}</span>
+                    <span style="background:{cor_status}; color:white; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600;">{row['status']}</span>
+                </div>
+                <div style="margin-top:10px; color:#475569; font-size:14px;">
+                    Colaborador: <b>{row['usuario']}</b> | Categoria: <b>{row['categoria']}</b> | Centro de Custo: <b>{row['centro_custo']}</b><br>
+                    Data do Lançamento: {row['data']}
+                </div>
+                <div style="margin-top:10px; font-size:20px; font-weight:700; color:#2563eb;">
+                    R$ {row['valor']:.2f}
+                </div>
             </div>
             """, unsafe_allow_html=True)
             
-            # Só exibe os botões de ação se o usuário atual for Admin ou Financeiro e o registro estiver pendente
+            # Painel de Decisão do Gestor
             if st.session_state["perfil"] in ["admin", "financeiro"] and row['status'] == 'PENDENTE':
-                col1, col2, col3 = st.columns(3)
-                
+                col1, col2, col3, _ = st.columns([1, 1, 1, 3])
                 with col1:
                     if st.button("✅ Aprovar", key=f"ap_{row['id']}"):
                         cursor.execute("UPDATE despesas SET status='APROVADO' WHERE id=?", (row["id"],))
                         conn.commit()
-                        registrar_log(st.session_state["usuario"], f"Aprovou despesa ID {row['id']}")
-                        st.success("Aprovado!")
+                        registrar_log(st.session_state["usuario"], f"Aprovou a despesa ID {row['id']}")
                         st.rerun()
-                        
                 with col2:
                     if st.button("❌ Rejeitar", key=f"rej_{row['id']}"):
                         cursor.execute("UPDATE despesas SET status='REJEITADO' WHERE id=?", (row["id"],))
                         conn.commit()
-                        registrar_log(st.session_state["usuario"], f"Rejeitou despesa ID {row['id']}")
-                        st.warning("Rejeitado!")
+                        registrar_log(st.session_state["usuario"], f"Rejeitou a despesa ID {row['id']}")
                         st.rerun()
-                        
                 with col3:
-                    if st.button("💰 Confirmar Pagamento", key=f"pg_{row['id']}"):
+                    if st.button("💰 Pagar", key=f"pg_{row['id']}"):
                         cursor.execute("UPDATE despesas SET status='PAGO' WHERE id=?", (row["id"],))
                         conn.commit()
-                        registrar_log(st.session_state["usuario"], f"Marcou como PAGO despesa ID {row['id']}")
+                        registrar_log(st.session_state["usuario"], f"Efetuou pagamento da despesa ID {row['id']}")
                         
-                        # Tenta buscar e-mail do dono da despesa para notificar
                         cursor.execute("SELECT email FROM usuarios WHERE usuario=?", (row['usuario'],))
                         user_email = cursor.fetchone()
                         if user_email and user_email[0]:
                             enviar_email(user_email[0], row['descricao'], row['valor'])
-                            
-                        st.success("Pago e Notificado!")
                         st.rerun()
-            st.markdown("---")
+            st.markdown("<br>", unsafe_allow_html=True)
 
-# 📜 LOGS
-elif menu == "📜 Logs":
-    st.title("📜 Auditoria de Logs do Sistema")
+# 📜 TIMELINE DE AUDITORIA (LOGS REESTRUTURADOS)
+elif menu == "📜 Auditoria (Logs)":
+    st.title("📜 Trilha de Auditoria e Segurança")
+    st.markdown("<p style='color:#64748b;'>Histórico de ações críticas realizadas na plataforma para compliance e controle interno.</p>", unsafe_allow_html=True)
+    
     if st.session_state["perfil"] in ["admin", "financeiro"]:
-        df_logs = pd.read_sql("SELECT * FROM logs ORDER BY id DESC LIMIT 100", conn)
-        st.dataframe(df_logs, use_container_width=True)
+        df_logs = pd.read_sql("SELECT * FROM logs ORDER BY id DESC LIMIT 50", conn)
+        
+        if df_logs.empty:
+            st.info("Nenhuma atividade registrada até o momento.")
+        else:
+            # Renderização de Linha do Tempo Executiva em HTML limpo
+            for _, log in df_logs.iterrows():
+                st.markdown(f"""
+                <div class="card-log">
+                    <div>
+                        <span style="font-weight:600; color:#1e293b;">{log['usuario']}</span> 
+                        <span style="color:#475569; margin-left:8px;">{log['acao']}</span>
+                    </div>
+                    <div style="color:#94a3b8; font-size:12px; font-weight:500;">
+                        ⏱️ {log['data_hora']}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
     else:
-        st.error("Apenas administradores podem auditar os logs do sistema.")
+        st.error("🔒 Acesso restrito. Apenas cargos de nível de diretoria ou financeiro podem auditar os logs do sistema.")
