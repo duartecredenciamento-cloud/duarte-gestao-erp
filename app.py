@@ -119,9 +119,6 @@ def enviar_email(destinatario, descricao, valor):
 # =========================================
 # ESTILO CORPORATIVO CLEAN PREMIUM (WHITE MODE)
 # =========================================
-# =========================================
-# ESTILO CORPORATIVO CLEAN PREMIUM (WHITE MODE)
-# =========================================
 st.markdown("""
 <style>
 /* Fundo Branco e Fontes Limpas */
@@ -197,46 +194,57 @@ section[data-testid="stSidebar"] {
     border-right: 1px solid #e2e8f0;
 }
 
-/* Esconde as bolinhas nativas do st.radio para parecer abas de app de verdade */
+/* Força a direção vertical das opções */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+}
+
+/* Configuração dos botões do menu (Não selecionados) */
 section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
-    background: #f1f5f9 !important;
+    background-color: #f8fafc !important; /* Fundo cinza bem claro */
     padding: 12px 16px !important;
     border-radius: 8px !important;
-    margin-bottom: 8px !important;
     border: 1px solid #e2e8f0 !important;
     transition: all 0.2s ease-in-out !important;
     cursor: pointer !important;
     width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
 }
 
-/* Remove a bolinha física do radio */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] {
+/* Garante que o texto das opções NÃO selecionadas fique bem visível */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label p {
+    color: #475569 !important; /* Cinza escuro corporativo */
     font-weight: 500 !important;
-    color: #475569 !important;
     font-size: 14px !important;
-}
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] [data-testid="stWidgetMarkdownProcessed"] p {
-    color: #475569 !important;
+    margin: 0 !important;
 }
 
-/* Item selecionado (Active) */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] input[type="radio"]:checked + div + div p {
+/* 🎯 ITEM SELECIONADO (ACTIVE) - Muda o fundo para Azul e o texto para Branco */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:has(input[type="radio"]:checked) {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    border-color: #1d4ed8 !important;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2) !important;
+}
+
+/* Garante que o texto do item SELECIONADO mude para BRANCO */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:has(input[type="radio"]:checked) p {
     color: #ffffff !important;
     font-weight: 600 !important;
 }
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:has(input[type="radio"]:checked) {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-    border-color: #2563eb !important;
-    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2) !important;
-}
+
+/* Esconde o círculo padrão do radio button */
 section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label div:first-child {
-    display: none !important; /* Esconde o círculo do radio button */
+    display: none !important;
 }
 
-/* Efeito de passar o mouse nos itens desmarcados (Hover) */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover {
-    background-color: #e2e8f0 !important;
-    transform: translateX(2px);
+/* Efeito Hover (Passar o mouse nos itens não selecionados) */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:not(:has(input[type="radio"]:checked)):hover {
+    background-color: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    transform: translateX(4px);
 }
 
 /* Caixa do Usuário Logado Premium */
@@ -323,7 +331,7 @@ if not st.session_state["logado"]:
     st.stop()
 
 # =========================================
-# INTERFACE LOGADA (SIDEBAR CLEAN)
+# INTERFACE LOGADA (SIDEBAR REESTRUTURADA COMPLETAMENTE)
 # =========================================
 st.sidebar.markdown(f"""
 <div class="user-box">
@@ -340,7 +348,7 @@ st.sidebar.markdown("<p style='color: #64748b; font-size: 11px; font-weight: 600
 menu = st.sidebar.radio(
     "Navegação",
     ["📊 Dashboard Geral", "💸 Lançar Despesa", "📋 Relatório de Despesas", "📜 Auditoria (Logs)"],
-    label_visibility="collapsed" # Esconde o título feio padrão do radio
+    label_visibility="collapsed" # Oculta o título padrão para usar o nosso estilizado acima
 )
 
 st.sidebar.markdown("<br><hr style='margin: 10px 0; border-color: #f1f5f9;'><br>", unsafe_allow_html=True)
