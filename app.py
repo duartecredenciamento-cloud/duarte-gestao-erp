@@ -13,6 +13,7 @@ from email.mime.text import MIMEText
 from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
+import requests  
 
 # CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução)
 st.set_page_config(
@@ -27,7 +28,7 @@ EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE")
 SENHA_EMAIL = os.getenv("SENHA_EMAIL")
 DATABASE_URL = os.getenv("DATABASE_URL")  
 
-# CONFIGURAÇÃO DO CLOUDINARY (NUVEM DE ARQUIVOS)
+# CONFIGURAÇÃO DO CLOUDINARY
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
     api_key=os.getenv("CLOUDINARY_API_KEY"),
@@ -258,34 +259,82 @@ if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
     st.clear()
     st.rerun()
 
-# 📊 DASHBOARD
+# 📊 DASHBOARD (ETAPA 2: ESTILO POWER BI)
 if menu == "📊 Dashboard Geral":
-    st.title("📊 Painel Executivo")
+    st.title("📊 BI - Painel de Inteligência Financeira")
+    
+    # 1. CARGA DE DADOS COM TRAVA DE ACESSO CRÍTICO
     if st.session_state["perfil"] in ["admin", "financeiro"]:
-        df = pd.read_sql("SELECT * FROM despesas", conn)
+        df_base = pd.read_sql("SELECT * FROM despesas", conn)
     else:
         if DATABASE_URL:
-            df = pd.read_sql("SELECT * FROM despesas WHERE usuario=%s", conn, params=(st.session_state["usuario"],))
+            df_base = pd.read_sql("SELECT * FROM despesas WHERE usuario=%s", conn, params=(st.session_state["usuario"],))
         else:
-            df = pd.read_sql("SELECT * FROM despesas WHERE usuario=?", conn, params=(st.session_state["usuario"],))
+            df_base = pd.read_sql("SELECT * FROM despesas WHERE usuario=?", conn, params=(st.session_state["usuario"],))
+
+    if not df_base.empty:
+        # Tratamento das datas para extrair o Mês/Ano para os filtros
+        df_base['date_parsed'] = pd.to_datetime(df_base['data'], format='%d/%m/%Y', errors='coerce')
+        df_base['Mes_Ano'] = df_base['date_parsed'].dt.strftime('%m/%Y')
+        df_base['Mes_Ano'] = df_base['Mes_Ano'].fillna("Sem Data")
+
+        # 2. SEÇÃO DE FILTROS (ESTILO SEGMENTAÇÃO DE DADOS POWER BI)
+        st.markdown("<h3 style='font-size:16px; font-weight:600; color:#475569;'>🎯 Segmentadores de Dados</h3>", unsafe_allow_html=True)
+        f1, f2, f3 = st.columns(3)
         
-    total = df["valor"].sum() if not df.empty else 0
-    qtd = len(df)
-    
-    m1, m2 = st.columns(2)
-    with m1:
-        st.markdown(f"""<div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #e2e8f0;"><span style="color:#64748b; font-size:14px; font-weight:600;">VALOR TOTAL LANÇADO</span><h2 style="margin:5px 0 0 0; color:#1e293b; font-weight:700;">R$ {total:,.2f}</h2></div>""", unsafe_allow_html=True)
-    with m2:
-        st.markdown(f"""<div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #e2e8f0;"><span style="color:#64748b; font-size:14px; font-weight:600;">SOLICITAÇÕES REGISTRADAS</span><h2 style="margin:5px 0 0 0; color:#1e293b; font-weight:700;">{qtd} registros</h2></div>""", unsafe_allow_html=True)
+        with f1:
+            lista_meses = ["Todos"] + sorted(list(df_base['Mes_Ano'].unique()))
+            filtro_mes = st.selectbox("Filtrar por Mês/Ano", lista_meses)
+        with f2:
+            lista_centros = ["Todos"] + sorted(list(df_base['centro_custo'].unique()))
+            filtro_centro = st.selectbox("Filtrar por Centro de Custo", lista_centros)
+        with f3:
+            lista_status = ["Todos", "PENDENTE", "APROVADO", "PAGO", "REJEITADO"]
+            filtro_status = st.selectbox("Filtrar por Status", lista_status)
+
+        # Aplicando as escolhas dos filtros na tabela
+        df_filtrado = df_base.copy()
+        if filtro_mes != "Todos":
+            df_filtrado = df_filtrado[df_filtrado['Mes_Ano'] == filtro_mes]
+        if filtro_centro != "Todos":
+            df_filtrado = df_filtrado[df_filtrado['centro_custo'] == filtro_centro]
+        if filtro_status != "Todos":
+            df_filtrado = df_filtrado[df_filtrado['status'] == filtro_status]
+
+        # 3. VALORES TOTAIS (CARDS DE KPI PREMIUM)
+        total_lancado = df_filtrado["valor"].sum()
+        total_pago = df_filtrado[df_filtrado["status"] == "PAGO"]["valor"].sum()
+        total_pendente = df_filtrado[df_filtrado["status"] == "PENDENTE"]["valor"].sum()
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        kpi1, kpi2, kpi3 = st.columns(3)
+        with kpi1:
+            st.markdown(f"""<div style="background:#ffffff; padding:22px; border-radius:10px; border:1px solid #e2e8f0; border-left: 5px solid #2563eb;"><span style="color:#64748b; font-size:13px; font-weight:600;">VALOR TOTAL FILTRADO</span><h2 style="margin:5px 0 0 0; color:#1e293b; font-weight:700;">R$ {total_lancado:,.2f}</h2></div>""", unsafe_allow_html=True)
+        with kpi2:
+            st.markdown(f"""<div style="background:#ffffff; padding:22px; border-radius:10px; border:1px solid #e2e8f0; border-left: 5px solid #16a34a;"><span style="color:#16a34a; font-size:13px; font-weight:600;">TOTAL EFETIVADO (PAGO)</span><h2 style="margin:5px 0 0 0; color:#16a34a; font-weight:700;">R$ {total_pago:,.2f}</h2></div>""", unsafe_allow_html=True)
+        with kpi3:
+            st.markdown(f"""<div style="background:#ffffff; padding:22px; border-radius:10px; border:1px solid #e2e8f0; border-left: 5px solid #eab308;"><span style="color:#eab308; font-size:13px; font-weight:600;">TOTAL EM ABERTO (PENDENTE)</span><h2 style="margin:5px 0 0 0; color:#eab308; font-weight:700;">R$ {total_pendente:,.2f}</h2></div>""", unsafe_allow_html=True)
+
+        # 4. GRÁFICOS AVANÇADOS COMBINADOS
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        g1, g2 = st.columns(2)
         
-    st.markdown("<br>", unsafe_allow_html=True)
-    if not df.empty:
-        titulo_grafico = "Distribuição de Custos da Empresa por Categoria" if st.session_state["perfil"] in ["admin", "financeiro"] else "Meus Gastos por Categoria"
-        fig = px.pie(df, names="categoria", values="valor", hole=0.4, title=titulo_grafico)
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#1e293b")
-        st.plotly_chart(fig, use_container_width=True)
+        with g1:
+            st.markdown("<h4 style='font-size:16px; font-weight:700; text-align:center;'>Gastos por Categoria</h4>", unsafe_allow_html=True)
+            fig_pizza = px.pie(df_filtrado, names="categoria", values="valor", hole=0.4)
+            fig_pizza.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#1e293b", margin=dict(t=20, b=20, l=10, r=10))
+            st.plotly_chart(fig_pizza, use_container_width=True)
+            
+        with g2:
+            st.markdown("<h4 style='font-size:16px; font-weight:700; text-align:center;'>Investimento por Centro de Custo</h4>", unsafe_allow_html=True)
+            # Agrupa os valores para criar o gráfico de colunas corporativo
+            df_centro = df_filtrado.groupby("centro_custo")["valor"].sum().reset_index()
+            fig_barra = px.bar(df_centro, x="centro_custo", y="valor", labels={"valor": "Valor (R$)", "centro_custo": "Centro de Custo"}, text_auto='.2s')
+            fig_barra.update_traces(marker_color='#2563eb', textposition='outside')
+            fig_barra.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#1e293b", margin=dict(t=20, b=20, l=10, r=10))
+            st.plotly_chart(fig_barra, use_container_width=True)
     else:
-        st.info("Nenhuma transferência financeira encontrada para gerar gráficos.")
+        st.info("Nenhuma transferência financeira encontrada para gerar os painéis do BI.")
 
 # 💸 LANÇAR DESPESA
 elif menu == "💸 Lançar Despesa":
@@ -307,7 +356,6 @@ elif menu == "💸 Lançar Despesa":
                 if arquivo:
                     with st.spinner("Enviando comprovante para a nuvem segura..."):
                         try:
-                            # Faz o upload direto para o Cloudinary de forma transparente
                             upload_result = cloudinary.uploader.upload(arquivo, folder="comprovantes_duarte")
                             url_arquivo_nuvem = upload_result.get("secure_url")
                         except Exception as e:
@@ -341,10 +389,9 @@ elif menu == "📋 Relatório de Despesas":
         for _, row in df.iterrows():
             cor_status = "#eab308" if row['status'] == "PENDENTE" else "#16a34a" if row['status'] in ["APROVADO", "PAGO"] else "#dc2626"
             
-            # Cria o botão de visualizar anexo apenas se o link existir no banco
-            link_anexo = ""
+            link_visualizar = ""
             if row['arquivo']:
-                link_anexo = f'<br><br><a href="{row["arquivo"]}" target="_blank" style="background:#f1f5f9; color:#2563eb; padding:6px 12px; border-radius:6px; font-size:13px; font-weight:600; text-decoration:none; border:1px solid #cbd5e1;">📄 Visualizar Comprovante</a>'
+                link_visualizar = f'<a href="{row["arquivo"]}" target="_blank" style="background:#f1f5f9; color:#2563eb; padding:6px 12px; border-radius:6px; font-size:13px; font-weight:600; text-decoration:none; border:1px solid #cbd5e1; margin-right: 10px;"><b>📄 Visualizar Comprovante</b></a>'
 
             st.markdown(f"""
             <div class="card-despesa">
@@ -354,10 +401,27 @@ elif menu == "📋 Relatório de Despesas":
                 </div>
                 <div style="margin-top:10px; color:#475569; font-size:14px;">Colaborador: <b>{row['usuario']}</b> | Categoria: <b>{row['categoria']}</b> | Centro: <b>{row['centro_custo']}</b> | Data: {row['data']}</div>
                 <div style="margin-top:10px; font-size:20px; font-weight:700; color:#2563eb;">R$ {row['valor']:.2f}</div>
-                {link_anexo}
+                <div style="margin-top:15px; display: flex; align-items: center;">
+                    {link_visualizar}
+                </div>
             </div>
             """, unsafe_allow_html=True)
             
+            if row['arquivo']:
+                try:
+                    extensao = ".pdf" if ".pdf" in row['arquivo'].lower() else ".png"
+                    nome_baixar = f"comprovante_{row['id']}{extensao}"
+                    response_file = requests.get(row['arquivo'])
+                    st.download_button(
+                        label="⬇️ Baixar Arquivo para o Drive",
+                        data=response_file.content,
+                        file_name=nome_baixar,
+                        mime="application/pdf" if extensao == ".pdf" else "image/png",
+                        key=f"dl_{row['id']}"
+                    )
+                except:
+                    pass
+
             if st.session_state["perfil"] in ["admin", "financeiro"] and row['status'] == 'PENDENTE':
                 col1, col2, col3, _ = st.columns([1, 1, 1, 3])
                 with col1:
