@@ -1,6 +1,7 @@
 import streamlit as st
 import sqlite3
 import psycopg2  # Nova biblioteca para o banco na nuvem
+from psycopg2 import errors as pg_errors
 import pandas as pd
 import bcrypt
 import os
@@ -11,7 +12,7 @@ import smtplib
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
-# CONFIGURAÇÃO DA PÁGINA
+# CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução)
 st.set_page_config(
     page_title="Duarte | Gestão Inteligente",
     page_icon="🏢",
@@ -29,17 +30,17 @@ os.makedirs("uploads", exist_ok=True)
 # 🔌 FUNÇÃO DE CONEXÃO INTELIGENTE (Postgres na Nuvem ou SQLite Local)
 def obter_conexao():
     if DATABASE_URL:
-        # Se estiver no Render com o Postgres configurado
         return psycopg2.connect(DATABASE_URL)
     else:
-        # Fallback para o seu computador local
         return sqlite3.connect("duarte.db", check_same_thread=False)
 
 conn = obter_conexao()
 cursor = conn.cursor()
 
+# Define o marcador de variáveis dinamicamente (%s para Postgres, ? para SQLite)
+p = "%s" if DATABASE_URL else "?"
+
 def init_db():
-    # Adaptação de sintaxe para suportar tanto SQLite quanto PostgreSQL
     id_auto = "SERIAL PRIMARY KEY" if DATABASE_URL else "INTEGER PRIMARY KEY AUTOINCREMENT"
     text_type = "TEXT"
     
@@ -87,23 +88,18 @@ def verificar_senha(senha, senha_hash):
     return bcrypt.checkpw(senha.encode(), senha_hash.encode())
 
 def criar_usuarios_padrao():
-def criar_usuarios_padrao():
     usuarios = [
-        ("Administrador", "admin", "admin@duartegestao.com.br", "11999999999", "00000000000", "Duarte1234#", "admin"),
-        ("Financeiro", "financeiro", "financeiro@duartegestao.com.br", "11999999999", "00000000000", "Duarte1234#", "financeiro"),
-        ("Operacional", "operacional", "operacional@duartegestao.com.br", "11999999999", "00000000000", "Duarte1234#", "operacional")
+        ("Administrador", "admin", "admin@duartegestao.com.br", "11999999999", "00000000000", "1234", "admin"),
+        ("Financeiro", "financeiro", "financeiro@duartegestao.com.br", "11999999999", "00000000000", "1234", "financeiro")
     ]
-    # Define o marcador correto baseado no banco ativo (Postgres usa %s, SQLite usa ?)
-    placeholder = "%s" if DATABASE_URL else "?"
-    
     for nome, usuario, email, telephone, cpf, senha, perfil in usuarios:
         senha_hash = hash_senha(senha)
         try:
             cursor.execute(f"""
             INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil)
-            VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
+            VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})
             """, (nome, usuario, email, telephone, cpf, senha_hash, perfil))
-        except (sqlite3.IntegrityError, psycopg2.errors.UniqueViolation if DATABASE_URL else Exception):
+        except (sqlite3.IntegrityError, Exception):
             if DATABASE_URL:
                 conn.rollback()
     conn.commit()
@@ -111,9 +107,9 @@ def criar_usuarios_padrao():
 criar_usuarios_padrao()
 
 def registrar_log(usuario, acao):
-    cursor.execute("""
+    cursor.execute(f"""
     INSERT INTO logs (usuario, acao, data_hora)
-    VALUES (?, ?, ?)
+    VALUES ({p}, {p}, {p})
     """, (usuario, acao, datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
     conn.commit()
 
@@ -191,7 +187,7 @@ if not st.session_state["logado"]:
             usuario_input = st.text_input("Usuário", key="login_usuario")
             senha_input = st.text_input("Senha", type="password", key="login_senha")
             if st.button("Entrar no ERP", key="btn_login"):
-                cursor.execute("SELECT * FROM usuarios WHERE usuario=?", (usuario_input,))
+                cursor.execute(f"SELECT * FROM usuarios WHERE usuario={p}", (usuario_input,))
                 user = cursor.fetchone()
                 if user and verificar_senha(senha_input, user[6]):
                     st.session_state["logado"] = True
@@ -215,13 +211,13 @@ if not st.session_state["logado"]:
                 if nome and usuario_novo and senha_nova:
                     senha_hash = hash_senha(senha_nova)
                     try:
-                        cursor.execute("""
+                        cursor.execute(f"""
                         INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil)
-                        VALUES (?, ?, ?, ?, ?, ?, 'usuario')
+                        VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 'usuario')
                         """, (nome, usuario_novo, email, telefone, cpf, senha_hash))
                         conn.commit()
                         st.success("✅ Conta criada! Prossiga para a aba de Login.")
-                    except (sqlite3.IntegrityError, psycopg2.errors.UniqueViolation if DATABASE_URL else Exception):
+                    except (sqlite3.IntegrityError, Exception):
                         if DATABASE_URL: conn.rollback()
                         st.error("❌ Este nome de usuário já está em uso.")
                 else:
@@ -256,17 +252,18 @@ if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
 # 📊 DASHBOARD
 if menu == "📊 Dashboard Geral":
     st.title("📊 Painel Executivo")
-    
-    # 🔐 FILTRO DE ACESSO CRÍTICO: Admin/Financeiro vê tudo, usuário comum só vê o dele
     if st.session_state["perfil"] in ["admin", "financeiro"]:
         df = pd.read_sql("SELECT * FROM despesas", conn)
     else:
-        df = pd.read_sql("SELECT * FROM despesas WHERE usuario=?", conn, params=(st.session_state["usuario"],))
+        # Ajustado para aceitar a sintaxe correta em ambos os bancos
+        if DATABASE_URL:
+            df = pd.read_sql("SELECT * FROM despesas WHERE usuario=%s", conn, params=(st.session_state["usuario"],))
+        else:
+            df = pd.read_sql("SELECT * FROM despesas WHERE usuario=?", conn, params=(st.session_state["usuario"],))
         
     total = df["valor"].sum() if not df.empty else 0
     qtd = len(df)
     
-    # KPIs Estilo Clean Moderno
     m1, m2 = st.columns(2)
     with m1:
         st.markdown(f"""<div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #e2e8f0;"><span style="color:#64748b; font-size:14px; font-weight:600;">VALOR TOTAL LANÇADO</span><h2 style="margin:5px 0 0 0; color:#1e293b; font-weight:700;">R$ {total:,.2f}</h2></div>""", unsafe_allow_html=True)
@@ -274,12 +271,8 @@ if menu == "📊 Dashboard Geral":
         st.markdown(f"""<div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #e2e8f0;"><span style="color:#64748b; font-size:14px; font-weight:600;">SOLICITAÇÕES REGISTRADAS</span><h2 style="margin:5px 0 0 0; color:#1e293b; font-weight:700;">{qtd} registros</h2></div>""", unsafe_allow_html=True)
         
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    # 🎯 CORREÇÃO DO GRÁFICO: Agora ele respeita 100% o filtro acima
     if not df.empty:
-        # Se for admin/financeiro, o título avisa que é a visão geral da empresa
         titulo_grafico = "Distribuição de Custos da Empresa por Categoria" if st.session_state["perfil"] in ["admin", "financeiro"] else "Meus Gastos por Categoria"
-        
         fig = px.pie(df, names="categoria", values="valor", hole=0.4, title=titulo_grafico)
         fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#1e293b")
         st.plotly_chart(fig, use_container_width=True)
@@ -308,9 +301,9 @@ elif menu == "💸 Lançar Despesa":
                     caminho_arquivo = os.path.join("uploads", nome_arquivo)
                     with open(caminho_arquivo, "wb") as f: f.write(arquivo.read())
                 
-                cursor.execute("""
+                cursor.execute(f"""
                 INSERT INTO despesas (usuario, descricao, categoria, centro_custo, valor, arquivo, status, data)
-                VALUES (?, ?, ?, ?, ?, ?, 'PENDENTE', ?)
+                VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 'PENDENTE', {p})
                 """, (st.session_state["usuario"], descricao, categoria, centro, valor, caminho_arquivo, datetime.now().strftime("%d/%m/%Y")))
                 conn.commit()
                 registrar_log(st.session_state["usuario"], f"Solicitou Reembolso: {descricao} (R$ {valor:.2f})")
@@ -324,7 +317,10 @@ elif menu == "📋 Relatório de Despesas":
     if st.session_state["perfil"] in ["admin", "financeiro"]:
         df = pd.read_sql("SELECT * FROM despesas ORDER BY id DESC", conn)
     else:
-        df = pd.read_sql("SELECT * FROM despesas WHERE usuario=? ORDER BY id DESC", conn, params=(st.session_state["usuario"],))
+        if DATABASE_URL:
+            df = pd.read_sql("SELECT * FROM despesas WHERE usuario=%s ORDER BY id DESC", conn, params=(st.session_state["usuario"],))
+        else:
+            df = pd.read_sql("SELECT * FROM despesas WHERE usuario=? ORDER BY id DESC", conn, params=(st.session_state["usuario"],))
         
     if df.empty:
         st.warning("Nenhum lançamento pendente ou registrado.")
@@ -346,24 +342,27 @@ elif menu == "📋 Relatório de Despesas":
                 col1, col2, col3, _ = st.columns([1, 1, 1, 3])
                 with col1:
                     if st.button("✅ Aprovar", key=f"ap_{row['id']}"):
-                        cursor.execute("UPDATE despesas SET status='APROVADO' WHERE id=?", (row["id"],))
+                        cursor.execute(f"UPDATE despesas SET status='APROVADO' WHERE id={p}", (row["id"],))
                         conn.commit()
                         registrar_log(st.session_state["usuario"], f"Aprovou a despesa ID {row['id']}")
                         st.rerun()
                 with col2:
                     if st.button("❌ Rejeitar", key=f"rej_{row['id']}"):
-                        cursor.execute("UPDATE despesas SET status='REJEITADO' WHERE id=?", (row["id"],))
+                        cursor.execute(f"UPDATE despesas SET status='REJEITADO' WHERE id={p}", (row["id"],))
                         conn.commit()
                         registrar_log(st.session_state["usuario"], f"Rejeitou a despesa ID {row['id']}")
                         st.rerun()
                 with col3:
                     if st.button("💰 Pagar", key=f"pg_{row['id']}"):
-                        cursor.execute("UPDATE despesas SET status='PAGO' WHERE id=?", (row["id"],))
+                        cursor.execute(f"UPDATE despesas SET status='PAGO' WHERE id={p}", (row["id"],))
                         conn.commit()
                         registrar_log(st.session_state["usuario"], f"Efetuou pagamento da despesa ID {row['id']}")
-                        cursor.execute("SELECT email FROM usuarios WHERE usuario=?", (row['usuario'],))
+                        
+                        # Ajustado busca de email para a sintaxe atual
+                        cursor.execute(f"SELECT email FROM usuarios WHERE usuario={p}", (row['usuario'],))
                         user_email = cursor.fetchone()
-                        if user_email and user_email[0]: enviar_email(user_email[0], row['descricao'], row['valor'])
+                        if user_email and user_email[0]: 
+                            enviar_email(user_email[0], row['descricao'], row['valor'])
                         st.rerun()
 
 # 📜 TIMELINE DE AUDITORIA (LOGS)
