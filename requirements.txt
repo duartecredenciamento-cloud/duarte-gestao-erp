@@ -1,5 +1,6 @@
 streamlit
 pandas
-plotly
 bcrypt
 python-dotenv
+plotly
+psycopg2-binary
