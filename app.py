@@ -77,7 +77,10 @@ def criar_usuarios_padrao():
     usuarios = [
         ("Administrador Geral", "admin", "admin@duartegestao.com.br", "11999999999", "00000000000", SENHA_FORTE_PADRAO, "admin"),
         ("Gestor Operacional", "operacional", "operacional@duartegestao.com.br", "11999999999", "00000000000", SENHA_FORTE_PADRAO, "admin"),
-        ("Financeiro", "financeiro", "financeiro@duartegestao.com.br", "11999999999", "00000000000", SENHA_FORTE_PADRAO, "financeiro")
+        ("Financeiro", "financeiro", "financeiro.duartegestao@gmail.com", "11999999999", "00000000000", SENHA_FORTE_PADRAO, "financeiro"),
+        # Contas da Cristiane e Bethania
+        ("Cristiane", "cristiane", "financeiro.duartegestao@gmail.com", "11999999999", "00000000000", "5678", "financeiro"),
+        ("Bethania", "bethania", "financeiro.duartegestao@gmail.com", "11999999999", "00000000000", "4321", "financeiro")
     ]
     for nome, usuario, email, telefone, cpf, senha, perfil in usuarios:
         try:
