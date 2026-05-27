@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
 import requests  
+import io  # Biblioteca para gerar o arquivo do Excel na memória
 
 # CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução)
 st.set_page_config(
@@ -123,13 +124,13 @@ def registrar_log(usuario, acao):
     """, (usuario, acao, datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
     conn.commit()
 
-def enviar_email(destinatario, descricao, valor):
+# 📬 SISTEMA DE DISPARO DE E-MAIL REAL CONFIGURADO
+def enviar_email(destinatario, assunto, corpo):
     if not EMAIL_REMETENTE or not SENHA_EMAIL:
         return
     try:
-        corpo = f"Reembolso aprovado!\n\nDescrição: {descricao}\nValor: R$ {valor:.2f}\n\nDuarte Gestão"
         msg = MIMEText(corpo)
-        msg["Subject"] = "Reembolso Pago"
+        msg["Subject"] = assunto
         msg["From"] = EMAIL_REMETENTE
         msg["To"] = destinatario
 
@@ -259,11 +260,10 @@ if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
     st.clear()
     st.rerun()
 
-# 📊 DASHBOARD (ETAPA 2: ESTILO POWER BI)
+# 📊 DASHBOARD (COM EXPORTAÇÃO EXCEL)
 if menu == "📊 Dashboard Geral":
     st.title("📊 BI - Painel de Inteligência Financeira")
     
-    # 1. CARGA DE DADOS COM TRAVA DE ACESSO CRÍTICO
     if st.session_state["perfil"] in ["admin", "financeiro"]:
         df_base = pd.read_sql("SELECT * FROM despesas", conn)
     else:
@@ -273,12 +273,9 @@ if menu == "📊 Dashboard Geral":
             df_base = pd.read_sql("SELECT * FROM despesas WHERE usuario=?", conn, params=(st.session_state["usuario"],))
 
     if not df_base.empty:
-        # Tratamento das datas para extrair o Mês/Ano para os filtros
         df_base['date_parsed'] = pd.to_datetime(df_base['data'], format='%d/%m/%Y', errors='coerce')
-        df_base['Mes_Ano'] = df_base['date_parsed'].dt.strftime('%m/%Y')
-        df_base['Mes_Ano'] = df_base['Mes_Ano'].fillna("Sem Data")
+        df_base['Mes_Ano'] = df_base['date_parsed'].dt.strftime('%m/%Y').fillna("Sem Data")
 
-        # 2. SEÇÃO DE FILTROS (ESTILO SEGMENTAÇÃO DE DADOS POWER BI)
         st.markdown("<h3 style='font-size:16px; font-weight:600; color:#475569;'>🎯 Segmentadores de Dados</h3>", unsafe_allow_html=True)
         f1, f2, f3 = st.columns(3)
         
@@ -292,16 +289,11 @@ if menu == "📊 Dashboard Geral":
             lista_status = ["Todos", "PENDENTE", "APROVADO", "PAGO", "REJEITADO"]
             filtro_status = st.selectbox("Filtrar por Status", lista_status)
 
-        # Aplicando as escolhas dos filtros na tabela
         df_filtrado = df_base.copy()
-        if filtro_mes != "Todos":
-            df_filtrado = df_filtrado[df_filtrado['Mes_Ano'] == filtro_mes]
-        if filtro_centro != "Todos":
-            df_filtrado = df_filtrado[df_filtrado['centro_custo'] == filtro_centro]
-        if filtro_status != "Todos":
-            df_filtrado = df_filtrado[df_filtrado['status'] == filtro_status]
+        if filtro_mes != "Todos": df_filtrado = df_filtrado[df_filtrado['Mes_Ano'] == filtro_mes]
+        if filtro_centro != "Todos": df_filtrado = df_filtrado[df_filtrado['centro_custo'] == filtro_centro]
+        if filtro_status != "Todos": df_filtrado = df_filtrado[df_filtrado['status'] == filtro_status]
 
-        # 3. VALORES TOTAIS (CARDS DE KPI PREMIUM)
         total_lancado = df_filtrado["valor"].sum()
         total_pago = df_filtrado[df_filtrado["status"] == "PAGO"]["valor"].sum()
         total_pendente = df_filtrado[df_filtrado["status"] == "PENDENTE"]["valor"].sum()
@@ -311,23 +303,34 @@ if menu == "📊 Dashboard Geral":
         with kpi1:
             st.markdown(f"""<div style="background:#ffffff; padding:22px; border-radius:10px; border:1px solid #e2e8f0; border-left: 5px solid #2563eb;"><span style="color:#64748b; font-size:13px; font-weight:600;">VALOR TOTAL FILTRADO</span><h2 style="margin:5px 0 0 0; color:#1e293b; font-weight:700;">R$ {total_lancado:,.2f}</h2></div>""", unsafe_allow_html=True)
         with kpi2:
-            st.markdown(f"""<div style="background:#ffffff; padding:22px; border-radius:10px; border:1px solid #e2e8f0; border-left: 5px solid #16a34a;"><span style="color:#16a34a; font-size:13px; font-weight:600;">TOTAL EFETIVADO (PAGO)</span><h2 style="margin:5px 0 0 0; color:#16a34a; font-weight:700;">R$ {total_pago:,.2f}</h2></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="background:#ffffff; padding:22px; border-radius:10px; border:1px solid #16a34a; border-left: 5px solid #16a34a;"><span style="color:#16a34a; font-size:13px; font-weight:600;">TOTAL EFETIVADO (PAGO)</span><h2 style="margin:5px 0 0 0; color:#16a34a; font-weight:700;">R$ {total_pago:,.2f}</h2></div>""", unsafe_allow_html=True)
         with kpi3:
-            st.markdown(f"""<div style="background:#ffffff; padding:22px; border-radius:10px; border:1px solid #e2e8f0; border-left: 5px solid #eab308;"><span style="color:#eab308; font-size:13px; font-weight:600;">TOTAL EM ABERTO (PENDENTE)</span><h2 style="margin:5px 0 0 0; color:#eab308; font-weight:700;">R$ {total_pendente:,.2f}</h2></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div style="background:#ffffff; padding:22px; border-radius:10px; border:1px solid #eab308; border-left: 5px solid #eab308;"><span style="color:#eab308; font-size:13px; font-weight:600;">TOTAL EM ABERTO (PENDENTE)</span><h2 style="margin:5px 0 0 0; color:#eab308; font-weight:700;">R$ {total_pendente:,.2f}</h2></div>""", unsafe_allow_html=True)
 
-        # 4. GRÁFICOS AVANÇADOS COMBINADOS
+        # 📊 EXPORTADOR PARA EXCEL AUTOMÁTICO
+        st.markdown("<br>", unsafe_allow_html=True)
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            # Remove coluna temporária antes de exportar
+            df_exportar = df_filtrado.drop(columns=['date_parsed'], errors='ignore')
+            df_exportar.to_excel(writer, index=False, sheet_name='Despesas_Filtradas')
+        
+        st.download_button(
+            label="📊 Exportar Dados Atuais para o Excel (Planilha)",
+            data=buffer.getvalue(),
+            file_name=f"relatorio_financeiro_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
         st.markdown("<br><br>", unsafe_allow_html=True)
         g1, g2 = st.columns(2)
-        
         with g1:
             st.markdown("<h4 style='font-size:16px; font-weight:700; text-align:center;'>Gastos por Categoria</h4>", unsafe_allow_html=True)
             fig_pizza = px.pie(df_filtrado, names="categoria", values="valor", hole=0.4)
             fig_pizza.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#1e293b", margin=dict(t=20, b=20, l=10, r=10))
             st.plotly_chart(fig_pizza, use_container_width=True)
-            
         with g2:
             st.markdown("<h4 style='font-size:16px; font-weight:700; text-align:center;'>Investimento por Centro de Custo</h4>", unsafe_allow_html=True)
-            # Agrupa os valores para criar o gráfico de colunas corporativo
             df_centro = df_filtrado.groupby("centro_custo")["valor"].sum().reset_index()
             fig_barra = px.bar(df_centro, x="centro_custo", y="valor", labels={"valor": "Valor (R$)", "centro_custo": "Centro de Custo"}, text_auto='.2s')
             fig_barra.update_traces(marker_color='#2563eb', textposition='outside')
@@ -336,7 +339,7 @@ if menu == "📊 Dashboard Geral":
     else:
         st.info("Nenhuma transferência financeira encontrada para gerar os painéis do BI.")
 
-# 💸 LANÇAR DESPESA
+# 💸 LANÇAR DESPESA (AVISA O FINANCEIRO POR EMAIL)
 elif menu == "💸 Lançar Despesa":
     st.title("💸 Nova Solicitação de Reembolso")
     col_form, _ = st.columns([2, 1])
@@ -368,11 +371,19 @@ elif menu == "💸 Lançar Despesa":
                 """, (st.session_state["usuario"], descricao, categoria, centro, valor, url_arquivo_nuvem, datetime.now().strftime("%d/%m/%Y")))
                 conn.commit()
                 registrar_log(st.session_state["usuario"], f"Solicitou Reembolso: {descricao} (R$ {valor:.2f})")
-                st.success("✅ Solicitação enviada com comprovante em nuvem!")
+                
+                # 📩 AVISO AUTOMÁTICO PARA O FINANCEIRO
+                enviar_email(
+                    "financeiro@duartegestao.com.br", 
+                    "⚠️ Nova Despesa Lançada no ERP", 
+                    f"Olá Equipe Financeira,\n\nO colaborador '{st.session_state['usuario']}' acabou de lançar uma nova solicitação de reembolso no sistema.\n\nDescrição: {descricao}\nValor: R$ {valor:.2f}\nCentro de Custo: {centro}\n\nAcesse o Painel de Prestação de Contas para avaliar o lançamento."
+                )
+                
+                st.success("✅ Solicitação enviada! O financeiro foi notificado por e-mail.")
                 time.sleep(0.5)
                 st.rerun()
 
-# 📋 RELATÓRIO DE DESPESAS
+# 📋 RELATÓRIO DE DESPESAS (AVISA O FUNCIONÁRIO MUDANÇA DE STATUS)
 elif menu == "📋 Relatório de Despesas":
     st.title("📋 Painel de Prestação de Contas")
     if st.session_state["perfil"] in ["admin", "financeiro"]:
@@ -429,12 +440,26 @@ elif menu == "📋 Relatório de Despesas":
                         cursor.execute(f"UPDATE despesas SET status='APROVADO' WHERE id={p}", (row["id"],))
                         conn.commit()
                         registrar_log(st.session_state["usuario"], f"Aprovou a despesa ID {row['id']}")
+                        
+                        # Notifica o colaborador por e-mail
+                        cursor.execute(f"SELECT email FROM usuarios WHERE usuario={p}", (row['usuario'],))
+                        user_email = cursor.fetchone()
+                        if user_email and user_email[0]:
+                            enviar_email(user_email[0], "✅ Reembolso Aprovado", f"Seu reembolso para '{row['descricao']}' no valor de R$ {row['valor']:.2f} foi APROVADO pelo financeiro e entrou na fila de pagamentos.")
+                        
                         st.rerun()
                 with col2:
                     if st.button("❌ Rejeitar", key=f"rej_{row['id']}"):
                         cursor.execute(f"UPDATE despesas SET status='REJEITADO' WHERE id={p}", (row["id"],))
                         conn.commit()
                         registrar_log(st.session_state["usuario"], f"Rejeitou a despesa ID {row['id']}")
+                        
+                        # Notifica o colaborador por e-mail
+                        cursor.execute(f"SELECT email FROM usuarios WHERE usuario={p}", (row['usuario'],))
+                        user_email = cursor.fetchone()
+                        if user_email and user_email[0]:
+                            enviar_email(user_email[0], "❌ Solicitação de Reembolso Recusada", f"Sua solicitação de reembolso para '{row['descricao']}' (R$ {row['valor']:.2f}) foi recusada pelo financeiro. Verifique os comprovantes anexados ou fale com a gerência.")
+                        
                         st.rerun()
                 with col3:
                     if st.button("💰 Pagar", key=f"pg_{row['id']}"):
@@ -442,10 +467,11 @@ elif menu == "📋 Relatório de Despesas":
                         conn.commit()
                         registrar_log(st.session_state["usuario"], f"Efetuou pagamento da despesa ID {row['id']}")
                         
+                        # Notifica o colaborador por e-mail
                         cursor.execute(f"SELECT email FROM usuarios WHERE usuario={p}", (row['usuario'],))
                         user_email = cursor.fetchone()
                         if user_email and user_email[0]: 
-                            enviar_email(user_email[0], row['descricao'], row['valor'])
+                            enviar_email(user_email[0], "💰 Reembolso Pago com Sucesso", f"Ótimas notícias!\n\nO pagamento do seu reembolso para '{row['descricao']}' no valor de R$ {row['valor']:.2f} foi efetuado pela Duarte Gestão.")
                         st.rerun()
 
 # 📜 TIMELINE DE AUDITORIA (LOGS)
