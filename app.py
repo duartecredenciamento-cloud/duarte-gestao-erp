@@ -7,7 +7,13 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # --- CONEXÃO ---
 def obter_conexao():
-    return psycopg2.connect(DATABASE_URL, sslmode='require') if DATABASE_URL else sqlite3.connect("duarte.db", check_same_thread=False)
+    # Tenta conectar no Postgres, se der qualquer erro, vai direto pro SQLite local
+    try:
+        if DATABASE_URL:
+            return psycopg2.connect(DATABASE_URL, sslmode='require')
+    except:
+        pass
+    return sqlite3.connect("duarte.db", check_same_thread=False)
 
 conn = obter_conexao()
 cursor = conn.cursor()
