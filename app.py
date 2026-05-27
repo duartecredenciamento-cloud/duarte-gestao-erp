@@ -1,6 +1,6 @@
 import streamlit as st
 import sqlite3
-import psycopg2  # Nova biblioteca para o banco na nuvem
+import psycopg2  
 from psycopg2 import errors as pg_errors
 import pandas as pd
 import bcrypt
@@ -11,6 +11,8 @@ import plotly.express as px
 import smtplib
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
+import cloudinary
+import cloudinary.uploader
 
 # CONFIGURAÇÃO DA PÁGINA (Deve ser a primeira instrução)
 st.set_page_config(
@@ -23,11 +25,19 @@ st.set_page_config(
 load_dotenv()
 EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE")
 SENHA_EMAIL = os.getenv("SENHA_EMAIL")
-DATABASE_URL = os.getenv("DATABASE_URL")  # Pega o banco do Render
+DATABASE_URL = os.getenv("DATABASE_URL")  
+
+# CONFIGURAÇÃO DO CLOUDINARY (NUVEM DE ARQUIVOS)
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 os.makedirs("uploads", exist_ok=True)
 
-# 🔌 FUNÇÃO DE CONEXÃO INTELIGENTE (Postgres na Nuvem ou SQLite Local)
+# 🔌 FUNÇÃO DE CONEXÃO INTELIGENTE
 def obter_conexao():
     if DATABASE_URL:
         return psycopg2.connect(DATABASE_URL)
@@ -37,7 +47,6 @@ def obter_conexao():
 conn = obter_conexao()
 cursor = conn.cursor()
 
-# Define o marcador de variáveis dinamicamente (%s para Postgres, ? para SQLite)
 p = "%s" if DATABASE_URL else "?"
 
 def init_db():
@@ -214,7 +223,7 @@ if not st.session_state["logado"]:
                         cursor.execute(f"""
                         INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil)
                         VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 'usuario')
-                        """, (nome, usuario_novo, email, telefone, cpf, senha_hash))
+                        """, (nome, usuario_novo, email, telephone, cpf, senha_hash))
                         conn.commit()
                         st.success("✅ Conta criada! Prossiga para a aba de Login.")
                     except (sqlite3.IntegrityError, Exception):
@@ -255,7 +264,6 @@ if menu == "📊 Dashboard Geral":
     if st.session_state["perfil"] in ["admin", "financeiro"]:
         df = pd.read_sql("SELECT * FROM despesas", conn)
     else:
-        # Ajustado para aceitar a sintaxe correta em ambos os bancos
         if DATABASE_URL:
             df = pd.read_sql("SELECT * FROM despesas WHERE usuario=%s", conn, params=(st.session_state["usuario"],))
         else:
@@ -295,19 +303,24 @@ elif menu == "💸 Lançar Despesa":
             if not descricao or valor <= 0:
                 st.error("Preencha a descrição e defina um valor válido.")
             else:
-                caminho_arquivo = ""
+                url_arquivo_nuvem = ""
                 if arquivo:
-                    nome_arquivo = f"{datetime.now().timestamp()}_{arquivo.name}"
-                    caminho_arquivo = os.path.join("uploads", nome_arquivo)
-                    with open(caminho_arquivo, "wb") as f: f.write(arquivo.read())
+                    with st.spinner("Enviando comprovante para a nuvem segura..."):
+                        try:
+                            # Faz o upload direto para o Cloudinary de forma transparente
+                            upload_result = cloudinary.uploader.upload(arquivo, folder="comprovantes_duarte")
+                            url_arquivo_nuvem = upload_result.get("secure_url")
+                        except Exception as e:
+                            st.error(f"Erro ao salvar arquivo na nuvem: {e}")
+                            st.stop()
                 
                 cursor.execute(f"""
                 INSERT INTO despesas (usuario, descricao, categoria, centro_custo, valor, arquivo, status, data)
                 VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 'PENDENTE', {p})
-                """, (st.session_state["usuario"], descricao, categoria, centro, valor, caminho_arquivo, datetime.now().strftime("%d/%m/%Y")))
+                """, (st.session_state["usuario"], descricao, categoria, centro, valor, url_arquivo_nuvem, datetime.now().strftime("%d/%m/%Y")))
                 conn.commit()
                 registrar_log(st.session_state["usuario"], f"Solicitou Reembolso: {descricao} (R$ {valor:.2f})")
-                st.success("✅ Solicitação enviada!")
+                st.success("✅ Solicitação enviada com comprovante em nuvem!")
                 time.sleep(0.5)
                 st.rerun()
 
@@ -327,6 +340,12 @@ elif menu == "📋 Relatório de Despesas":
     else:
         for _, row in df.iterrows():
             cor_status = "#eab308" if row['status'] == "PENDENTE" else "#16a34a" if row['status'] in ["APROVADO", "PAGO"] else "#dc2626"
+            
+            # Cria o botão de visualizar anexo apenas se o link existir no banco
+            link_anexo = ""
+            if row['arquivo']:
+                link_anexo = f'<br><br><a href="{row["arquivo"]}" target="_blank" style="background:#f1f5f9; color:#2563eb; padding:6px 12px; border-radius:6px; font-size:13px; font-weight:600; text-decoration:none; border:1px solid #cbd5e1;">📄 Visualizar Comprovante</a>'
+
             st.markdown(f"""
             <div class="card-despesa">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -335,6 +354,7 @@ elif menu == "📋 Relatório de Despesas":
                 </div>
                 <div style="margin-top:10px; color:#475569; font-size:14px;">Colaborador: <b>{row['usuario']}</b> | Categoria: <b>{row['categoria']}</b> | Centro: <b>{row['centro_custo']}</b> | Data: {row['data']}</div>
                 <div style="margin-top:10px; font-size:20px; font-weight:700; color:#2563eb;">R$ {row['valor']:.2f}</div>
+                {link_anexo}
             </div>
             """, unsafe_allow_html=True)
             
@@ -358,7 +378,6 @@ elif menu == "📋 Relatório de Despesas":
                         conn.commit()
                         registrar_log(st.session_state["usuario"], f"Efetuou pagamento da despesa ID {row['id']}")
                         
-                        # Ajustado busca de email para a sintaxe atual
                         cursor.execute(f"SELECT email FROM usuarios WHERE usuario={p}", (row['usuario'],))
                         user_email = cursor.fetchone()
                         if user_email and user_email[0]: 
