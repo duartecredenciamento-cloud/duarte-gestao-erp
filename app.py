@@ -77,10 +77,7 @@ def verificar_senha(senha, senha_hash):
     return bcrypt.checkpw(senha.encode(), senha_hash.encode())
 
 def criar_usuarios_padrao():
-    # DEFINIÇÃO DA SENHA FORTE REQUISITADA
     SENHA_FORTE_PADRAO = "Duarte1234#"
-    
-    # Inclusão do Gestor Operacional como perfil admin para ler todos os gráficos macros
     usuarios = [
         ("Administrador Geral", "admin", "admin@duartegestao.com.br", "11999999999", "00000000000", SENHA_FORTE_PADRAO, "admin"),
         ("Gestor Operacional", "operacional", "operacional@duartegestao.com.br", "11999999999", "00000000000", SENHA_FORTE_PADRAO, "admin"),
@@ -89,21 +86,15 @@ def criar_usuarios_padrao():
     for nome, usuario, email, telephone, cpf, senha, perfil in usuarios:
         cursor.execute(f"SELECT id, senha FROM usuarios WHERE usuario={p}", (usuario,))
         registro = cursor.fetchone()
-        
-        # Se o usuário não existir, cria do zero com a senha forte
         if not registro:
             senha_hash = hash_senha(senha)
             try:
-                cursor.execute(f"""
-                INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil)
-                VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})
-                """, (nome, usuario, email, telephone, cpf, senha_hash, perfil))
+                cursor.execute(f"INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})", 
+                               (nome, usuario, email, telephone, cpf, senha_hash, perfil))
             except Exception:
                 if DATABASE_URL: conn.rollback()
         else:
-            # Garante a atualização para a nova senha forte caso o usuário já exista no banco
-            senha_atual_hash = registro[1]
-            if not verificar_senha(SENHA_FORTE_PADRAO, senha_atual_hash):
+            if not verificar_senha(SENHA_FORTE_PADRAO, registro[1]):
                 nova_senha_hash = hash_senha(SENHA_FORTE_PADRAO)
                 cursor.execute(f"UPDATE usuarios SET senha={p} WHERE usuario={p}", (nova_senha_hash, usuario))
     conn.commit()
@@ -130,47 +121,126 @@ def enviar_email(destinatario, assunto, corpo):
     except Exception as e:
         print(f"Erro ao enviar e-mail: {e}")
 
-# INTERFACE VISUAL CLEAN
+# ==============================================================================
+# 🎨 ESTILIZAÇÃO CYBER-PREMIUM (GLASSMORPHISM + BACKGROUND DINÂMICO + GLOW NEON)
+# ==============================================================================
 st.markdown("""
 <style>
-.stApp { background-color: #f8fafc; color: #1e293b; font-family: 'Inter', sans-serif; }
+/* Fundo tecnológico abstrato com conexões e gradiente profundo */
+.stApp {
+    background: linear-gradient(135deg, #06141d 0%, #0b2535 50%, #0d1b2a 100%);
+    background-image: 
+        radial-gradient(circle at 20% 30%, rgba(0, 180, 160, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(37, 99, 235, 0.15) 0%, transparent 40%),
+        url('https://www.transparenttextures.com/patterns/black-thread.png');
+    color: #f1f5f9;
+    font-family: 'Inter', sans-serif;
+}
+
 footer {visibility: hidden;}
-h1, h2, h3, p, label { color: #0f172a !important; }
+
+/* Card de Login Centralizado - Glassmorphism Total */
+.login-card {
+    background: rgba(255, 255, 255, 0.04) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(0, 242, 254, 0.25) !important;
+    padding: 35px !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 242, 254, 0.15), inset 0 0 15px rgba(255,255,255,0.02) !important;
+    margin: 40px auto !important;
+    max-width: 550px !important;
+    text-align: center;
+}
+
+/* Ajustes de Texto no Modo Login */
+.login-card h2, .login-card p, .login-card label {
+    color: #ffffff !important;
+}
+
+/* Customização dos Inputs (Estilo Tátil Escuro) */
 .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
-    background-color: #ffffff !important; color: #1e293b !important; border-radius: 8px !important;
-    border: 1px solid #cbd5e1 !important; padding: 10px !important;
+    background-color: rgba(15, 23, 42, 0.6) !important;
+    color: #ffffff !important;
+    border-radius: 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    padding: 12px !important;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.5) !important;
+    transition: all 0.3s ease;
 }
+.stTextInput input:focus {
+    border-color: #00f2fe !important;
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.4) !important;
+}
+
+/* Linha de Aba Ativa em Gradiente Brilhante */
+div[data-testid="stTabBar"] button[aria-selected="true"] {
+    border-bottom: 3px solid transparent !important;
+    background-image: linear-gradient(to right, #00f2fe, #4facfe) !important;
+    background-size: 100% 3px !important;
+    background-position: bottom 0px left 0px !important;
+    background-repeat: no-repeat !important;
+    color: #00f2fe !important;
+    font-weight: 700 !important;
+}
+
+/* Botão Entrar com Brilho Neon */
 .stButton > button {
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important; color: white !important;
-    border-radius: 8px !important; font-weight: 600 !important; padding: 10px 24px !important;
-    border: none !important; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2) !important;
+    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%) !important;
+    color: #06141d !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    padding: 12px 30px !important;
+    border: none !important;
+    box-shadow: 0 0 15px rgba(0, 242, 254, 0.4) !important;
+    transition: all 0.3s ease !important;
+    width: 100%;
 }
-.card-despesa { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.card-log { background: #ffffff; padding: 12px 20px; border-radius: 8px; border-left: 4px solid #3b82f6; border-bottom: 1px solid #f1f5f9; margin-bottom: 8px; display: flex; justify-content: space-between; }
-section[data-testid="stSidebar"] { background-color: #ffffff !important; border-right: 1px solid #e2e8f0; }
-.user-box { background: #f8fafc; padding: 16px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 25px; }
+.stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 0 25px rgba(0, 242, 254, 0.7) !important;
+}
+
+/* Estilos Internos pós-login (Painéis brancos/limpos para relatórios executivos) */
+.card-despesa { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); color: #1e293b; }
+.card-despesa span, .card-despesa div { color: #1e293b !important; }
+.card-log { background: rgba(255,255,255,0.05); padding: 12px 20px; border-radius: 8px; border-left: 4px solid #00f2fe; margin-bottom: 8px; display: flex; justify-content: space-between; }
+section[data-testid="stSidebar"] { background-color: #091a24 !important; border-right: 1px solid rgba(0,242,254,0.1); }
+section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3, section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] label { color: #ffffff !important; }
+.user-box { background: rgba(255,255,255,0.03); padding: 16px; border-radius: 10px; border: 1px solid rgba(0,242,254,0.1); margin-bottom: 25px; }
 </style>
 """, unsafe_allow_html=True)
 
-col1, col2 = st.columns([1, 6])
-with col1:
-    if os.path.exists("assets/logo.png"): st.image("assets/logo.png", width=90)
-    else: st.markdown("<h1 style='margin:0; font-size: 50px;'>🏢</h1>", unsafe_allow_html=True)
-with col2:
-    st.markdown("<div style='padding-top:5px;'><h2 style='margin:0; font-weight:700;'>Duarte Gestão ERP</h2><p style='margin:0; color:#64748b; font-size:14px;'>Plataforma Corporativa de Controle Financeiro</p></div>", unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
 if "logado" not in st.session_state: st.session_state["logado"] = False
 
+# ==============================================================================
+# INTERFACE DE LOGIN CENTRALIZADA E PROTEGIDA (GLASSMORPHISM)
+# ==============================================================================
 if not st.session_state["logado"]:
-    col_login, _ = st.columns([1, 1])
-    with col_login:
+    # Container centralizado usando colunas do Streamlit
+    _, col_central, _ = st.columns([1, 2, 1])
+    
+    with col_central:
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        
+        # Logo Centralizada
+        if os.path.exists("assets/logo.png"): 
+            st.image("assets/logo.png", width=120)
+        else: 
+            st.markdown("<h1 style='margin:0; font-size: 60px;'>🏢</h1>", unsafe_allow_html=True)
+            
+        st.markdown("""
+            <h2 style='margin-top:10px; font-weight:800; letter-spacing:-0.5px;'>Duarte Gestão ERP</h2>
+            <p style='color:rgba(255,255,255,0.7) !important; font-size:14px; margin-bottom:25px;'>Plataforma Corporativa de Controle Financeiro</p>
+        """, unsafe_allow_html=True)
+        
         abas = st.tabs(["🔐 Acessar Sistema", "📝 Cadastrar Colaborador"])
+        
         with abas[0]:
             st.markdown("<br>", unsafe_allow_html=True)
             usuario_input = st.text_input("Usuário", key="login_usuario")
             senha_input = st.text_input("Senha", type="password", key="login_senha")
+            st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Entrar no ERP", key="btn_login"):
                 cursor.execute(f"SELECT * FROM usuarios WHERE usuario={p}", (usuario_input,))
                 user = cursor.fetchone()
@@ -182,15 +252,18 @@ if not st.session_state["logado"]:
                     st.success("✅ Autenticado com sucesso!")
                     time.sleep(0.5)
                     st.rerun()
-                else: st.error("❌ Credenciais incorretas.")
+                else: 
+                    st.error("❌ Credenciais incorretas.")
+                    
         with abas[1]:
             st.markdown("<br>", unsafe_allow_html=True)
             nome = st.text_input("Nome Completo", key="cad_nome")
             usuario_novo = st.text_input("Nome de Usuário", key="cad_usuario")
             email = st.text_input("E-mail Corporativo", key="cad_email")
             telefone = st.text_input("Telefone (Apenas números)", key="cad_telefone")
-            cpf = st.text_input("CPF (Apenas numbers)", key="cad_cpf")
+            cpf = st.text_input("CPF (Apenas números)", key="cad_cpf")
             senha_nova = st.text_input("Senha de Acesso", type="password", key="cad_senha")
+            st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Finalizar Cadastro", key="btn_criar"):
                 cpf_limpo = "".join(filter(str.isdigit, cpf))
                 if not nome or not usuario_novo or not senha_nova or len(cpf_limpo) != 11:
@@ -198,34 +271,38 @@ if not st.session_state["logado"]:
                 else:
                     senha_hash = hash_senha(senha_nova)
                     try:
-                        cursor.execute(f"INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 'usuario')", 
+                        cursor.execute(f"INSERT INTO usuarios (nome, usuario, email, telephone, cpf, senha, perfil) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 'usuario')", 
                                        (nome, usuario_novo, email, telephone, cpf_limpo, senha_hash))
                         conn.commit()
                         st.success("✅ Conta criada com sucesso!")
                     except Exception:
                         if DATABASE_URL: conn.rollback()
                         st.error("❌ Este nome de usuário já existe.")
+                        
+        st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# SIDEBAR LOGADA
+# ==============================================================================
+# PAINEL INTERNO PÓS-LOGIN
+# ==============================================================================
 st.sidebar.markdown(f"""
 <div class="user-box">
-    <span style="color: #64748b; font-size: 11px; font-weight: 600;">OPERADOR ATIVO</span>
-    <div style="color: #0f172a; font-weight: 700; font-size: 15px;">{st.session_state.get('nome_completo')}</div>
-    <span style="background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block; margin-top: 6px;">💼 {st.session_state.get('perfil').upper()}</span>
+    <span style="color: #00f2fe; font-size: 11px; font-weight: 600;">OPERADOR ATIVO</span>
+    <div style="color: #ffffff; font-weight: 700; font-size: 15px;">{st.session_state.get('nome_completo')}</div>
+    <span style="background: rgba(0,242,254,0.1); color: #00f2fe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block; margin-top: 6px;">💼 {st.session_state.get('perfil').upper()}</span>
 </div>""", unsafe_allow_html=True)
 
 menu = st.sidebar.radio("Navegação", ["📊 Dashboard Geral", "💸 Lançar Despesa", "📋 Relatório de Despesas", "📜 Auditoria (Logs)"])
 
-st.sidebar.markdown("<br><hr style='border-color: #f1f5f9;'><br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br><hr style='border-color: rgba(255,255,255,0.1);'><br>", unsafe_allow_html=True)
 with st.sidebar.expander("📖 Guia Operacional (Assistente)"):
     st.markdown("""
     **Como operar o ERP Duarte:**
     1. **Auditar:** Vá em *Relatório de Despesas* para ver as solicitações da equipe.
     2. **Validar Anexo:** Clique em *Visualizar Comprovante*.
-    3. **Baixar p/ o Drive:** Clique no botão azul *Baixar Arquivo para o Drive* e arraste o arquivo baixado para a pasta oficial do Google Drive da empresa.
-    4. **Mudar Status:** Clique em *Aprovar*, *Rejeitar* ou *Pagar*. O colaborador receberá um e-mail automático na hora.
-    5. **Fechamento do Mês:** Na aba *Dashboard*, use os filtros e clique em *Exportar Dados para o Excel* para gerar o relatório final para a diretoria.
+    3. **Baixar p/ o Drive:** Clique no botão azul *Baixar Arquivo para o Drive*.
+    4. **Mudar Status:** Clique em *Aprovar*, *Rejeitar* ou *Pagar*. O colaborador receberá um e-mail automático.
+    5. **Fechamento do Mês:** Na aba *Dashboard*, use os filtros e clique em *Exportar Dados para o Excel*.
     """)
 
 if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
@@ -233,7 +310,7 @@ if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
     st.clear()
     st.rerun()
 
-# 📊 DASHBOARD (ADMIN E OPERACIONAL VEEM TUDO)
+# 📊 DASHBOARD
 if menu == "📊 Dashboard Geral":
     st.title("📊 BI - Painel de Inteligência Financeira")
     df_base = pd.read_sql("SELECT * FROM despesas", conn) if st.session_state["perfil"] in ["admin", "financeiro"] else pd.read_sql(f"SELECT * FROM despesas WHERE usuario='{st.session_state['usuario']}'", conn)
@@ -242,7 +319,7 @@ if menu == "📊 Dashboard Geral":
         df_base['date_parsed'] = pd.to_datetime(df_base['data'], format='%d/%m/%Y', errors='coerce')
         df_base['Mes_Ano'] = df_base['date_parsed'].dt.strftime('%m/%Y').fillna("Sem Data")
 
-        st.markdown("<h3 style='font-size:16px; font-weight:600; color:#475569;'>🎯 Segmentadores de Dados</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='font-size:16px; font-weight:600; color:#00f2fe;'>🎯 Segmentadores de Dados</h3>", unsafe_allow_html=True)
         f1, f2, f3 = st.columns(3)
         with f1: filtro_mes = st.selectbox("Filtrar por Mês/Ano", ["Todos"] + sorted(list(df_base['Mes_Ano'].unique())))
         with f2: filtro_centro = st.selectbox("Filtrar por Centro de Custo", ["Todos"] + sorted(list(df_base['centro_custo'].unique())))
@@ -254,7 +331,7 @@ if menu == "📊 Dashboard Geral":
         if filtro_status != "Todos": df_filtrado = df_filtrado[df_filtrado['status'] == filtro_status]
 
         kpi1, kpi2, kpi3 = st.columns(3)
-        kpi1.markdown(f'<div style="background:#ffffff; padding:22px; border-radius:10px; border-left: 5px solid #2563eb;"><span style="color:#64748b; font-size:13px; font-weight:600;">VALOR FILTRADO</span><h2 style="margin:5px 0 0 0; font-weight:700;">R$ {df_filtrado["valor"].sum():,.2f}</h2></div>', unsafe_allow_html=True)
+        kpi1.markdown(f'<div style="background:#ffffff; padding:22px; border-radius:10px; border-left: 5px solid #2563eb;"><span style="color:#64748b; font-size:13px; font-weight:600;">VALOR FILTRADO</span><h2 style="margin:5px 0 0 0; font-weight:700; color:#1e293b;">R$ {df_filtrado["valor"].sum():,.2f}</h2></div>', unsafe_allow_html=True)
         kpi2.markdown(f'<div style="background:#ffffff; padding:22px; border-radius:10px; border-left: 5px solid #16a34a;"><span style="color:#16a34a; font-size:13px; font-weight:600;">TOTAL PAGO</span><h2 style="margin:5px 0 0 0; color:#16a34a; font-weight:700;">R$ {df_filtrado[df_filtrado["status"] == "PAGO"]["valor"].sum():,.2f}</h2></div>', unsafe_allow_html=True)
         kpi3.markdown(f'<div style="background:#ffffff; padding:22px; border-radius:10px; border-left: 5px solid #eab308;"><span style="color:#eab308; font-size:13px; font-weight:600;">TOTAL PENDENTE</span><h2 style="margin:5px 0 0 0; color:#eab308; font-weight:700;">R$ {df_filtrado[df_filtrado["status"] == "PENDENTE"]["valor"].sum():,.2f}</h2></div>', unsafe_allow_html=True)
 
@@ -337,7 +414,6 @@ elif menu == "📋 Relatório de Despesas":
                     st.download_button(label="⬇️ Baixar Arquivo para o Drive", data=requests.get(row['arquivo']).content, file_name=f"comprovante_{row['id']}{ext}", mime="application/octet-stream", key=f"dl_{row['id']}")
                 except: pass
 
-            # BOTÕES DE AÇÃO: Visíveis apenas para o Financeiro ou Admin Geral (o gestor operacional não mexe no caixa)
             if st.session_state["perfil"] in ["admin", "financeiro"] and row['status'] == 'PENDENTE':
                 col1, col2, col3, _ = st.columns([1, 1, 1, 3])
                 if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
@@ -367,5 +443,5 @@ elif menu == "📜 Auditoria (Logs)":
         if df_logs.empty: st.info("Sem atividades.")
         else:
             for _, log in df_logs.iterrows():
-                st.markdown(f'<div class="card-log"><div><span style="font-weight:600;">{log["usuario"]}</span><span style="color:#475569; margin-left:8px;">{log["acao"]}</span></div><div style="color:#94a3b8; font-size:12px;">⏱️ {log["data_hora"]}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="card-log"><div><span style="font-weight:600; color:#00f2fe;">{log["usuario"]}</span><span style="color:#ffffff; margin-left:8px;">{log["acao"]}</span></div><div style="color:#94a3b8; font-size:12px;">⏱️ {log["data_hora"]}</div></div>', unsafe_allow_html=True)
     else: st.error("🔒 Restrito.")
