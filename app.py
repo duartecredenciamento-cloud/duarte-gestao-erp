@@ -106,109 +106,93 @@ def registrar_log(usuario, acao):
                    (usuario, acao, datetime.now().strftime("%d/%m/%Y %H:%M:%S")))
     conn.commit()
 
-def enviar_email(destinatario, assunto, corpo):
-    if not EMAIL_REMETENTE or not SENHA_EMAIL: return
-    try:
-        msg = MIMEText(corpo)
-        msg["Subject"] = assunto
-        msg["From"] = EMAIL_REMETENTE
-        msg["To"] = destinatario
-        servidor = smtplib.SMTP("smtp.gmail.com", 587)
-        servidor.starttls()
-        servidor.login(EMAIL_REMETENTE, SENHA_EMAIL)
-        servidor.send_message(msg)
-        servidor.quit()
-    except Exception as e:
-        print(f"Erro ao enviar e-mail: {e}")
-
 # ==============================================================================
-# 🎨 ARQUITETURA CSS: CARD BLINDADO EM MATTE-WHITE & HEADER GLOW INTEGRADO
+# 🎨 ARQUITETURA CSS CORRIGIDA: TOTAL VISIBILIDADE E LOGO OFICIAL
 # ==============================================================================
 st.markdown("""
 <style>
-/* Fundo Dark Tech Premium com malha digital discreta */
+/* Fundo Fixo Escuro Premium para todo o sistema (evita tela branca) */
 .stApp {
     background: radial-gradient(circle at center, #0b2230 0%, #051017 100%) !important;
-    background-image: 
-        radial-gradient(circle at 10% 20%, rgba(0, 242, 254, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 90% 80%, rgba(79, 172, 254, 0.08) 0%, transparent 50%),
-        url('https://www.transparenttextures.com/patterns/subtle-net.png') !important;
     color: #ffffff !important;
     font-family: 'Inter', sans-serif;
 }
 
 footer {visibility: hidden;}
 
-/* Container Unificado de Login (Fundo Branco Opaco Anti-Vazamento) */
+/* Forçar títulos do painel interno a ficarem brancos/neon (Conserta o invisível) */
+h1, h2, h3, .stMarkdown p {
+    color: #ffffff !important;
+}
+.titulo-painel {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 32px !important;
+    margin-bottom: 5px !important;
+}
+.sub-painel {
+    color: #00f2fe !important;
+    font-size: 14px !important;
+    margin-bottom: 25px !important;
+}
+
+/* Container de Login Matte-White Espesso */
 .login-master-card {
     background-color: #ffffff !important;
     border-radius: 18px !important;
-    padding: 0px 0px 40px 0px !important;
-    box-shadow: 0px 15px 35px rgba(0, 0, 0, 0.4) !important;
+    padding: 0px 0px 35px 0px !important;
+    box-shadow: 0px 20px 45px rgba(0, 0, 0, 0.6) !important;
     margin: 40px auto !important;
-    max-width: 540px !important;
+    max-width: 500px !important;
     overflow: hidden !important;
-    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Header Integrado com Borda Iluminada Neon */
+/* Header do Login com a borda brilhante do mockup */
 .brand-glow-header {
-    background: linear-gradient(135deg, #091e2b 0%, #05121a 100%) !important;
-    padding: 35px 20px !important;
+    background: #091e2b !important;
+    padding: 30px 20px !important;
     border-bottom: 4px solid #00f2fe !important;
-    box-shadow: 0px 4px 20px rgba(0, 242, 254, 0.25) !important;
+    box-shadow: 0px 4px 25px rgba(0, 242, 254, 0.3) !important;
     text-align: center !important;
 }
-
-/* Ajuste das fontes internas do Header */
 .brand-glow-header h2 {
     color: #ffffff !important;
     font-weight: 800 !important;
-    font-size: 30px !important;
-    margin: 12px 0 2px 0 !important;
-    letter-spacing: -0.5px !important;
+    font-size: 28px !important;
+    margin: 15px 0 2px 0 !important;
 }
 .brand-glow-header p {
     color: #00f2fe !important;
     font-size: 13px !important;
-    font-weight: 500 !important;
     margin: 0 !important;
 }
 
-/* Envoltório do formulário para dar espaçamento interno */
+/* Corpo do Formulário de Login */
 .form-body-wrapper {
-    padding: 0px 40px !important;
+    padding: 10px 40px 0px 40px !important;
 }
-
-/* Labels das caixas de entrada em tom escuro elegante */
 .form-body-wrapper label {
-    color: #1e293b !important;
+    color: #0f172a !important; /* Texto da Label Escuro no fundo branco */
     font-weight: 600 !important;
-    font-size: 14px !important;
 }
 
-/* Inputs Premium: Fundo branco e texto escuro para leitura perfeita */
+/* Inputs de Texto dentro do Card de Login */
 .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
     background-color: #f8fafc !important;
     color: #0f172a !important;
     border-radius: 8px !important;
     border: 1px solid #cbd5e1 !important;
     padding: 10px !important;
-    font-weight: 500 !important;
-}
-.stTextInput input:focus {
-    border-color: #00f2fe !important;
-    box-shadow: 0 0 8px rgba(0, 242, 254, 0.3) !important;
 }
 
-/* Customização Absoluta das Abas do Streamlit */
+/* Abas do Streamlit na tela de Login */
 div[data-testid="stTabBar"] {
     background-color: #ffffff !important;
     padding: 10px 40px 0px 40px !important;
 }
 div[data-testid="stTabBar"] button {
     color: #64748b !important;
-    font-weight: 500 !important;
 }
 div[data-testid="stTabBar"] button[aria-selected="true"] {
     color: #00f2fe !important;
@@ -216,7 +200,7 @@ div[data-testid="stTabBar"] button[aria-selected="true"] {
     border-bottom: 3px solid #00f2fe !important;
 }
 
-/* Botão Corporativo com o Brilho Certo */
+/* Botão Convidativo com Gradiente Neon */
 .stButton > button {
     background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%) !important;
     color: #051017 !important;
@@ -224,51 +208,42 @@ div[data-testid="stTabBar"] button[aria-selected="true"] {
     font-weight: 700 !important;
     padding: 12px 0px !important;
     border: none !important;
-    box-shadow: 0 4px 15px rgba(0, 242, 254, 0.35) !important;
+    box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3) !important;
     width: 100%;
-    transition: all 0.2s ease !important;
-}
-.stButton > button:hover {
-    box-shadow: 0 6px 22px rgba(0, 242, 254, 0.6) !important;
-    transform: translateY(-1px);
 }
 
-/* Painéis de Pós-Login */
-.card-despesa { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+/* Elementos Pós-Login */
+.card-despesa { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
 .card-despesa span, .card-despesa div, .card-despesa b { color: #1e293b !important; }
 .card-log { background: rgba(255,255,255,0.05); padding: 12px 20px; border-radius: 8px; border-left: 4px solid #00f2fe; margin-bottom: 8px; display: flex; justify-content: space-between; }
 section[data-testid="stSidebar"] { background-color: #06151f !important; border-right: 1px solid rgba(0,242,254,0.2); }
-.user-box { background: rgba(255,255,255,0.03); padding: 16px; border-radius: 10px; border: 1px solid rgba(0,242,254,0.2); margin-bottom: 25px; }
+.user-box { background: rgba(255,255,255,0.03); padding: 16px; border-radius: 10px; border: 1px solid rgba(0,242,254,0.2); margin-top: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
 if "logado" not in st.session_state: st.session_state["logado"] = False
 
+# Mapeia os caminhos possíveis para carregar a logo oficial enviada
+caminho_logo = "logo.JPG" if os.path.exists("logo.JPG") else ("logo.png" if os.path.exists("logo.png") else None)
+
 # ==============================================================================
-# INTERFACE DE LOGIN UNIFICADA
+# INTERFACE DE LOGIN (CARD UNIFICADO COM LOGO REAL)
 # ==============================================================================
 if not st.session_state["logado"]:
     _, col_central, _ = st.columns([1, 1.8, 1])
     
     with col_central:
-        # Abertura do Card Geral Mestre
         st.markdown('<div class="login-master-card">', unsafe_allow_html=True)
         
-        # Bloco de Marca Injetado (Logo Expandida + Cabeçalho Neon)
-        st.markdown("""
-        <div class="brand-glow-header">
-            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
-                <div style="background-color: #0b2230; padding: 14px 28px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-                    <span style="color: #ffffff; font-weight: 800; font-size: 24px; letter-spacing: -0.5px;">Duarte</span>
-                    <span style="color: #eab308; font-weight: 900; font-size: 24px; margin-left: -2px;">•</span>
-                </div>
-            </div>
-            <h2>Duarte Gestão ERP</h2>
-            <p>Plataforma Corporativa de Controle Financeiro</p>
-        </div>
-        """, unsafe_allow_html=True)
+        # Cabeçalho estruturado com imagem da logo real
+        st.markdown('<div class="brand-glow-header">', unsafe_allow_html=True)
+        if caminho_logo:
+            st.image(caminho_logo, width=160)
+        else:
+            st.markdown("<h1 style='margin:0; font-size: 40px;'>🏢</h1>", unsafe_allow_html=True)
+        st.markdown('<h2>Duarte Gestão ERP</h2>', unsafe_allow_html=True)
+        st.markdown('<p>Plataforma Corporativa de Controle Financeiro</p></div>', unsafe_allow_html=True)
         
-        # Início das Abas com tratamento interno
         abas = st.tabs(["🔐 Acessar Sistema", "📝 Cadastrar Colaborador"])
         
         with abas[0]:
@@ -297,7 +272,7 @@ if not st.session_state["logado"]:
             usuario_novo = st.text_input("Nome de Usuário", key="cad_usuario")
             email = st.text_input("E-mail Corporativo", key="cad_email")
             telefone = st.text_input("Telefone (Apenas números)", key="cad_telefone")
-            cpf = st.text_input("CPF (Apenas numbers)", key="cad_cpf")
+            cpf = st.text_input("CPF (Apenas números)", key="cad_cpf")
             senha_nova = st.text_input("Senha de Acesso", type="password", key="cad_senha")
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Finalizar Cadastro", key="btn_criar"):
@@ -316,13 +291,18 @@ if not st.session_state["logado"]:
                         st.error("❌ Este nome de usuário já existe.")
             st.markdown('</div>', unsafe_allow_html=True)
                         
-        # Fechamento do Card Mestre
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
 # ==============================================================================
-# PAINEL INTERNO PÓS-LOGIN
+# PAINEL INTERNO PÓS-LOGIN (TEXTOS CLAROS E VISÍVEIS)
 # ==============================================================================
+# Logo Oficial no topo da Sidebar para dar identidade corporativa
+if caminho_logo:
+    st.sidebar.image(caminho_logo, use_container_width=True)
+else:
+    st.sidebar.markdown("<h2 style='text-align:center; color:white;'>🏢 Duarte Gestão</h2>", unsafe_allow_html=True)
+
 st.sidebar.markdown(f"""
 <div class="user-box">
     <span style="color: #00f2fe; font-size: 11px; font-weight: 600;">OPERADOR ATIVO</span>
@@ -330,7 +310,7 @@ st.sidebar.markdown(f"""
     <span style="background: rgba(0,242,254,0.1); color: #00f2fe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block; margin-top: 6px;">💼 {st.session_state.get('perfil').upper()}</span>
 </div>""", unsafe_allow_html=True)
 
-menu = st.sidebar.radio("Navegação", ["📊 Dashboard Geral", "💸 Lançar Despesa", "📋 Relatório de Despesas", "📜 Auditoria (Logs)"])
+menu = st.sidebar.radio("Navegação", ["📊 Painel Geral", "💸 Lançar Despesa", "📋 Relatório de Despesas", "📜 Auditório (Logs)"])
 
 st.sidebar.markdown("<br><hr style='border-color: rgba(255,255,255,0.1);'><br>", unsafe_allow_html=True)
 with st.sidebar.expander("📖 Guia Operacional (Assistente)"):
@@ -338,9 +318,7 @@ with st.sidebar.expander("📖 Guia Operacional (Assistente)"):
     **Como operar o ERP Duarte:**
     1. **Auditar:** Vá em *Relatório de Despesas*.
     2. **Validar Anexo:** Clique em *Visualizar Comprovante*.
-    3. **Baixar p/ o Drive:** Clique no botão azul *Baixar Arquivo para o Drive*.
-    4. **Mudar Status:** Aprove, Rejeite ou Pague.
-    5. **Fechamento:** Baixe a planilha Excel no Dashboard.
+    3. **Mudar Status:** Aprove, Rejeite ou Pague.
     """)
 
 if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
@@ -348,9 +326,9 @@ if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
     st.clear()
     st.rerun()
 
-# 📊 DASHBOARD
-if menu == "📊 Dashboard Geral":
-    st.title("📊 BI - Painel de Inteligência Financeira")
+# 📊 DASHBOARD GERAL
+if menu == "📊 Painel Geral":
+    st.markdown('<div class="titulo-painel">BI - Painel de Inteligência Financeira</div>', unsafe_allow_html=True)
     df_base = pd.read_sql("SELECT * FROM despesas", conn) if st.session_state["perfil"] in ["admin", "financeiro"] else pd.read_sql(f"SELECT * FROM despesas WHERE usuario='{st.session_state['usuario']}'", conn)
 
     if not df_base.empty:
@@ -386,11 +364,12 @@ if menu == "📊 Dashboard Geral":
         with g2:
             df_centro = df_filtrado.groupby("centro_custo")["valor"].sum().reset_index()
             st.plotly_chart(px.bar(df_centro, x="centro_custo", y="valor", title="Investimento por Centro de Custo", text_auto='.2s'), use_container_width=True)
-    else: st.info("Nenhum dado encontrado.")
+    else: 
+        st.info("Nenhum dado encontrado.")
 
 # 💸 LANÇAR DESPESA
 elif menu == "💸 Lançar Despesa":
-    st.title("💸 Nova Solicitação de Reembolso")
+    st.markdown('<div class="titulo-painel">💸 Nova Solicitação de Reembolso</div>', unsafe_allow_html=True)
     col_form, _ = st.columns([2, 1])
     with col_form:
         descricao = st.text_input("Descrição Clara do Gasto")
@@ -418,17 +397,16 @@ elif menu == "💸 Lançar Despesa":
                                (st.session_state["usuario"], descricao, categoria, centro, valor, url_arquivo_nuvem, datetime.now().strftime("%d/%m/%Y")))
                 conn.commit()
                 registrar_log(st.session_state["usuario"], f"Solicitou Reembolso: {descricao} (R$ {valor:.2f})")
-                
-                enviar_email("financeiro@duartegestao.com.br", "⚠️ Nova Despesa Lançada", f"Reembolso de R$ {valor:.2f} por {st.session_state['usuario']}.")
                 st.success("✅ Solicitação enviada!")
                 time.sleep(0.5); st.rerun()
 
 # 📋 RELATÓRIO DE DESPESAS
 elif menu == "📋 Relatório de Despesas":
-    st.title("📋 Painel de Prestação de Contas")
+    st.markdown('<div class="titulo-painel">📋 Painel de Prestação de Contas</div>', unsafe_allow_html=True)
     df = pd.read_sql("SELECT * FROM despesas ORDER BY id DESC", conn) if st.session_state["perfil"] in ["admin", "financeiro"] else pd.read_sql(f"SELECT * FROM despesas WHERE usuario='{st.session_state['usuario']}' ORDER BY id DESC", conn)
         
-    if df.empty: st.warning("Nenhum lançamento registrado.")
+    if df.empty: 
+        st.warning("Nenhum lançamento registrado.")
     else:
         for _, row in df.iterrows():
             cor_status = "#eab308" if row['status'] == "PENDENTE" else "#16a34a" if row['status'] in ["APROVADO", "PAGO"] else "#dc2626"
@@ -444,12 +422,6 @@ elif menu == "📋 Relatório de Despesas":
                 <div style="margin-top:10px; font-size:20px; font-weight:700; color:#2563eb;">R$ {row['valor']:.2f}</div>
                 <div style="margin-top:15px; display: flex; align-items: center;">{link_visualizar}</div>
             </div>""", unsafe_allow_html=True)
-            
-            if row['arquivo']:
-                try:
-                    ext = ".pdf" if ".pdf" in row['arquivo'].lower() else ".png"
-                    st.download_button(label="⬇️ Baixar Arquivo para o Drive", data=requests.get(row['arquivo']).content, file_name=f"comprovante_{row['id']}{ext}", mime="application/octet-stream", key=f"dl_{row['id']}")
-                except: pass
 
             if st.session_state["perfil"] in ["admin", "financeiro"] and row['status'] == 'PENDENTE':
                 col1, col2, col3, _ = st.columns([1, 1, 1, 3])
@@ -466,13 +438,14 @@ elif menu == "📋 Relatório de Despesas":
                     registrar_log(st.session_state["usuario"], f"Pagou despesa ID {row['id']}")
                     st.rerun()
 
-# 📜 LOGS
-elif menu == "📜 Auditoria (Logs)":
-    st.title("📜 Trilha de Auditoria e Segurança")
+# 📜 AUDITORIA (LOGS)
+elif menu == "📜 Auditório (Logs)":
+    st.markdown('<div class="titulo-painel">📜 Trilha de Auditoria e Segurança</div>', unsafe_allow_html=True)
     if st.session_state["perfil"] in ["admin", "financeiro"]:
         df_logs = pd.read_sql("SELECT * FROM logs ORDER BY id DESC LIMIT 50", conn)
         if df_logs.empty: st.info("Sem atividades.")
         else:
             for _, log in df_logs.iterrows():
                 st.markdown(f'<div class="card-log"><div><span style="font-weight:600; color:#00f2fe;">{log["usuario"]}</span><span style="color:#ffffff; margin-left:8px;">{log["acao"]}</span></div><div style="color:#94a3b8; font-size:12px;">⏱️ {log["data_hora"]}</div></div>', unsafe_allow_html=True)
-    else: st.error("🔒 Restrito.")
+    else: 
+        st.error("🔒 Restrito.")
