@@ -197,8 +197,11 @@ section[data-testid="stSidebar"] { background-color: #06151f !important; border-
 
 if "logado" not in st.session_state: st.session_state["logado"] = False
 
-# Localiza e define a logo padrão
-caminho_logo = "logo.JPG" if os.path.exists("logo.JPG") else ("logo.png" if os.path.exists("logo.png") else None)
+# ==============================================================================
+# DEFINIÇÃO DA LOGO OFICIAL (CORRIGIDO PARA O SEU ARQUIVO)
+# ==============================================================================
+# Procura diretamente pelo arquivo correto enviado por você
+caminho_logo = "logo_2.JPG" if os.path.exists("logo_2.JPG") else ("logo.JPG" if os.path.exists("logo.JPG") else None)
 
 # ==============================================================================
 # INTERFACE DE LOGIN PURE CLEAN DARK
