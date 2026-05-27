@@ -122,117 +122,118 @@ def enviar_email(destinatario, assunto, corpo):
         print(f"Erro ao enviar e-mail: {e}")
 
 # ==============================================================================
-# 🎨 ESTILIZAÇÃO CYBER-PREMIUM (GLASSMORPHISM + BACKGROUND DINÂMICO + GLOW NEON)
+# 🎨 NOVO CSS CORRIGIDO: ESCURO, HIGH-CONTRAST E MODERNO (SEM BUG)
 # ==============================================================================
 st.markdown("""
 <style>
-/* Fundo tecnológico abstrato com conexões e gradiente profundo */
+/* Fundo Escuro Sólido Cyber-Petróleo Premium */
 .stApp {
-    background: linear-gradient(135deg, #06141d 0%, #0b2535 50%, #0d1b2a 100%);
-    background-image: 
-        radial-gradient(circle at 20% 30%, rgba(0, 180, 160, 0.15) 0%, transparent 40%),
-        radial-gradient(circle at 80% 70%, rgba(37, 99, 235, 0.15) 0%, transparent 40%),
-        url('https://www.transparenttextures.com/patterns/black-thread.png');
-    color: #f1f5f9;
+    background: radial-gradient(circle at center, #0b2230 0%, #051017 100%) !important;
+    color: #ffffff !important;
     font-family: 'Inter', sans-serif;
 }
 
 footer {visibility: hidden;}
 
-/* Card de Login Centralizado - Glassmorphism Total */
-.login-card {
-    background: rgba(255, 255, 255, 0.04) !important;
-    backdrop-filter: blur(16px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+/* Card de Login com container robusto para não vazar o fundo */
+.login-box-container {
+    background-color: rgba(11, 34, 48, 0.85) !important;
+    border: 2px solid #00f2fe !important;
     border-radius: 16px !important;
-    border: 1px solid rgba(0, 242, 254, 0.25) !important;
-    padding: 35px !important;
-    box-shadow: 0 8px 32px 0 rgba(0, 242, 254, 0.15), inset 0 0 15px rgba(255,255,255,0.02) !important;
-    margin: 40px auto !important;
-    max-width: 550px !important;
-    text-align: center;
+    padding: 40px !important;
+    box-shadow: 0px 0px 30px rgba(0, 242, 254, 0.3) !important;
+    text-align: center !important;
+    margin-top: 30px;
 }
 
-/* Ajustes de Texto no Modo Login */
-.login-card h2, .login-card p, .login-card label {
+/* Forçar textos brancos e visíveis */
+.main-title {
     color: #ffffff !important;
+    font-weight: 800 !important;
+    font-size: 32px !important;
+    margin-bottom: 2px !important;
+    text-shadow: 0px 2px 10px rgba(0,0,0,0.5);
+}
+.sub-title {
+    color: #00f2fe !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    margin-bottom: 20px !important;
 }
 
-/* Customização dos Inputs (Estilo Tátil Escuro) */
+/* Corrigindo os Inputs para ficarem brancos e nítidos por dentro */
 .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
-    background-color: rgba(15, 23, 42, 0.6) !important;
-    color: #ffffff !important;
-    border-radius: 10px !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    padding: 12px !important;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.5) !important;
-    transition: all 0.3s ease;
+    background-color: #ffffff !important;
+    color: #051017 !important;
+    border-radius: 8px !important;
+    border: 2px solid rgba(255, 255, 255, 0.2) !important;
+    padding: 10px !important;
+    font-weight: 600 !important;
 }
 .stTextInput input:focus {
     border-color: #00f2fe !important;
-    box-shadow: 0 0 10px rgba(0, 242, 254, 0.4) !important;
 }
 
-/* Linha de Aba Ativa em Gradiente Brilhante */
+/* Alinhamento das Labels */
+label {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+/* Abas Customizadas */
+div[data-testid="stTabBar"] button {
+    color: #a0aec0 !important;
+}
 div[data-testid="stTabBar"] button[aria-selected="true"] {
-    border-bottom: 3px solid transparent !important;
-    background-image: linear-gradient(to right, #00f2fe, #4facfe) !important;
-    background-size: 100% 3px !important;
-    background-position: bottom 0px left 0px !important;
-    background-repeat: no-repeat !important;
     color: #00f2fe !important;
     font-weight: 700 !important;
+    border-bottom: 3px solid #00f2fe !important;
 }
 
-/* Botão Entrar com Brilho Neon */
+/* Botão Convidativo com Gradiente Brilhante */
 .stButton > button {
     background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%) !important;
-    color: #06141d !important;
-    border-radius: 10px !important;
+    color: #051017 !important;
+    border-radius: 8px !important;
     font-weight: 700 !important;
-    padding: 12px 30px !important;
+    padding: 12px 0px !important;
     border: none !important;
-    box-shadow: 0 0 15px rgba(0, 242, 254, 0.4) !important;
-    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4) !important;
     width: 100%;
 }
 .stButton > button:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 0 25px rgba(0, 242, 254, 0.7) !important;
+    box-shadow: 0 4px 25px rgba(0, 242, 254, 0.8) !important;
+    transform: scale(1.01);
 }
 
-/* Estilos Internos pós-login (Painéis brancos/limpos para relatórios executivos) */
-.card-despesa { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); color: #1e293b; }
-.card-despesa span, .card-despesa div { color: #1e293b !important; }
+/* Ajustes pós-login */
+.card-despesa { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+.card-despesa span, .card-despesa div, .card-despesa b { color: #1e293b !important; }
 .card-log { background: rgba(255,255,255,0.05); padding: 12px 20px; border-radius: 8px; border-left: 4px solid #00f2fe; margin-bottom: 8px; display: flex; justify-content: space-between; }
-section[data-testid="stSidebar"] { background-color: #091a24 !important; border-right: 1px solid rgba(0,242,254,0.1); }
-section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3, section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] label { color: #ffffff !important; }
-.user-box { background: rgba(255,255,255,0.03); padding: 16px; border-radius: 10px; border: 1px solid rgba(0,242,254,0.1); margin-bottom: 25px; }
+section[data-testid="stSidebar"] { background-color: #06151f !important; border-right: 1px solid rgba(0,242,254,0.2); }
+.user-box { background: rgba(255,255,255,0.03); padding: 16px; border-radius: 10px; border: 1px solid rgba(0,242,254,0.2); margin-bottom: 25px; }
 </style>
 """, unsafe_allow_html=True)
 
 if "logado" not in st.session_state: st.session_state["logado"] = False
 
 # ==============================================================================
-# INTERFACE DE LOGIN CENTRALIZADA E PROTEGIDA (GLASSMORPHISM)
+# INTERFACE DE LOGIN CORRIGIDA
 # ==============================================================================
 if not st.session_state["logado"]:
-    # Container centralizado usando colunas do Streamlit
-    _, col_central, _ = st.columns([1, 2, 1])
+    _, col_central, _ = st.columns([1, 1.8, 1])
     
     with col_central:
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        # Criando o container via HTML seguro para blindar o visual
+        st.markdown('<div class="login-box-container">', unsafe_allow_html=True)
         
-        # Logo Centralizada
         if os.path.exists("assets/logo.png"): 
-            st.image("assets/logo.png", width=120)
+            st.image("assets/logo.png", width=110)
         else: 
-            st.markdown("<h1 style='margin:0; font-size: 60px;'>🏢</h1>", unsafe_allow_html=True)
+            st.markdown("<h1 style='margin:0; font-size: 50px;'>🏢</h1>", unsafe_allow_html=True)
             
-        st.markdown("""
-            <h2 style='margin-top:10px; font-weight:800; letter-spacing:-0.5px;'>Duarte Gestão ERP</h2>
-            <p style='color:rgba(255,255,255,0.7) !important; font-size:14px; margin-bottom:25px;'>Plataforma Corporativa de Controle Financeiro</p>
-        """, unsafe_allow_html=True)
+        st.markdown('<h2 class="main-title">Duarte Gestão ERP</h2>', unsafe_allow_html=True)
+        st.markdown('<p class="sub-title">Plataforma Corporativa de Controle Financeiro</p>', unsafe_allow_html=True)
         
         abas = st.tabs(["🔐 Acessar Sistema", "📝 Cadastrar Colaborador"])
         
@@ -271,7 +272,7 @@ if not st.session_state["logado"]:
                 else:
                     senha_hash = hash_senha(senha_nova)
                     try:
-                        cursor.execute(f"INSERT INTO usuarios (nome, usuario, email, telephone, cpf, senha, perfil) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 'usuario')", 
+                        cursor.execute(f"INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 'usuario')", 
                                        (nome, usuario_novo, email, telephone, cpf_limpo, senha_hash))
                         conn.commit()
                         st.success("✅ Conta criada com sucesso!")
@@ -298,11 +299,11 @@ st.sidebar.markdown("<br><hr style='border-color: rgba(255,255,255,0.1);'><br>",
 with st.sidebar.expander("📖 Guia Operacional (Assistente)"):
     st.markdown("""
     **Como operar o ERP Duarte:**
-    1. **Auditar:** Vá em *Relatório de Despesas* para ver as solicitações da equipe.
+    1. **Auditar:** Vá em *Relatório de Despesas*.
     2. **Validar Anexo:** Clique em *Visualizar Comprovante*.
     3. **Baixar p/ o Drive:** Clique no botão azul *Baixar Arquivo para o Drive*.
-    4. **Mudar Status:** Clique em *Aprovar*, *Rejeitar* ou *Pagar*. O colaborador receberá um e-mail automático.
-    5. **Fechamento do Mês:** Na aba *Dashboard*, use os filtros e clique em *Exportar Dados para o Excel*.
+    4. **Mudar Status:** Aprove, Rejeite ou Pague.
+    5. **Fechamento:** Baixe a planilha Excel no Dashboard.
     """)
 
 if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
@@ -339,7 +340,7 @@ if menu == "📊 Dashboard Geral":
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
             df_filtrado.drop(columns=['date_parsed'], errors='ignore').to_excel(writer, index=False, sheet_name='Despesas')
-        st.download_button(label="📊 Exportar Dados Atuais para o Excel (Planilha)", data=buffer.getvalue(), file_name="relatorio_duarte.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        st.download_button(label="📊 Exportar Dados Atuais para o Excel", data=buffer.getvalue(), file_name="relatorio_duarte.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
         st.markdown("<br>", unsafe_allow_html=True)
         g1, g2 = st.columns(2)
@@ -366,7 +367,7 @@ elif menu == "💸 Lançar Despesa":
             if not descricao or valor <= 0:
                 st.error("❌ Preencha a descrição e um valor válido.")
             elif not arquivo:
-                st.error("❌ Governança Duarte: É obrigatório anexar o comprovante fiscal para solicitar reembolso.")
+                st.error("❌ Governança Duarte: É obrigatório anexar o comprovante fiscal.")
             else:
                 url_arquivo_nuvem = ""
                 with st.spinner("Enviando comprovante para a nuvem segura..."):
@@ -381,9 +382,8 @@ elif menu == "💸 Lançar Despesa":
                 conn.commit()
                 registrar_log(st.session_state["usuario"], f"Solicitou Reembolso: {descricao} (R$ {valor:.2f})")
                 
-                enviar_email("financeiro@duartegestao.com.br", "⚠️ Nova Despesa Lançada no ERP", 
-                             f"Olá Equipe Financeira,\n\nO colaborador '{st.session_state['usuario']}' lançou um reembolso de R$ {valor:.2f} ({categoria}).\n\nVerifique no painel do ERP.")
-                st.success("✅ Solicitação enviada! Comprovante salvo e Financeiro avisado.")
+                enviar_email("financeiro@duartegestao.com.br", "⚠️ Nova Despesa Lançada", f"Reembolso de R$ {valor:.2f} por {st.session_state['usuario']}.")
+                st.success("✅ Solicitação enviada!")
                 time.sleep(0.5); st.rerun()
 
 # 📋 RELATÓRIO DE DESPESAS
@@ -419,9 +419,6 @@ elif menu == "📋 Relatório de Despesas":
                 if col1.button("✅ Aprovar", key=f"ap_{row['id']}"):
                     cursor.execute(f"UPDATE despesas SET status='APROVADO' WHERE id={p}", (row["id"],)); conn.commit()
                     registrar_log(st.session_state["usuario"], f"Aprovou despesa ID {row['id']}")
-                    cursor.execute(f"SELECT email FROM usuarios WHERE usuario={p}", (row['usuario'],))
-                    email_user = cursor.fetchone()
-                    if email_user and email_user[0]: enviar_email(email_user[0], "✅ Reembolso Aprovado", f"Seu reembolso para '{row['descricao']}' (R$ {row['valor']:.2f}) foi APROVADO.")
                     st.rerun()
                 if col2.button("❌ Rejeitar", key=f"rej_{row['id']}"):
                     cursor.execute(f"UPDATE despesas SET status='REJEITADO' WHERE id={p}", (row["id"],)); conn.commit()
@@ -430,9 +427,6 @@ elif menu == "📋 Relatório de Despesas":
                 if col3.button("💰 Pagar", key=f"pg_{row['id']}"):
                     cursor.execute(f"UPDATE despesas SET status='PAGO' WHERE id={p}", (row["id"],)); conn.commit()
                     registrar_log(st.session_state["usuario"], f"Pagou despesa ID {row['id']}")
-                    cursor.execute(f"SELECT email FROM usuarios WHERE usuario={p}", (row['usuario'],))
-                    email_user = cursor.fetchone()
-                    if email_user and email_user[0]: enviar_email(email_user[0], "💰 Reembolso Pago", f"O pagamento de R$ {row['valor']:.2f} foi efetuado.")
                     st.rerun()
 
 # 📜 LOGS
