@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import sqlite3
 import os
+import psycopg2
 
 # --- CONEXÃO ---
 def get_db():
