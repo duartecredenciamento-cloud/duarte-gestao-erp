@@ -8,13 +8,9 @@ import os
 import time
 from datetime import datetime
 import plotly.express as px
-import smtplib
-from email.mime.text import MIMEText
 from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
-import requests  
-import io  
 
 # CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(
@@ -25,8 +21,6 @@ st.set_page_config(
 )
 
 load_dotenv()
-EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE")
-SENHA_EMAIL = os.getenv("SENHA_EMAIL")
 DATABASE_URL = os.getenv("DATABASE_URL")  
 
 # CONFIGURAÇÃO DO CLOUDINARY
@@ -107,116 +101,155 @@ def registrar_log(usuario, acao):
     conn.commit()
 
 # ==============================================================================
-# 🎨 ESTILIZAÇÃO CSS: VISUAL ESCURO, CLEAN E SEM BOXES INTRUSIVOS
+# 🎨 ESTILIZAÇÃO CSS: CLÁSSICO E ULTRA CLEAN (FONTE E INPUTS CORRIGIDOS)
 # ==============================================================================
 st.markdown("""
 <style>
-/* Fundo Escuro Corporativo Padrão */
+/* Fundo Claro, Neutro e Sofisticado */
 .stApp {
-    background: radial-gradient(circle at center, #0b2230 0%, #051017 100%) !important;
-    color: #ffffff !important;
+    background-color: #f8fafc !important;
+    color: #1e293b !important;
     font-family: 'Inter', sans-serif;
 }
 
 footer {visibility: hidden;}
 
-/* Textos do Painel Interno Sempre Visíveis */
-h1, h2, h3, .stMarkdown p {
-    color: #ffffff !important;
-}
-.titulo-painel {
-    color: #ffffff !important;
-    font-weight: 800 !important;
-    font-size: 30px !important;
-    margin-bottom: 20px !important;
+/* Força os Textos das Etiquetas (Labels) a ficarem Escuros e Nítidos */
+label, .stWidgetLabel p, [data-testid="stMetricLabel"] {
+    color: #334155 !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
 }
 
-/* Área de Login Clean e Escura */
+/* Customização dos Inputs - Fundo Branco com Bordas Finas Elevadas */
+.stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    padding: 10px !important;
+    font-weight: 500 !important;
+}
+
+/* Títulos do Painel Principal */
+h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+}
+.titulo-painel {
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    font-size: 28px !important;
+    margin-bottom: 25px !important;
+}
+
+/* Área de Login Clean Centralizada */
 .login-container {
-    max-width: 480px;
-    margin: 60px auto;
-    padding: 20px;
+    max-width: 450px;
+    margin: 50px auto;
+    padding: 30px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    border: 1px solid #e2e8f0;
     text-align: center;
 }
 .login-title {
-    color: #ffffff !important;
+    color: #0f172a !important;
     font-weight: 700 !important;
-    font-size: 28px !important;
+    font-size: 24px !important;
     margin-top: 15px !important;
     margin-bottom: 5px !important;
 }
 .login-subtitle {
-    color: #00f2fe !important;
+    color: #64748b !important;
     font-size: 13px !important;
-    margin-bottom: 30px !important;
+    margin-bottom: 25px !important;
 }
 
-/* Customização dos Inputs para o modo Escuro */
-.stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
-    background-color: rgba(255, 255, 255, 0.07) !important;
-    color: #ffffff !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-radius: 8px !important;
-    padding: 10px !important;
-}
-
-/* Abas Customizadas */
+/* Abas Customizadas Modernas */
 div[data-testid="stTabBar"] {
     background-color: transparent !important;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 div[data-testid="stTabBar"] button {
-    color: #94a3b8 !important;
+    color: #64748b !important;
 }
 div[data-testid="stTabBar"] button[aria-selected="true"] {
-    color: #00f2fe !important;
+    color: #1e40af !important;
     font-weight: 700 !important;
-    border-bottom: 2px solid #00f2fe !important;
+    border-bottom: 2px solid #1e40af !important;
 }
 
-/* Botão Padrão Neon */
+/* Botões do Sistema - Azul Corporativo Limpo */
 .stButton > button {
-    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%) !important;
-    color: #051017 !important;
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%) !important;
+    color: #ffffff !important;
     border-radius: 8px !important;
-    font-weight: 700 !important;
-    padding: 12px 0px !important;
+    font-weight: 600 !important;
+    padding: 10px 0px !important;
     border: none !important;
-    box-shadow: 0 4px 15px rgba(0, 242, 254, 0.2) !important;
+    box-shadow: 0 4px 10px rgba(30, 64, 175, 0.15) !important;
     width: 100%;
+    transition: all 0.2s ease;
 }
 
-/* Painel de Lançamentos Internos */
-.card-despesa { background: rgba(255, 255, 255, 0.04); padding: 20px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 15px; }
-.card-despesa span, .card-despesa div, .card-despesa b { color: #ffffff !important; }
-.card-log { background: rgba(255,255,255,0.03); padding: 12px 20px; border-radius: 8px; border-left: 4px solid #00f2fe; margin-bottom: 8px; display: flex; justify-content: space-between; }
-section[data-testid="stSidebar"] { background-color: #06151f !important; border-right: 1px solid rgba(0,242,254,0.1); }
-.user-box { background: rgba(255,255,255,0.03); padding: 16px; border-radius: 10px; border: 1px solid rgba(0,242,254,0.1); margin-top: 15px; }
+/* Painel de Lançamentos Internos - Cards Claros Clean */
+.card-despesa { 
+    background: #ffffff; 
+    padding: 20px; 
+    border-radius: 10px; 
+    border: 1px solid #e2e8f0; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    margin-bottom: 15px; 
+}
+.card-despesa span, .card-despesa div, .card-despesa b { color: #1e293b !important; }
+
+/* Logs de Auditoria */
+.card-log { 
+    background: #ffffff; 
+    padding: 12px 20px; 
+    border-radius: 8px; 
+    border-left: 4px solid #3b82f6; 
+    border-top: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 8px; 
+    display: flex; 
+    justify-content: space-between; 
+}
+
+/* Barra Lateral (Sidebar) Clara */
+section[data-testid="stSidebar"] { 
+    background-color: #ffffff !important; 
+    border-right: 1px solid #e2e8f0; 
+}
+.user-box { 
+    background: #f8fafc; 
+    padding: 16px; 
+    border-radius: 10px; 
+    border: 1px solid #e2e8f0; 
+    margin-top: 15px; 
+}
 </style>
 """, unsafe_allow_html=True)
 
 if "logado" not in st.session_state: st.session_state["logado"] = False
 
-# ==============================================================================
-# DEFINIÇÃO DA LOGO OFICIAL (CORRIGIDO PARA O SEU ARQUIVO)
-# ==============================================================================
-# Procura diretamente pelo arquivo correto enviado por você
-caminho_logo = "logo_2.JPG" if os.path.exists("logo_2.JPG") else ("logo.JPG" if os.path.exists("logo.JPG") else None)
+# LINK DIRETO DA LOGO OFICIAL UPADO NA WEB PARA EVITAR ERRO DE CAMINHO
+URL_LOGO_OFICIAL = "https://i.imgur.com/GscTBeS.jpg"
 
 # ==============================================================================
-# INTERFACE DE LOGIN PURE CLEAN DARK
+# INTERFACE DE LOGIN CLASSIC CLEAN LIGHT
 # ==============================================================================
 if not st.session_state["logado"]:
-    _, col_central, _ = st.columns([1, 1.5, 1])
+    _, col_central, _ = st.columns([1, 1.3, 1])
     
     with col_central:
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         
-        # Renderização direta da Logo Oficial
-        if caminho_logo:
-            st.image(caminho_logo, width=180)
-        else:
-            st.markdown("<h1 style='margin:0; font-size: 40px;'>🏢</h1>", unsafe_allow_html=True)
+        # Carrega a logo direto do servidor de imagem estável
+        st.image(URL_LOGO_OFICIAL, width=220)
             
         st.markdown('<div class="login-title">Duarte Gestão ERP</div>', unsafe_allow_html=True)
         st.markdown('<div class="login-subtitle">Plataforma Corporativa de Controle Financeiro</div>', unsafe_allow_html=True)
@@ -270,20 +303,21 @@ if not st.session_state["logado"]:
     st.stop()
 
 # ==============================================================================
-# PAINEL INTERNO PÓS-LOGIN
+# PAINEL INTERNO PÓS-LOGIN (LIGHT CLEAN)
 # ==============================================================================
-if caminho_logo:
-    st.sidebar.image(caminho_logo, use_container_width=True)
+st.sidebar.image(URL_LOGO_OFICIAL, use_container_width=True)
 
 st.sidebar.markdown(f"""
 <div class="user-box">
-    <span style="color: #00f2fe; font-size: 11px; font-weight: 600;">OPERADOR ATIVO</span>
-    <div style="color: #ffffff; font-weight: 700; font-size: 15px;">{st.session_state.get('nome_completo')}</div>
-    <span style="background: rgba(0,242,254,0.1); color: #00f2fe; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block; margin-top: 6px;">💼 {st.session_state.get('perfil').upper()}</span>
+    <span style="color: #1e40af; font-size: 11px; font-weight: 600;">OPERADOR ATIVO</span>
+    <div style="color: #0f172a; font-weight: 700; font-size: 15px;">{st.session_state.get('nome_completo')}</div>
+    <span style="background: rgba(30,64,175,0.1); color: #1e40af; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-block; margin-top: 6px;">💼 {st.session_state.get('perfil').upper()}</span>
 </div>""", unsafe_allow_html=True)
 
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
 menu = st.sidebar.radio("Navegação", ["📊 Painel Geral", "💸 Lançar Despesa", "📋 Relatório de Despesas", "📜 Auditório (Logs)"])
 
+st.sidebar.markdown("<br><hr style='border-color:#e2e8f0;'><br>", unsafe_allow_html=True)
 if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
     st.session_state["logado"] = False
     st.clear()
@@ -309,17 +343,21 @@ if menu == "📊 Painel Geral":
         if filtro_status != "Todos": df_filtrado = df_filtrado[df_filtrado['status'] == filtro_status]
 
         kpi1, kpi2, kpi3 = st.columns(3)
-        kpi1.markdown(f'<div style="background:rgba(255,255,255,0.05); padding:22px; border-radius:10px; border-left: 5px solid #2563eb;"><span style="color:#94a3b8; font-size:13px; font-weight:600;">VALOR FILTRADO</span><h2 style="margin:5px 0 0 0; font-weight:700; color:#ffffff;">R$ {df_filtrado["valor"].sum():,.2f}</h2></div>', unsafe_allow_html=True)
-        kpi2.markdown(f'<div style="background:rgba(255,255,255,0.05); padding:22px; border-radius:10px; border-left: 5px solid #16a34a;"><span style="color:#16a34a; font-size:13px; font-weight:600;">TOTAL PAGO</span><h2 style="margin:5px 0 0 0; color:#16a34a; font-weight:700;">R$ {df_filtrado[df_filtrado["status"] == "PAGO"]["valor"].sum():,.2f}</h2></div>', unsafe_allow_html=True)
-        kpi3.markdown(f'<div style="background:rgba(255,255,255,0.05); padding:22px; border-radius:10px; border-left: 5px solid #eab308;"><span style="color:#eab308; font-size:13px; font-weight:600;">TOTAL PENDENTE</span><h2 style="margin:5px 0 0 0; color:#eab308; font-weight:700;">R$ {df_filtrado[df_filtrado["status"] == "PENDENTE"]["valor"].sum():,.2f}</h2></div>', unsafe_allow_html=True)
+        kpi1.markdown(f'<div style="background:#ffffff; padding:22px; border-radius:10px; border-left: 5px solid #2563eb; box-shadow: 0 2px 4px rgba(0,0,0,0.02);"><span style="color:#64748b; font-size:13px; font-weight:600;">VALOR FILTRADO</span><h2 style="margin:5px 0 0 0; font-weight:700; color:#0f172a;">R$ {df_filtrado["valor"].sum():,.2f}</h2></div>', unsafe_allow_html=True)
+        kpi2.markdown(f'<div style="background:#ffffff; padding:22px; border-radius:10px; border-left: 5px solid #16a34a; box-shadow: 0 2px 4px rgba(0,0,0,0.02);"><span style="color:#16a34a; font-size:13px; font-weight:600;">TOTAL PAGO</span><h2 style="margin:5px 0 0 0; color:#16a34a; font-weight:700;">R$ {df_filtrado[df_filtrado["status"] == "PAGO"]["valor"].sum():,.2f}</h2></div>', unsafe_allow_html=True)
+        kpi3.markdown(f'<div style="background:#ffffff; padding:22px; border-radius:10px; border-left: 5px solid #eab308; box-shadow: 0 2px 4px rgba(0,0,0,0.02);"><span style="color:#eab308; font-size:13px; font-weight:600;">TOTAL PENDENTE</span><h2 style="margin:5px 0 0 0; color:#eab308; font-weight:700;">R$ {df_filtrado[df_filtrado["status"] == "PENDENTE"]["valor"].sum():,.2f}</h2></div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
         g1, g2 = st.columns(2)
         with g1:
-            st.plotly_chart(px.pie(df_filtrado, names="categoria", values="valor", hole=0.4, title="Gastos por Categoria"), use_container_width=True)
+            fig_p = px.pie(df_filtrado, names="categoria", values="valor", hole=0.4, title="Gastos por Categoria")
+            fig_p.update_layout(template="plotly_white")
+            st.plotly_chart(fig_p, use_container_width=True)
         with g2:
             df_centro = df_filtrado.groupby("centro_custo")["valor"].sum().reset_index()
-            st.plotly_chart(px.bar(df_centro, x="centro_custo", y="valor", title="Investimento por Centro de Custo"), use_container_width=True)
+            fig_b = px.bar(df_centro, x="centro_custo", y="valor", title="Investimento por Centro de Custo")
+            fig_b.update_layout(template="plotly_white")
+            st.plotly_chart(fig_b, use_container_width=True)
     else: 
         st.info("Nenhum dado encontrado.")
 
@@ -363,10 +401,10 @@ elif menu == "📋 Relatório de Despesas":
             st.markdown(f"""
             <div class="card-despesa">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:18px; font-weight:700;">{row['descricao']}</span>
+                    <span style="font-size:16px; font-weight:700; color:#0f172a;">{row['descricao']}</span>
                     <span style="background:{cor_status}; color:white; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600;">{row['status']}</span>
                 </div>
-                <div style="margin-top:10px; font-size:20px; font-weight:700; color:#00f2fe;">R$ {row['valor']:.2f}</div>
+                <div style="margin-top:10px; font-size:18px; font-weight:700; color:#1e40af;">R$ {row['valor']:.2f}</div>
             </div>""", unsafe_allow_html=True)
 
 # 📜 AUDITORIA (LOGS)
@@ -377,4 +415,4 @@ elif menu == "📜 Auditório (Logs)":
         if df_logs.empty: st.info("Sem atividades.")
         else:
             for _, log in df_logs.iterrows():
-                st.markdown(f'<div class="card-log"><div><span style="font-weight:600; color:#00f2fe;">{log["usuario"]}</span><span style="color:#ffffff; margin-left:8px;">{log["acao"]}</span></div><div style="color:#94a3b8; font-size:12px;">⏱️ {log["data_hora"]}</div></div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="card-log"><div><span style="font-weight:600; color:#1e40af;">{log["usuario"]}</span><span style="color:#334155; margin-left:8px;">{log["acao"]}</span></div><div style="color:#64748b; font-size:12px;">⏱️ {log["data_hora"]}</div></div>', unsafe_allow_html=True)
