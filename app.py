@@ -255,16 +255,14 @@ section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, sectio
 if "logado" not in st.session_state: st.session_state["logado"] = False
 
 # ==============================================================================
-# INTERFACE DE LOGIN UNIFICADA
+# INTERFACE DE LOGIN UNIFICADA - VERSÃO CORRIGIDA
 # ==============================================================================
 if not st.session_state["logado"]:
     _, col_central, _ = st.columns([1, 1.8, 1])
 
     with col_central:
-        # Abertura do Card Geral Mestre
         st.markdown('<div class="login-master-card">', unsafe_allow_html=True)
 
-        # Bloco de Marca Injetado (Logo Expandida + Cabeçalho Neon)
         st.markdown("""
         <div class="brand-glow-header">
             <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
@@ -278,7 +276,6 @@ if not st.session_state["logado"]:
         </div>
         """, unsafe_allow_html=True)
 
-        # Início das Abas com tratamento interno
         abas = st.tabs(["🔐 Acessar Sistema", "📝 Cadastrar Colaborador"])
 
         with abas[0]:
@@ -286,9 +283,13 @@ if not st.session_state["logado"]:
             usuario_input = st.text_input("Usuário", key="login_usuario")
             senha_input = st.text_input("Senha", type="password", key="login_senha")
             st.markdown("<br>", unsafe_allow_html=True)
+            
             if st.button("Entrar no ERP", key="btn_login"):
-                cursor.execute(f"SELECT * FROM usuarios WHERE usuario={p}", (usuario_input,))
+                # Busca usando o parâmetro 'p' (que você definiu como %s ou ?)
+                cursor.execute(f"SELECT id, nome, usuario, email, telefone, cpf, senha, perfil FROM usuarios WHERE usuario={p}", (usuario_input,))
                 user = cursor.fetchone()
+                
+                # A função verificar_senha já tem a lógica das senhas 5678/4321
                 if user and verificar_senha(senha_input, user[6]):
                     st.session_state["logado"] = True
                     st.session_state["usuario"] = user[2]
@@ -307,26 +308,27 @@ if not st.session_state["logado"]:
             usuario_novo = st.text_input("Nome de Usuário", key="cad_usuario")
             email = st.text_input("E-mail Corporativo", key="cad_email")
             telefone = st.text_input("Telefone (Apenas números)", key="cad_telefone")
-            cpf = st.text_input("CPF (Apenas numbers)", key="cad_cpf")
+            cpf = st.text_input("CPF (Apenas números)", key="cad_cpf")
             senha_nova = st.text_input("Senha de Acesso", type="password", key="cad_senha")
             st.markdown("<br>", unsafe_allow_html=True)
+            
             if st.button("Finalizar Cadastro", key="btn_criar"):
                 cpf_limpo = "".join(filter(str.isdigit, cpf))
                 if not nome or not usuario_novo or not senha_nova or len(cpf_limpo) != 11:
-                    st.error("❌ Preencha todos os campos. O CPF deve conter exatamente 11 dígitos numéricos.")
+                    st.error("❌ Preencha todos os campos. O CPF deve conter 11 dígitos.")
                 else:
                     senha_hash = hash_senha(senha_nova)
                     try:
+                        # CORRIGIDO: Agora usando a variável 'telefone' correta
                         cursor.execute(f"INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 'usuario')",
-                                       (nome, usuario_novo, email, telephone, cpf_limpo, senha_hash))
+                                       (nome, usuario_novo, email, telefone, cpf_limpo, senha_hash))
                         conn.commit()
                         st.success("✅ Conta criada com sucesso!")
-                    except Exception:
+                    except Exception as e:
                         if DATABASE_URL: conn.rollback()
-                        st.error("❌ Este nome de usuário já existe.")
+                        st.error(f"❌ Erro ao salvar: {e}")
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # Fechamento do Card Mestre
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
