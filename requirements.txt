@@ -1,8 +1,8 @@
 streamlit
-pandas
-bcrypt
-python-dotenv
-plotly
 psycopg2-binary
+bcrypt
+pandas
+plotly
+python-dotenv
 cloudinary
-requests
+openpyxl
