@@ -122,67 +122,93 @@ def enviar_email(destinatario, assunto, corpo):
         print(f"Erro ao enviar e-mail: {e}")
 
 # ==============================================================================
-# 🎨 NOVO CSS CORRIGIDO: ESCURO, HIGH-CONTRAST E MODERNO (SEM BUG)
+# 🎨 ARQUITETURA CSS: CARD BLINDADO EM MATTE-WHITE & HEADER GLOW INTEGRADO
 # ==============================================================================
 st.markdown("""
 <style>
-/* Fundo Escuro Sólido Cyber-Petróleo Premium */
+/* Fundo Dark Tech Premium com malha digital discreta */
 .stApp {
     background: radial-gradient(circle at center, #0b2230 0%, #051017 100%) !important;
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(0, 242, 254, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 90% 80%, rgba(79, 172, 254, 0.08) 0%, transparent 50%),
+        url('https://www.transparenttextures.com/patterns/subtle-net.png') !important;
     color: #ffffff !important;
     font-family: 'Inter', sans-serif;
 }
 
 footer {visibility: hidden;}
 
-/* Card de Login com container robusto para não vazar o fundo */
-.login-box-container {
-    background-color: rgba(11, 34, 48, 0.85) !important;
-    border: 2px solid #00f2fe !important;
-    border-radius: 16px !important;
-    padding: 40px !important;
-    box-shadow: 0px 0px 30px rgba(0, 242, 254, 0.3) !important;
-    text-align: center !important;
-    margin-top: 30px;
+/* Container Unificado de Login (Fundo Branco Opaco Anti-Vazamento) */
+.login-master-card {
+    background-color: #ffffff !important;
+    border-radius: 18px !important;
+    padding: 0px 0px 40px 0px !important;
+    box-shadow: 0px 15px 35px rgba(0, 0, 0, 0.4) !important;
+    margin: 40px auto !important;
+    max-width: 540px !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
 }
 
-/* Forçar textos brancos e visíveis */
-.main-title {
+/* Header Integrado com Borda Iluminada Neon */
+.brand-glow-header {
+    background: linear-gradient(135deg, #091e2b 0%, #05121a 100%) !important;
+    padding: 35px 20px !important;
+    border-bottom: 4px solid #00f2fe !important;
+    box-shadow: 0px 4px 20px rgba(0, 242, 254, 0.25) !important;
+    text-align: center !important;
+}
+
+/* Ajuste das fontes internas do Header */
+.brand-glow-header h2 {
     color: #ffffff !important;
     font-weight: 800 !important;
-    font-size: 32px !important;
-    margin-bottom: 2px !important;
-    text-shadow: 0px 2px 10px rgba(0,0,0,0.5);
+    font-size: 30px !important;
+    margin: 12px 0 2px 0 !important;
+    letter-spacing: -0.5px !important;
 }
-.sub-title {
+.brand-glow-header p {
     color: #00f2fe !important;
-    font-size: 14px !important;
+    font-size: 13px !important;
     font-weight: 500 !important;
-    margin-bottom: 20px !important;
+    margin: 0 !important;
 }
 
-/* Corrigindo os Inputs para ficarem brancos e nítidos por dentro */
-.stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
-    background-color: #ffffff !important;
-    color: #051017 !important;
-    border-radius: 8px !important;
-    border: 2px solid rgba(255, 255, 255, 0.2) !important;
-    padding: 10px !important;
+/* Envoltório do formulário para dar espaçamento interno */
+.form-body-wrapper {
+    padding: 0px 40px !important;
+}
+
+/* Labels das caixas de entrada em tom escuro elegante */
+.form-body-wrapper label {
+    color: #1e293b !important;
     font-weight: 600 !important;
+    font-size: 14px !important;
+}
+
+/* Inputs Premium: Fundo branco e texto escuro para leitura perfeita */
+.stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    border-radius: 8px !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 10px !important;
+    font-weight: 500 !important;
 }
 .stTextInput input:focus {
     border-color: #00f2fe !important;
+    box-shadow: 0 0 8px rgba(0, 242, 254, 0.3) !important;
 }
 
-/* Alinhamento das Labels */
-label {
-    color: #ffffff !important;
-    font-weight: 600 !important;
+/* Customização Absoluta das Abas do Streamlit */
+div[data-testid="stTabBar"] {
+    background-color: #ffffff !important;
+    padding: 10px 40px 0px 40px !important;
 }
-
-/* Abas Customizadas */
 div[data-testid="stTabBar"] button {
-    color: #a0aec0 !important;
+    color: #64748b !important;
+    font-weight: 500 !important;
 }
 div[data-testid="stTabBar"] button[aria-selected="true"] {
     color: #00f2fe !important;
@@ -190,7 +216,7 @@ div[data-testid="stTabBar"] button[aria-selected="true"] {
     border-bottom: 3px solid #00f2fe !important;
 }
 
-/* Botão Convidativo com Gradiente Brilhante */
+/* Botão Corporativo com o Brilho Certo */
 .stButton > button {
     background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%) !important;
     color: #051017 !important;
@@ -198,15 +224,16 @@ div[data-testid="stTabBar"] button[aria-selected="true"] {
     font-weight: 700 !important;
     padding: 12px 0px !important;
     border: none !important;
-    box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4) !important;
+    box-shadow: 0 4px 15px rgba(0, 242, 254, 0.35) !important;
     width: 100%;
+    transition: all 0.2s ease !important;
 }
 .stButton > button:hover {
-    box-shadow: 0 4px 25px rgba(0, 242, 254, 0.8) !important;
-    transform: scale(1.01);
+    box-shadow: 0 6px 22px rgba(0, 242, 254, 0.6) !important;
+    transform: translateY(-1px);
 }
 
-/* Ajustes pós-login */
+/* Painéis de Pós-Login */
 .card-despesa { background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
 .card-despesa span, .card-despesa div, .card-despesa b { color: #1e293b !important; }
 .card-log { background: rgba(255,255,255,0.05); padding: 12px 20px; border-radius: 8px; border-left: 4px solid #00f2fe; margin-bottom: 8px; display: flex; justify-content: space-between; }
@@ -218,27 +245,34 @@ section[data-testid="stSidebar"] { background-color: #06151f !important; border-
 if "logado" not in st.session_state: st.session_state["logado"] = False
 
 # ==============================================================================
-# INTERFACE DE LOGIN CORRIGIDA
+# INTERFACE DE LOGIN UNIFICADA
 # ==============================================================================
 if not st.session_state["logado"]:
     _, col_central, _ = st.columns([1, 1.8, 1])
     
     with col_central:
-        # Criando o container via HTML seguro para blindar o visual
-        st.markdown('<div class="login-box-container">', unsafe_allow_html=True)
+        # Abertura do Card Geral Mestre
+        st.markdown('<div class="login-master-card">', unsafe_allow_html=True)
         
-        if os.path.exists("assets/logo.png"): 
-            st.image("assets/logo.png", width=110)
-        else: 
-            st.markdown("<h1 style='margin:0; font-size: 50px;'>🏢</h1>", unsafe_allow_html=True)
-            
-        st.markdown('<h2 class="main-title">Duarte Gestão ERP</h2>', unsafe_allow_html=True)
-        st.markdown('<p class="sub-title">Plataforma Corporativa de Controle Financeiro</p>', unsafe_allow_html=True)
+        # Bloco de Marca Injetado (Logo Expandida + Cabeçalho Neon)
+        st.markdown("""
+        <div class="brand-glow-header">
+            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
+                <div style="background-color: #0b2230; padding: 14px 28px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                    <span style="color: #ffffff; font-weight: 800; font-size: 24px; letter-spacing: -0.5px;">Duarte</span>
+                    <span style="color: #eab308; font-weight: 900; font-size: 24px; margin-left: -2px;">•</span>
+                </div>
+            </div>
+            <h2>Duarte Gestão ERP</h2>
+            <p>Plataforma Corporativa de Controle Financeiro</p>
+        </div>
+        """, unsafe_allow_html=True)
         
+        # Início das Abas com tratamento interno
         abas = st.tabs(["🔐 Acessar Sistema", "📝 Cadastrar Colaborador"])
         
         with abas[0]:
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('<div class="form-body-wrapper"><br>', unsafe_allow_html=True)
             usuario_input = st.text_input("Usuário", key="login_usuario")
             senha_input = st.text_input("Senha", type="password", key="login_senha")
             st.markdown("<br>", unsafe_allow_html=True)
@@ -255,14 +289,15 @@ if not st.session_state["logado"]:
                     st.rerun()
                 else: 
                     st.error("❌ Credenciais incorretas.")
+            st.markdown('</div>', unsafe_allow_html=True)
                     
         with abas[1]:
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('<div class="form-body-wrapper"><br>', unsafe_allow_html=True)
             nome = st.text_input("Nome Completo", key="cad_nome")
             usuario_novo = st.text_input("Nome de Usuário", key="cad_usuario")
             email = st.text_input("E-mail Corporativo", key="cad_email")
             telefone = st.text_input("Telefone (Apenas números)", key="cad_telefone")
-            cpf = st.text_input("CPF (Apenas números)", key="cad_cpf")
+            cpf = st.text_input("CPF (Apenas numbers)", key="cad_cpf")
             senha_nova = st.text_input("Senha de Acesso", type="password", key="cad_senha")
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Finalizar Cadastro", key="btn_criar"):
@@ -279,7 +314,9 @@ if not st.session_state["logado"]:
                     except Exception:
                         if DATABASE_URL: conn.rollback()
                         st.error("❌ Este nome de usuário já existe.")
+            st.markdown('</div>', unsafe_allow_html=True)
                         
+        # Fechamento do Card Mestre
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
