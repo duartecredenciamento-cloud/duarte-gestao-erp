@@ -87,19 +87,23 @@ def verificar_senha(senha, senha_hash):
     return bcrypt.checkpw(senha.encode(), senha_hash.encode())
 
 def criar_usuarios_padrao():
+def criar_usuarios_padrao():
     usuarios = [
-        ("Administrador", "admin", "admin@duartegestao.com.br", "11999999999", "00000000000", "1234", "admin"),
-        ("Financeiro", "financeiro", "financeiro@duartegestao.com.br", "11999999999", "00000000000", "1234", "financeiro")
+        ("Administrador", "admin", "admin@duartegestao.com.br", "11999999999", "00000000000", "Duarte1234#", "admin"),
+        ("Financeiro", "financeiro", "financeiro@duartegestao.com.br", "11999999999", "00000000000", "Duarte1234#", "financeiro"),
+        ("Operacional", "operacional", "operacional@duartegestao.com.br", "11999999999", "00000000000", "Duarte1234#", "operacional")
     ]
+    # Define o marcador correto baseado no banco ativo (Postgres usa %s, SQLite usa ?)
+    placeholder = "%s" if DATABASE_URL else "?"
+    
     for nome, usuario, email, telephone, cpf, senha, perfil in usuarios:
         senha_hash = hash_senha(senha)
         try:
-            cursor.execute("""
+            cursor.execute(f"""
             INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
             """, (nome, usuario, email, telephone, cpf, senha_hash, perfil))
         except (sqlite3.IntegrityError, psycopg2.errors.UniqueViolation if DATABASE_URL else Exception):
-            # Ignora se o usuário já existir (evita crash em ambos os bancos)
             if DATABASE_URL:
                 conn.rollback()
     conn.commit()
