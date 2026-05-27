@@ -252,6 +252,8 @@ if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
 # 📊 DASHBOARD
 if menu == "📊 Dashboard Geral":
     st.title("📊 Painel Executivo")
+    
+    # 🔐 FILTRO DE ACESSO CRÍTICO: Admin/Financeiro vê tudo, usuário comum só vê o dele
     if st.session_state["perfil"] in ["admin", "financeiro"]:
         df = pd.read_sql("SELECT * FROM despesas", conn)
     else:
@@ -260,6 +262,7 @@ if menu == "📊 Dashboard Geral":
     total = df["valor"].sum() if not df.empty else 0
     qtd = len(df)
     
+    # KPIs Estilo Clean Moderno
     m1, m2 = st.columns(2)
     with m1:
         st.markdown(f"""<div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #e2e8f0;"><span style="color:#64748b; font-size:14px; font-weight:600;">VALOR TOTAL LANÇADO</span><h2 style="margin:5px 0 0 0; color:#1e293b; font-weight:700;">R$ {total:,.2f}</h2></div>""", unsafe_allow_html=True)
@@ -267,8 +270,13 @@ if menu == "📊 Dashboard Geral":
         st.markdown(f"""<div style="background:#ffffff; padding:20px; border-radius:8px; border:1px solid #e2e8f0;"><span style="color:#64748b; font-size:14px; font-weight:600;">SOLICITAÇÕES REGISTRADAS</span><h2 style="margin:5px 0 0 0; color:#1e293b; font-weight:700;">{qtd} registros</h2></div>""", unsafe_allow_html=True)
         
     st.markdown("<br>", unsafe_allow_html=True)
+    
+    # 🎯 CORREÇÃO DO GRÁFICO: Agora ele respeita 100% o filtro acima
     if not df.empty:
-        fig = px.pie(df, names="categoria", values="valor", hole=0.4, title="Distribuição de Custos por Categoria")
+        # Se for admin/financeiro, o título avisa que é a visão geral da empresa
+        titulo_grafico = "Distribuição de Custos da Empresa por Categoria" if st.session_state["perfil"] in ["admin", "financeiro"] else "Meus Gastos por Categoria"
+        
+        fig = px.pie(df, names="categoria", values="valor", hole=0.4, title=titulo_grafico)
         fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="#1e293b")
         st.plotly_chart(fig, use_container_width=True)
     else:
