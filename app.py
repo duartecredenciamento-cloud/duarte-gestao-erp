@@ -79,21 +79,35 @@ def criar_usuarios_padrao():
         ("Gestor Operacional", "operacional", "operacional@duartegestao.com.br", "11999999999", "00000000000", SENHA_FORTE_PADRAO, "admin"),
         ("Financeiro", "financeiro", "financeiro@duartegestao.com.br", "11999999999", "00000000000", SENHA_FORTE_PADRAO, "financeiro")
     ]
-    for nome, usuario, email, telephone, cpf, senha, perfil in usuarios:
-        cursor.execute(f"SELECT id, senha FROM usuarios WHERE usuario={p}", (usuario,))
-        registro = cursor.fetchone()
+    for nome, usuario, email, telefone, cpf, senha, perfil in usuarios:
+        try:
+            cursor.execute(f"SELECT id, senha FROM usuarios WHERE usuario={p}", (usuario,))
+            registro = cursor.fetchone()
+        except Exception as e:
+            if DATABASE_URL: conn.rollback()
+            print(f"Erro ao buscar usuario {usuario}: {e}")
+            registro = None
+
         if not registro:
             senha_hash = hash_senha(senha)
             try:
                 cursor.execute(f"INSERT INTO usuarios (nome, usuario, email, telefone, cpf, senha, perfil) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})",
-                               (nome, usuario, email, telephone, cpf, senha_hash, perfil))
-            except Exception:
+                               (nome, usuario, email, telefone, cpf, senha_hash, perfil))
+                conn.commit()
+            except Exception as e:
                 if DATABASE_URL: conn.rollback()
+                print(f"Erro crítico ao inserir usuario {usuario}: {e}")
         else:
-            if not verificar_senha(SENHA_FORTE_PADRAO, registro[1]):
-                nova_senha_hash = hash_senha(SENHA_FORTE_PADRAO)
+            try:
+                if not verificar_senha(SENHA_FORTE_PADRAO, registro[1]):
+                    nova_senha_hash = hash_senha(SENHA_FORTE_PADRAO)
+                    cursor.execute(f"UPDATE usuarios SET senha={p} WHERE usuario={p}", (nova_senha_hash, usuario))
+                    conn.commit()
+            except Exception as e:
+                if DATABASE_URL: conn.rollback()
+                print(f"Erro ao atualizar senha de {usuario}: {e}")
                 cursor.execute(f"UPDATE usuarios SET senha={p} WHERE usuario={p}", (nova_senha_hash, usuario))
-    conn.commit()
+                conn.commit()
 
 criar_usuarios_padrao()
 
