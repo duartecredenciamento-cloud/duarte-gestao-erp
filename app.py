@@ -4,101 +4,84 @@ import plotly.express as px
 import sqlite3
 from datetime import datetime
 
-# Configuração
-st.set_page_config(page_title="Duarte ERP Pro", layout="wide")
+st.set_page_config(page_title="Duarte ERP Elite", layout="wide")
 
 # Conexão Banco
 conn = sqlite3.connect("duarte.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute("""CREATE TABLE IF NOT EXISTS transacoes 
                   (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                   tipo TEXT, categoria TEXT, valor REAL, data DATE)""")
-# Tabela de usuários expandida
+                   usuario TEXT, tipo TEXT, categoria TEXT, valor REAL, data DATE)""")
 cursor.execute("""CREATE TABLE IF NOT EXISTS usuarios 
-                  (usuario TEXT PRIMARY KEY, senha TEXT, nome_completo TEXT, 
-                   cpf TEXT, telefone TEXT, email TEXT)""")
-conn.commit()
+                  (usuario TEXT PRIMARY KEY, senha TEXT, nome TEXT, 
+                   cpf TEXT, tel TEXT, email TEXT, nivel TEXT)""")
 
-# --- ESTADO DA SESSÃO ---
+# --- CRIAÇÃO AUTOMÁTICA DOS ADMS ---
+def criar_adms():
+    adms = [
+        ('admin', '1234', 'Admin Principal', '000', '000', 'financeiro.duartegestao@gmail.com', 'admin'),
+        ('operacional', '1234', 'Gestor Operacional', '000', '000', 'financeiro.duartegestao@gmail.com', 'admin'),
+        ('financeiro', '1234', 'Gestor Financeiro', '000', '000', 'financeiro.duartegestao@gmail.com', 'admin')
+    ]
+    for u in adms:
+        try:
+            cursor.execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", u)
+            conn.commit()
+        except:
+            pass # Usuário já existe
+criar_adms()
+
+# --- SESSÃO ---
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
+    st.session_state["user_data"] = None
 
-# --- FUNÇÃO DE LOGIN E CADASTRO ---
 def tela_login():
-    st.title("🔐 Acesso ao Sistema")
-    tab1, tab2 = st.tabs(["Entrar", "Novo Cadastro"])
-    
-    with tab1:
-        u = st.text_input("Usuário", key="login_u")
-        p = st.text_input("Senha", type="password", key="login_p")
-        if st.button("ENTRAR"):
-            cursor.execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (u, p))
-            if cursor.fetchone():
-                st.session_state["logado"] = True
-                st.rerun()
-            else:
-                st.error("Usuário ou Senha incorretos!")
-                
-    with tab2:
-        with st.form("form_cadastro"):
-            nome = st.text_input("Nome Completo")
-            user = st.text_input("Nome de Usuário")
-            cpf = st.text_input("CPF")
-            tel = st.text_input("Telefone")
-            email = st.text_input("E-mail")
-            senha = st.text_input("Senha", type="password")
-            
-            if st.form_submit_button("CADASTRAR"):
-                try:
-                    cursor.execute("INSERT INTO usuarios VALUES (?, ?, ?, ?, ?, ?)", 
-                                   (user, senha, nome, cpf, tel, email))
-                    conn.commit()
-                    st.success("Cadastro realizado! Faça o login agora.")
-                except:
-                    st.error("Erro: Usuário já existente.")
+    st.title("🔐 Acesso Restrito")
+    u = st.text_input("Usuário")
+    p = st.text_input("Senha", type="password")
+    if st.button("ENTRAR"):
+        cursor.execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (u, p))
+        user = cursor.fetchone()
+        if user:
+            st.session_state["logado"] = True
+            st.session_state["user_data"] = {"user": user[0], "nivel": user[6]}
+            st.rerun()
+        else:
+            st.error("Credenciais inválidas.")
 
-# --- FLUXO PRINCIPAL ---
 if not st.session_state["logado"]:
     tela_login()
 else:
-    # Sidebar
-    st.sidebar.title("🚀 Duarte ERP v2.0")
-    menu = st.sidebar.radio("Navegação", ["📊 Dashboard & Saldo", "💸 Lançar Transação", "📋 Relatório & Export"])
-    if st.sidebar.button("Sair do Sistema"):
+    st.sidebar.title(f"👤 {st.session_state['user_data']['user']}")
+    menu = st.sidebar.radio("Navegação", ["📊 Dashboard", "💸 Transações", "📋 Gestão de Usuários"])
+    if st.sidebar.button("Sair"):
         st.session_state["logado"] = False
         st.rerun()
 
-    # --- DASHBOARD & TRANSAÇÕES (Mesma lógica anterior) ---
-    if menu == "📊 Dashboard & Saldo":
-        st.title("📊 Painel Executivo")
+    if menu == "📊 Dashboard":
+        st.title("📊 Dashboard Executivo")
         df = pd.read_sql("SELECT * FROM transacoes", conn)
         if not df.empty:
-            df['data'] = pd.to_datetime(df['data'])
-            receitas = df[df['tipo'] == 'Receita']['valor'].sum()
-            despesas = df[df['tipo'] == 'Despesa']['valor'].sum()
             c1, c2, c3 = st.columns(3)
-            c1.metric("💰 Receitas", f"R$ {receitas:,.2f}")
-            c2.metric("💸 Despesas", f"R$ {despesas:,.2f}")
-            c3.metric("📈 Saldo Atual", f"R$ {receitas - despesas:,.2f}")
-            st.plotly_chart(px.pie(df, names="tipo", values="valor", title="Distribuição Financeira"), use_container_width=True)
-        else:
-            st.info("Nenhuma transação registrada.")
+            c1.metric("Receitas", f"R$ {df[df['tipo']=='Receita']['valor'].sum():,.2f}")
+            c2.metric("Despesas", f"R$ {df[df['tipo']=='Despesa']['valor'].sum():,.2f}")
+            c3.metric("Saldo", f"R$ {(df[df['tipo']=='Receita']['valor'].sum() - df[df['tipo']=='Despesa']['valor'].sum()):,.2f}")
+            st.plotly_chart(px.pie(df, names="tipo", values="valor"), use_container_width=True)
 
-    elif menu == "💸 Lançar Transação":
-        st.title("💸 Lançar Entrada/Saída")
-        with st.form("form_transacao"):
+    elif menu == "💸 Transações":
+        st.title("💸 Lançar Transação")
+        with st.form("add_trans"):
             tipo = st.selectbox("Tipo", ["Receita", "Despesa"])
             cat = st.text_input("Categoria")
             val = st.number_input("Valor", min_value=0.0)
-            data = st.date_input("Data", datetime.now())
-            if st.form_submit_button("Confirmar Lançamento"):
-                cursor.execute("INSERT INTO transacoes (tipo, categoria, valor, data) VALUES (?, ?, ?, ?)", (tipo, cat, val, data))
+            if st.form_submit_button("Lançar"):
+                cursor.execute("INSERT INTO transacoes (usuario, tipo, categoria, valor, data) VALUES (?, ?, ?, ?, ?)", 
+                               (st.session_state['user_data']['user'], tipo, cat, val, datetime.now()))
                 conn.commit()
-                st.success("Transação registrada!")
+                st.success("Registrado!")
 
-    elif menu == "📋 Relatório & Export":
-        st.title("📋 Relatório Detalhado")
-        df = pd.read_sql("SELECT * FROM transacoes", conn)
-        st.dataframe(df, use_container_width=True)
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Baixar Relatório (CSV)", data=csv, file_name="relatorio.csv", mime="text/csv")
+    elif menu == "📋 Gestão de Usuários":
+        st.title("📋 Área Administrativa")
+        st.write("Aqui você pode ver todos os usuários cadastrados.")
+        st.dataframe(pd.read_sql("SELECT usuario, nome, nivel FROM usuarios", conn))
