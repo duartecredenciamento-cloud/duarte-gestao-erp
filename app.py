@@ -10,40 +10,49 @@ if not os.path.exists("comprovantes"):
 
 st.set_page_config(page_title="Duarte Reembolsos", layout="wide")
 
-# Conexão com o Banco de Dados Físico
-conn = sqlite3.connect("reembolso.db", check_same_thread=False)
-cursor = conn.cursor()
+DB_PATH = "reembolso.db"
+DB_TIMEOUT = 30.0  # Evita o erro de "database is locked" esperando até 30 segundos
 
-# --- CRIAÇÃO DE TODAS AS TABELAS BANCO ---
-cursor.execute("""CREATE TABLE IF NOT EXISTS usuarios 
-                  (usuario TEXT PRIMARY KEY, senha TEXT, email TEXT, nivel TEXT, 
-                   nome_completo TEXT, cpf TEXT, telefone TEXT)""")
+# --- FUNÇÕES AUXILIARES DE BANCO DE DADOS (ABRE E FECHA CONEXÃO NA HORA) ---
+def inicializar_banco():
+    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+    cursor = conn.cursor()
+    
+    cursor.execute("""CREATE TABLE IF NOT EXISTS usuarios 
+                      (usuario TEXT PRIMARY KEY, senha TEXT, email TEXT, nivel TEXT, 
+                       nome_completo TEXT, cpf TEXT, telefone TEXT)""")
 
-cursor.execute("""CREATE TABLE IF NOT EXISTS reembolsos 
-                  (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT, despesa TEXT, 
-                   categoria TEXT, c_custo TEXT, valor REAL, status TEXT, data DATE, caminho_arquivo TEXT)""")
+    cursor.execute("""CREATE TABLE IF NOT EXISTS reembolsos 
+                      (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT, despesa TEXT, 
+                       categoria TEXT, c_custo TEXT, valor REAL, status TEXT, data DATE, caminho_arquivo TEXT)""")
 
-cursor.execute("""CREATE TABLE IF NOT EXISTS logs 
-                  (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_acao TEXT, acao TEXT, data_hora DATETIME)""")
-conn.commit()
-
-# --- FUNÇÃO DE LOGS ---
-def registrar_log(user, acao):
-    cursor.execute("INSERT INTO logs (usuario_acao, acao, data_hora) VALUES (?,?,?)", (user, acao, datetime.now()))
+    cursor.execute("""CREATE TABLE IF NOT EXISTS logs 
+                      (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_acao TEXT, acao TEXT, data_hora DATETIME)""")
     conn.commit()
 
-# --- POPULAR ADMS INICIAIS (SE NÃO EXISTIREM) ---
-adms_iniciais = [
-    ('admin', '1234', 'financeiro.duartegestao@gmail.com', 'admin', 'ADMINISTRADOR PRINCIPAL', '000.000.000-00', '(00) 00000-0000'),
-    ('operacional', '1234', 'financeiro.duartegestao@gmail.com', 'admin', 'OPERACIONAL ADMINISTRATIVO', '000.000.000-00', '(00) 00000-0000'),
-    ('financeiro', '1234', 'financeiro.duartegestao@gmail.com', 'admin', 'FINANCEIRO DIRETORIA', '000.000.000-00', '(00) 00000-0000')
-]
-for u in adms_iniciais:
-    try:
-        cursor.execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", u)
-        conn.commit()
-    except sqlite3.IntegrityError:
-        pass
+    # Popular os ADMs Iniciais com segurança
+    adms_iniciais = [
+        ('admin', '1234', 'admin@erp.com', 'admin', 'ADMINISTRADOR PRINCIPAL', '000.000.000-00', '(00) 00000-0000'),
+        ('operacional', '1234', 'op@erp.com', 'admin', 'OPERACIONAL ADMINISTRATIVO', '000.000.000-00', '(00) 00000-0000'),
+        ('financeiro', '1234', 'fin@erp.com', 'admin', 'FINANCEIRO DIRETORIA', '000.000.000-00', '(00) 00000-0000')
+    ]
+    for u in adms_iniciais:
+        try:
+            cursor.execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", u)
+            conn.commit()
+        except sqlite3.IntegrityError:
+            pass
+    conn.close()
+
+def registrar_log(user, acao):
+    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO logs (usuario_acao, acao, data_hora) VALUES (?,?,?)", (user, acao, datetime.now()))
+    conn.commit()
+    conn.close()
+
+# Inicializa as tabelas de forma segura
+inicializar_banco()
 
 # --- CONTROLE DE SESSÃO ---
 if "logado" not in st.session_state: 
@@ -58,8 +67,12 @@ if not st.session_state["logado"]:
         u = st.text_input("USUÁRIO", key="login_u")
         p = st.text_input("SENHA", type="password", key="login_p")
         if st.button("ENTRAR"):
+            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+            cursor = conn.cursor()
             cursor.execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (u, p))
             user = cursor.fetchone()
+            conn.close()
+            
             if user:
                 st.session_state["logado"] = True
                 st.session_state["user_info"] = {"user": user[0], "nivel": user[3], "nome": user[4]}
@@ -81,9 +94,13 @@ if not st.session_state["logado"]:
             if st.form_submit_button("CADASTRAR FUNCIONÁRIO"):
                 if new_u and new_p and new_nome and new_cpf:
                     try:
+                        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                        cursor = conn.cursor()
                         cursor.execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", 
                                        (new_u, new_p, new_e, 'usuario', new_nome, new_cpf, new_tel))
                         conn.commit()
+                        conn.close()
+                        
                         registrar_log("SISTEMA", f"NOVO FUNCIONARIO CADASTRADO: {new_u}")
                         st.success("CADASTRO REALIZADO COM SUCESSO! CLIQUE NA ABA 'ENTRAR' AO LADO.")
                     except sqlite3.IntegrityError: 
@@ -93,7 +110,6 @@ if not st.session_state["logado"]:
 
 # --- ÁREA LOGADA ---
 else:
-    # Sidebar de Navegação Lateral
     st.sidebar.title(f"👤 {st.session_state['user_info']['nome']}")
     st.sidebar.write(f"Perfil: **{st.session_state['user_info']['nivel'].upper()}**")
     
@@ -136,11 +152,14 @@ else:
                         with open(caminho_salvo, "wb") as f: 
                             f.write(arquivo.getbuffer())
                     
+                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                    cursor = conn.cursor()
                     cursor.execute("""INSERT INTO reembolsos 
                                       (usuario, despesa, categoria, c_custo, valor, status, data, caminho_arquivo) 
                                       VALUES (?,?,?,?,?,?,?,?)""", 
                                    (st.session_state['user_info']['user'], desc, cat, cc, val, 'PENDENTE', datetime.now().date(), caminho_salvo))
                     conn.commit()
+                    conn.close()
                     
                     registrar_log(st.session_state['user_info']['user'], f"SOLICITOU REEMBOLSO NO VALOR DE R$ {val:.2f} ({cc})")
                     st.success("SOLICITAÇÃO ENVIADA COM SUCESSO PARA ANÁLISE!")
@@ -150,24 +169,31 @@ else:
     # --- MENU 2: MEUS PEDIDOS ---
     elif menu == "📋 MEUS PEDIDOS":
         st.title("📋 MEU HISTÓRICO DE SOLICITAÇÕES")
+        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
         df_meus = pd.read_sql(f"SELECT id, despesa, categoria, c_custo, valor, status, data FROM reembolsos WHERE usuario='{st.session_state['user_info']['user']}' ORDER BY id DESC", conn)
+        conn.close()
+        
         if df_meus.empty:
             st.info("Você ainda não possui nenhuma solicitação registrada.")
         else:
             st.dataframe(df_meus, use_container_width=True)
 
-    # --- MENU 3: PAINEL ADMIN (SÓ ADMS ACESSAM) ---
+    # --- MENU 3: PAINEL ADMIN ---
     elif menu == "📊 PAINEL ADMIN":
         if st.session_state['user_info']['nivel'] == 'admin':
             st.title("📊 PAINEL DE GESTÃO E AUDITORIA")
             
-            # Aba de Auditoria de Logs dentro do Painel Admin
+            # Logs de Auditoria
             with st.expander("🕒 VISUALIZAR LOGS DE AUDITORIA (QUEM ACESSOU / O QUE FEZ)"):
+                conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                 df_logs = pd.read_sql("SELECT * FROM logs ORDER BY data_hora DESC", conn)
+                conn.close()
                 st.dataframe(df_logs, use_container_width=True)
             
             st.subheader("📋 TODAS AS SOLICITAÇÕES DA EMPRESA")
+            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
             df_todos = pd.read_sql("SELECT * FROM reembolsos ORDER BY id DESC", conn)
+            conn.close()
             st.dataframe(df_todos, use_container_width=True)
             
             st.markdown("---")
@@ -179,7 +205,11 @@ else:
             
             with col1:
                 if st.button("👁️ VER/BAIXAR COMPROVANTE", use_container_width=True):
+                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                    cursor = conn.cursor()
                     res = cursor.execute("SELECT caminho_arquivo FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
+                    conn.close()
+                    
                     if res and res[0] and os.path.exists(res[0]):
                         with open(res[0], "rb") as file:
                             st.download_button(label="CLIQUE PARA BAIXAR", data=file, file_name=os.path.basename(res[0]), use_container_width=True)
@@ -188,38 +218,50 @@ else:
                         
             with col2:
                 if st.button("✅ APROVAR PEDIDO", use_container_width=True):
+                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                    cursor = conn.cursor()
                     verificar = cursor.execute("SELECT id FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
                     if verificar:
                         cursor.execute("UPDATE reembolsos SET status='APROVADO' WHERE id=?", (id_pg,))
                         conn.commit()
+                        conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"APROVOU SOLICITACAO ID {id_pg}")
                         st.success(f"PEDIDO {id_pg} APROVADO!")
                         st.rerun()
                     else:
+                        conn.close()
                         st.error("ID NÃO ENCONTRADO!")
                         
             with col3:
                 if st.button("❌ NEGAR PEDIDO", use_container_width=True):
+                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                    cursor = conn.cursor()
                     verificar = cursor.execute("SELECT id FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
                     if verificar:
                         cursor.execute("UPDATE reembolsos SET status='NEGADO' WHERE id=?", (id_pg,))
                         conn.commit()
+                        conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"NEGOU SOLICITACAO ID {id_pg}")
                         st.warning(f"PEDIDO {id_pg} REJEITADO E NEGADO!")
                         st.rerun()
                     else:
+                        conn.close()
                         st.error("ID NÃO ENCONTRADO!")
                         
             with col4:
                 if st.button("💸 MARCAR COMO PAGO", use_container_width=True):
+                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                    cursor = conn.cursor()
                     verificar = cursor.execute("SELECT id FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
                     if verificar:
                         cursor.execute("UPDATE reembolsos SET status='PAGO' WHERE id=?", (id_pg,))
                         conn.commit()
+                        conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"PAGOU E ENCERROU SOLICITACAO ID {id_pg}")
-                        st.success(f"PEDIDO {id_pg} MARCADO COMO PAGO! (E-mail Simulado Pronto)")
+                        st.success(f"PEDIDO {id_pg} MARCADO COMO PAGO!")
                         st.rerun()
                     else:
+                        conn.close()
                         st.error("ID NÃO ENCONTRADO!")
         else:
             st.error("ACESSO NEGADO! PERFIL INSUFICIENTE.")
