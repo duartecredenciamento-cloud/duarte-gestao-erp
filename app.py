@@ -1,9 +1,25 @@
+import sys
+import subprocess
+
+# Tenta importar o que é essencial, se falhar, tenta instalar automaticamente
+def check_requirements():
+    required = ['streamlit', 'pandas', 'plotly', 'psycopg2-binary']
+    for lib in required:
+        try:
+            __import__(lib)
+        except ImportError:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", lib])
+
+check_requirements()
+
+# AGORA sim, faz os imports normais
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import sqlite3
 import os
 import psycopg2
+# ... resto do seu código
 
 # --- CONEXÃO ---
 def get_db():
@@ -12,6 +28,17 @@ def get_db():
 
 conn = get_db()
 cursor = conn.cursor()
+
+# --- GARANTIR CRIAÇÃO DAS TABELAS ---
+def criar_tabelas():
+    cur = conn.cursor()
+    # Cria tabela de usuários se não existir
+    cur.execute("CREATE TABLE IF NOT EXISTS usuarios (id SERIAL PRIMARY KEY, nome TEXT, usuario TEXT UNIQUE, senha TEXT)")
+    # Cria tabela de despesas se não existir
+    cur.execute("CREATE TABLE IF NOT EXISTS despesas (id SERIAL PRIMARY KEY, categoria TEXT, valor REAL)")
+    conn.commit()
+
+criar_tabelas() # Chama a função aqui para rodar uma vez só
 
 # --- INTERFACE ---
 st.set_page_config(page_title="Duarte ERP", layout="wide")
