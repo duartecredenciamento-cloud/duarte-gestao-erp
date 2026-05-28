@@ -4,7 +4,7 @@ import plotly.express as px
 import sqlite3
 from datetime import datetime
 
-# Configuração da página
+# Configuração
 st.set_page_config(page_title="Duarte ERP Pro", layout="wide")
 
 # Conexão Banco
@@ -13,44 +13,62 @@ cursor = conn.cursor()
 cursor.execute("""CREATE TABLE IF NOT EXISTS transacoes 
                   (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                    tipo TEXT, categoria TEXT, valor REAL, data DATE)""")
+# Tabela de usuários expandida
+cursor.execute("""CREATE TABLE IF NOT EXISTS usuarios 
+                  (usuario TEXT PRIMARY KEY, senha TEXT, nome_completo TEXT, 
+                   cpf TEXT, telefone TEXT, email TEXT)""")
 conn.commit()
 
 # --- ESTADO DA SESSÃO ---
 if "logado" not in st.session_state:
     st.session_state["logado"] = False
 
-# --- FUNÇÃO DE LOGIN ---
+# --- FUNÇÃO DE LOGIN E CADASTRO ---
 def tela_login():
-    st.title("🔐 Login de Acesso")
-    u = st.text_input("Usuário")
-    p = st.text_input("Senha", type="password")
-    if st.button("ENTRAR"):
-        if u == "aline" and p == "1234": # Ajuste aqui o usuário e senha da Aline
-            st.session_state["logado"] = True
-            st.rerun()
-        else:
-            st.error("Credenciais inválidas.")
+    st.title("🔐 Acesso ao Sistema")
+    tab1, tab2 = st.tabs(["Entrar", "Novo Cadastro"])
+    
+    with tab1:
+        u = st.text_input("Usuário", key="login_u")
+        p = st.text_input("Senha", type="password", key="login_p")
+        if st.button("ENTRAR"):
+            cursor.execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (u, p))
+            if cursor.fetchone():
+                st.session_state["logado"] = True
+                st.rerun()
+            else:
+                st.error("Usuário ou Senha incorretos!")
+                
+    with tab2:
+        with st.form("form_cadastro"):
+            nome = st.text_input("Nome Completo")
+            user = st.text_input("Nome de Usuário")
+            cpf = st.text_input("CPF")
+            tel = st.text_input("Telefone")
+            email = st.text_input("E-mail")
+            senha = st.text_input("Senha", type="password")
+            
+            if st.form_submit_button("CADASTRAR"):
+                try:
+                    cursor.execute("INSERT INTO usuarios VALUES (?, ?, ?, ?, ?, ?)", 
+                                   (user, senha, nome, cpf, tel, email))
+                    conn.commit()
+                    st.success("Cadastro realizado! Faça o login agora.")
+                except:
+                    st.error("Erro: Usuário já existente.")
 
-# --- FLUXO DE PROTEÇÃO ---
+# --- FLUXO PRINCIPAL ---
 if not st.session_state["logado"]:
     tela_login()
 else:
-    # --- SIDEBAR (LOGO E MENU) ---
-    # Certifique-se de que a pasta 'assets' está na raiz do seu projeto
-    try:
-        st.sidebar.image("assets/logo.png", use_container_width=True)
-    except:
-        st.sidebar.warning("Logo não encontrada na pasta assets.")
-        
+    # Sidebar
     st.sidebar.title("🚀 Duarte ERP v2.0")
-    
     menu = st.sidebar.radio("Navegação", ["📊 Dashboard & Saldo", "💸 Lançar Transação", "📋 Relatório & Export"])
-    
     if st.sidebar.button("Sair do Sistema"):
         st.session_state["logado"] = False
         st.rerun()
 
-    # --- DASHBOARD ---
+    # --- DASHBOARD & TRANSAÇÕES (Mesma lógica anterior) ---
     if menu == "📊 Dashboard & Saldo":
         st.title("📊 Painel Executivo")
         df = pd.read_sql("SELECT * FROM transacoes", conn)
@@ -58,17 +76,14 @@ else:
             df['data'] = pd.to_datetime(df['data'])
             receitas = df[df['tipo'] == 'Receita']['valor'].sum()
             despesas = df[df['tipo'] == 'Despesa']['valor'].sum()
-            
             c1, c2, c3 = st.columns(3)
             c1.metric("💰 Receitas", f"R$ {receitas:,.2f}")
             c2.metric("💸 Despesas", f"R$ {despesas:,.2f}")
             c3.metric("📈 Saldo Atual", f"R$ {receitas - despesas:,.2f}")
-            
             st.plotly_chart(px.pie(df, names="tipo", values="valor", title="Distribuição Financeira"), use_container_width=True)
         else:
             st.info("Nenhuma transação registrada.")
 
-    # --- LANÇAR TRANSAÇÃO ---
     elif menu == "💸 Lançar Transação":
         st.title("💸 Lançar Entrada/Saída")
         with st.form("form_transacao"):
@@ -81,7 +96,6 @@ else:
                 conn.commit()
                 st.success("Transação registrada!")
 
-    # --- RELATÓRIO & EXPORT ---
     elif menu == "📋 Relatório & Export":
         st.title("📋 Relatório Detalhado")
         df = pd.read_sql("SELECT * FROM transacoes", conn)
