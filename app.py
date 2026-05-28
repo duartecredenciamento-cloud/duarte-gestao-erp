@@ -17,7 +17,7 @@ conn.commit()
 
 # --- SIDEBAR ---
 st.sidebar.title("🚀 Duarte ERP v2.0")
-st.sidebar.image(r"C:\Users\User\Desktop\CODIGOS\duarte-app\assets\logo.png", use_container_width=True)
+st.sidebar.image("assets/logo.png", use_container_width=True)
 menu = st.sidebar.radio("Navegação", ["📊 Dashboard & Saldo", "💸 Lançar Transação", "📋 Relatório & Export"])
 
 # --- DASHBOARD & SALDO ---
