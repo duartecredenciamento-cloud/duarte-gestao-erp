@@ -8,6 +8,79 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
+# --- CONFIGURAÇÃO DE SMTP (GMAIL) ---
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
+# 🔥 ATENÇÃO: Aqui você deve usar uma "Senha de App" gerada no painel do Google, não a sua senha normal.
+EMAIL_SENHA = "SUA_SENHA_DE_APP_AQUI" 
+
+def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, detalhes_html):
+    """Envia um e-mail com layout HTML FinTech Premium para o destinatário indicado."""
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = assunto
+    msg["From"] = f"Duarte Gestão Financeira <{EMAIL_REMETENTE}>"
+    msg["To"] = destinatario
+
+    # Define a cor do badge com base no status do reembolso
+    cor_status = "#001E57"  # Padrão
+    if "PENDENTE" in status_pedido: cor_status = "#FF9200"
+    elif "APROVADO" in status_pedido or "PAGO" in status_pedido: cor_status = "#10b981"
+    elif "NEGADO" in status_pedido or "REJEITADO" in status_pedido: cor_status = "#ef4444"
+
+    html = f"""
+    <html>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; padding: 30px; margin: 0;">
+        <div style="max-width: 600px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 12px rgba(0,30,87,0.03);">
+            
+            <!-- Header Corporativo -->
+            <div style="background-color: #001E57; padding: 30px; text-align: center;">
+                <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">DUARTE GESTÃO</h2>
+                <p style="color: #FF9200; margin: 5px 0 0 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Controladoria & Finanças</p>
+            </div>
+            
+            <!-- Conteúdo Principal -->
+            <div style="padding: 30px; color: #334155;">
+                <h3 style="color: #001E57; margin-top: 0; font-size: 18px; font-weight: 700;">{titulo_card}</h3>
+                
+                <div style="display: inline-block; background-color: {cor_status}; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 25px; text-transform: uppercase;">
+                    Status: {status_pedido}
+                </div>
+                
+                <!-- Caixa de Detalhes -->
+                <div style="background-color: #f1f5f9; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        {detalhes_html}
+                    </table>
+                </div>
+                
+                <p style="font-size: 13px; color: #64748b; line-height: 1.6; margin-bottom: 0;">
+                    Este é um e-mail automático enviado pelo Portal de Reembolsos Duarte Gestão. Por favor, não responda a esta mensagem.
+                </p>
+            </div>
+            
+            <!-- Footer -->
+            <div style="background-color: #f8fafc; padding: 15px 30px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
+                &copy; {datetime.now().year} Duarte Gestão. Todos os direitos reservados.
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    msg.attach(MIMEText(html, "html"))
+    
+    try:
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(EMAIL_REMETENTE, EMAIL_SENHA)
+        server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Erro ao disparar e-mail: {e}")
+        return False
+
 # --- CONFIGURAÇÃO INICIAL ---
 if not os.path.exists("comprovantes"): 
     os.makedirs("comprovantes")
@@ -253,7 +326,8 @@ else:
     if st.sidebar.button("🔒 Desconectar Sair"):
         st.session_state["logado"] = False; st.rerun()
 
-    # --- EMISSÃO ---
+
+# --- EMISSÃO ---
     if menu == "💸 Solicitar Reembolso":
         st.markdown('<h1 class="clean-title">Nova Solicitação de Reembolso</h1>', unsafe_allow_html=True)
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -273,7 +347,24 @@ else:
                     conn.cursor().execute("INSERT INTO reembolsos (usuario, despesa, categoria, c_custo, valor, status, data, caminho_arquivo) VALUES (?,?,?,?,?,?,?,?)", 
                                    (st.session_state['user_info']['user'], desc, cat, cc, val, 'PENDENTE', datetime.now().date(), path))
                     conn.commit(); conn.close()
-                    st.success("Solicitação salva e enviada para a fila de aprovação!")
+                    
+                    # 📨 ENVIAR ALERTA PARA O FINANCEIRO (Modificado)
+                    detalhes = f"""
+                        <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Colaborador:</td><td style='text-align:right;'>{st.session_state['user_info']['nome']}</td></tr>
+                        <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Descrição:</td><td style='text-align:right;'>{desc}</td></tr>
+                        <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Categoria:</td><td style='text-align:right;'>{cat}</td></tr>
+                        <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Centro de Custo:</td><td style='text-align:right;'>{cc}</td></tr>
+                        <tr><td style='padding: 5px 0; font-weight:600; color:#001E57; font-size:16px;'>Valor:</td><td style='text-align:right; font-weight:700; color:#FF9200; font-size:16px;'>R$ {val:,.2f}</td></tr>
+                    """
+                    enviar_notificacao_email(
+                        destinatario=EMAIL_REMETENTE, 
+                        assunto=f"🔔 Novo Reembolso Aguardando Análise - R$ {val:,.2f}",
+                        titulo_card="Nova Solicitação Registrada na Fila",
+                        status_pedido="PENDENTE",
+                        detalhes_html=detalhes
+                    )
+                    
+                    st.success("Solicitação salva e e-mail de auditoria enviado para o Financeiro!")
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --- MEUS PEDIDOS ---
@@ -300,6 +391,7 @@ else:
             st.markdown('</div>', unsafe_allow_html=True)
 
     # --- PAINEL DO ADMIN ---
+# --- PAINEL DO ADMIN ---
     elif menu == "📊 Painel do Admin":
         st.markdown('<h1 class="clean-title">Fila de Auditoria Contábil</h1>', unsafe_allow_html=True)
         
@@ -326,16 +418,42 @@ else:
                 st.write("") 
                 c1, c2, c3, c4 = st.columns(4)
                 
+                # FUNÇÃO DE DESPACHE ATUALIZADA COM EMAIL COM JOIN (Modificado)
                 def processar_acao_clean(id_target, novo_status, log_msg):
                     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                     cursor = conn.cursor()
-                    pedido = cursor.execute("SELECT id FROM reembolsos WHERE id=?", (id_target,)).fetchone()
+                    
+                    pedido = cursor.execute("""
+                        SELECT r.despesa, r.valor, u.email, u.nome_completo 
+                        FROM reembolsos r 
+                        JOIN usuarios u ON r.usuario = u.usuario 
+                        WHERE r.id=?
+                    """, (id_target,)).fetchone()
+                    
                     if pedido:
+                        despesa, valor, email_usuario, nome_usuario = pedido
                         cursor.execute("UPDATE reembolsos SET status=? WHERE id=?", (novo_status, id_target))
                         conn.commit(); conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
+                        
+                        # Envia o feedback em tempo real para o colaborador
+                        detalhes = f"""
+                            <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Nº Solicitação:</td><td style='text-align:right;'>#{id_target}</td></tr>
+                            <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Item Solicitado:</td><td style='text-align:right;'>{despesa}</td></tr>
+                            <tr><td style='padding: 5px 0; font-weight:600; color:#001E57; font-size:15px;'>Valor Resolvido:</td><td style='text-align:right; font-weight:700; font-size:15px;'>R$ {valor:,.2f}</td></tr>
+                            <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Analisado por:</td><td style='text-align:right;'>{st.session_state['user_info']['nome']}</td></tr>
+                        """
+                        enviar_notificacao_email(
+                            destinatario=email_usuario, 
+                            assunto=f"📢 Atualização de Reembolso: Chamado #{id_target} foi {novo_status}",
+                            titulo_card=f"Olá {nome_usuario.split()[0]}, sua solicitação mudou de status.",
+                            status_pedido=novo_status,
+                            detalhes_html=detalhes
+                        )
                         st.rerun()
-                    else: conn.close(); st.error("ID não localizado.")
+                    else: 
+                        conn.close()
+                        st.error("ID não localizado.")
 
                 with c1:
                     if st.button("👁️ Recibo"):
