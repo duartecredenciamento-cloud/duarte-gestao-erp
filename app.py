@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
 # --- CONFIGURAÇÃO INICIAL E PASTAS ---
@@ -10,38 +13,117 @@ if not os.path.exists("comprovantes"):
 
 st.set_page_config(page_title="Duarte Reembolsos", layout="wide")
 
-DB_PATH = "reembolso.db"
-DB_TIMEOUT = 30.0  # Evita o erro de "database is locked" esperando até 30 segundos
+# --- INJEÇÃO DE ESTILO CSS (O DESIGN PREMIUM) ---
+st.markdown("""
+    <style>
+        /* Estilização dos Botões de Operação */
+        div.stButton > button {
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        /* Botão Aprovar */
+        div[data-testid="stHorizontalBlock"] .col2 button, 
+        button:contains("✅") {
+            background-color: #2ecc71 !important;
+            color: white !important;
+            border: none;
+        }
+        /* Botão Negar */
+        button:contains("❌") {
+            background-color: #e74c3c !important;
+            color: white !important;
+            border: none;
+        }
+        /* Botão Pagar */
+        button:contains("💸") {
+            background-color: #3498db !important;
+            color: white !important;
+            border: none;
+        }
+        /* Ajustes de tabelas e inputs */
+        .stDataFrame {
+            border: 1px solid #34495e;
+            border-radius: 10px;
+        }
+        h1, h2, h3 {
+            color: #f3f3f3;
+            font-family: 'Helvetica Neue', sans-serif;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-# --- FUNÇÕES AUXILIARES DE BANCO DE DADOS (ABRE E FECHA CONEXÃO NA HORA) ---
+DB_PATH = "reembolso.db"
+DB_TIMEOUT = 30.0
+
+# --- CREDENCIAIS DE E-MAIL CONFIGURADAS ---
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+SMTP_USER = "financeiro.duartegestao@gmail.com"
+SMTP_PASS = "rotr hqmt mdbu ndgu"
+
+# --- FUNÇÃO DISPARO DE E-MAIL REAL ---
+def enviar_email_notificacao(email_destino, nome_funcionario, id_pedido, despesa, valor, status_novo):
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_USER
+        msg['To'] = email_destino
+        msg['Subject'] = f"📢 STATUS DE REEMBOLSO: {status_novo} - DUARTE GESTÃO (PEDIDO #{id_pedido})"
+        
+        corpo = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
+                <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">Olá, {nome_funcionario}!</h2>
+                <p>O departamento financeiro atualizou o andamento do seu pedido de reembolso.</p>
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                    <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>ID do Pedido:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">#{id_pedido}</td></tr>
+                    <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Despesa:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">{despesa}</td></tr>
+                    <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Valor:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">R$ {valor:.2f}</td></tr>
+                    <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Novo Status:</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong style="color: #e67e22;">{status_novo}</strong></td></tr>
+                </table>
+                <hr style="border: 0; border-top: 1px solid #eee;">
+                <p style="font-size: 12px; color: #7f8c8d; text-align: center;">Este é um disparo automático do ERP Duarte Gestão Reembolsos.</p>
+            </div>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(corpo, 'html'))
+        
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASS)
+        server.sendmail(SMTP_USER, email_destino, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Erro no disparo do e-mail: {e}")
+        return False
+
+# --- FUNÇÕES DE BANCO DE DADOS ---
 def inicializar_banco():
     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
     cursor = conn.cursor()
-    
     cursor.execute("""CREATE TABLE IF NOT EXISTS usuarios 
                       (usuario TEXT PRIMARY KEY, senha TEXT, email TEXT, nivel TEXT, 
                        nome_completo TEXT, cpf TEXT, telefone TEXT)""")
-
     cursor.execute("""CREATE TABLE IF NOT EXISTS reembolsos 
                       (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT, despesa TEXT, 
                        categoria TEXT, c_custo TEXT, valor REAL, status TEXT, data DATE, caminho_arquivo TEXT)""")
-
     cursor.execute("""CREATE TABLE IF NOT EXISTS logs 
                       (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_acao TEXT, acao TEXT, data_hora DATETIME)""")
     conn.commit()
 
-    # Popular os ADMs Iniciais com segurança
-    adms_iniciais = [
-        ('admin', '1234', 'admin@erp.com', 'admin', 'ADMINISTRADOR PRINCIPAL', '000.000.000-00', '(00) 00000-0000'),
-        ('operacional', '1234', 'op@erp.com', 'admin', 'OPERACIONAL ADMINISTRATIVO', '000.000.000-00', '(00) 00000-0000'),
-        ('financeiro', '1234', 'fin@erp.com', 'admin', 'FINANCEIRO DIRETORIA', '000.000.000-00', '(00) 00000-0000')
+    # Atualiza ou insere os admins com a nova senha e e-mail corporativo solicitado
+    adms_atualizados = [
+        ('admin', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'ADMINISTRADOR PRINCIPAL', '000.000.000-00', '(00) 00000-0000'),
+        ('operacional', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'OPERACIONAL ADMINISTRATIVO', '000.000.000-00', '(00) 00000-0000'),
+        ('financeiro', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'FINANCEIRO DIRETORIA', '000.000.000-00', '(00) 00000-0000')
     ]
-    for u in adms_iniciais:
-        try:
-            cursor.execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", u)
-            conn.commit()
-        except sqlite3.IntegrityError:
-            pass
+    for u in adms_atualizados:
+        # INSERT OR REPLACE força a atualização dos dados se a chave primária existir
+        cursor.execute("INSERT OR REPLACE INTO usuarios VALUES (?,?,?,?,?,?,?)", u)
+    conn.commit()
     conn.close()
 
 def registrar_log(user, acao):
@@ -51,16 +133,15 @@ def registrar_log(user, acao):
     conn.commit()
     conn.close()
 
-# Inicializa as tabelas de forma segura
 inicializar_banco()
 
 # --- CONTROLE DE SESSÃO ---
 if "logado" not in st.session_state: 
     st.session_state["logado"] = False
 
-# --- TELA DE ACESSO (DESLOGADO) ---
+# --- INTERFACE DE LOGOUT/LOGIN ---
 if not st.session_state["logado"]:
-    st.title("🔐 DUARTE REEMBOLSOS - ACESSO")
+    st.title("🔐 DUARTE REEMBOLSOS - ACESSO CONTÁBIL")
     tab1, tab2 = st.tabs(["ENTRAR NO SISTEMA", "CADASTRAR NOVO FUNCIONÁRIO"])
     
     with tab1:
@@ -76,10 +157,9 @@ if not st.session_state["logado"]:
             if user:
                 st.session_state["logado"] = True
                 st.session_state["user_info"] = {"user": user[0], "nivel": user[3], "nome": user[4]}
-                registrar_log(user[0], "LOGIN NO SISTEMA SUCCESSO")
+                registrar_log(user[0], "LOGIN NO SISTEMA SUCESSO")
                 st.rerun()
-            else: 
-                st.error("USUÁRIO OU SENHA INVÁLIDOS!")
+            else: st.error("USUÁRIO OU SENHA INVÁLIDOS!")
             
     with tab2:
         st.subheader("📝 FORMULÁRIO DE CADASTRO")
@@ -100,18 +180,15 @@ if not st.session_state["logado"]:
                                        (new_u, new_p, new_e, 'usuario', new_nome, new_cpf, new_tel))
                         conn.commit()
                         conn.close()
-                        
                         registrar_log("SISTEMA", f"NOVO FUNCIONARIO CADASTRADO: {new_u}")
-                        st.success("CADASTRO REALIZADO COM SUCESSO! CLIQUE NA ABA 'ENTRAR' AO LADO.")
-                    except sqlite3.IntegrityError: 
-                        st.error("ESTE NOME DE USUÁRIO JÁ ESTÁ EM USO!")
-                else:
-                    st.warning("PREENCHA TODOS OS CAMPOS OBRIGATÓRIOS!")
+                        st.success("CADASTRO REALIZADO COM SUCESSO!")
+                    except sqlite3.IntegrityError: st.error("ESTE NOME DE USUÁRIO JÁ ESTÁ EM USO!")
+                else: st.warning("PREENCHA TODOS OS CAMPOS OBRIGATÓRIOS!")
 
-# --- ÁREA LOGADA ---
 else:
+    # --- ÁREA INTERNA DO SISTEMA ---
     st.sidebar.title(f"👤 {st.session_state['user_info']['nome']}")
-    st.sidebar.write(f"Perfil: **{st.session_state['user_info']['nivel'].upper()}**")
+    st.sidebar.write(f"Nível de Acesso: **{st.session_state['user_info']['nivel'].upper()}**")
     
     opcoes_menu = ["💸 SOLICITAR REEMBOLSO", "📋 MEUS PEDIDOS"]
     if st.session_state['user_info']['nivel'] == 'admin':
@@ -121,147 +198,117 @@ else:
     
     if st.sidebar.button("SAIR DO SISTEMA"): 
         registrar_log(st.session_state['user_info']['user'], "LOGOUT DO SISTEMA")
-        st.session_state["logado"] = False
-        st.rerun()
+        st.session_state["logado"] = False; st.rerun()
 
-    # --- MENU 1: SOLICITAR REEMBOLSO ---
+    # --- MENU 1: SOLICITAR ---
     if menu == "💸 SOLICITAR REEMBOLSO":
         st.title("💸 NOVA SOLICITAÇÃO DE REEMBOLSO")
         with st.form("solicitar_reembolso", clear_on_submit=True):
-            desc = st.text_input("DESCRIÇÃO DA DESPESA (Ex: Jantar comercial com cliente X)")
-            
-            cat = st.selectbox("CATEGORIA", [
-                "LIMPEZA", "REMUNERAÇÃO SÓCIOS", "ALIMENTAÇÃO", "TELEFONIA E INTERNET", 
-                "SOFTWARE E LICENÇAS - INFORMÁTICA", "TRANSPORTES / LOGÍSTICA", 
-                "MATERIAL DE ESCRITÓRIO", "EQUIPAMENTOS DE INFORMÁTICA", "ESTACIONAMENTO", 
-                "MÓVEIS E UTENSÍLIOS", "DESPESAS DE VIAGENS", "MÁQUINAS E EQUIPAMENTOS"
-            ])
-            
-            cc = st.selectbox("CENTRO DE CUSTO", [
-                "CREDENCIAMENTO", "REDE", "DIRETORIA", "DUARTE GESTÃO", "MARKETING", "FINANCEIRO"
-            ])
-            
+            desc = st.text_input("DESCRIÇÃO DA DESPESA")
+            cat = st.selectbox("CATEGORIA", ["LIMPEZA", "REMUNERAÇÃO SÓCIOS", "ALIMENTAÇÃO", "TELEFONIA E INTERNET", "SOFTWARE E LICENÇAS - INFORMÁTICA", "TRANSPORTES / LOGÍSTICA", "MATERIAL DE ESCRITÓRIO", "EQUIPAMENTOS DE INFORMÁTICA", "ESTACIONAMENTO", "MÓVEIS E UTENSÍLIOS", "DESPESAS DE VIAGENS", "MÁQUINAS E EQUIPAMENTOS"])
+            cc = st.selectbox("CENTRO DE CUSTO", ["CREDENCIAMENTO", "REDE", "DIRETORIA", "DUARTE GESTÃO", "MARKETING", "FINANCEIRO"])
             val = st.number_input("VALOR TOTAL (R$)", min_value=0.01, step=0.01)
-            arquivo = st.file_uploader("ANEXAR COMPROVANTE FISCAL (JPG / PNG / PDF)", type=['jpg', 'png', 'pdf'])
+            arquivo = st.file_uploader("ANEXAR COMPROVANTE FISCAL", type=['jpg', 'png', 'pdf'])
             
             if st.form_submit_button("ENVIAR SOLICITAÇÃO"):
                 if desc and val > 0:
                     caminho_salvo = ""
                     if arquivo:
                         caminho_salvo = f"comprovantes/{datetime.now().strftime('%Y%m%d%H%M%S')}_{arquivo.name}"
-                        with open(caminho_salvo, "wb") as f: 
-                            f.write(arquivo.getbuffer())
+                        with open(caminho_salvo, "wb") as f: f.write(arquivo.getbuffer())
                     
                     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                     cursor = conn.cursor()
-                    cursor.execute("""INSERT INTO reembolsos 
-                                      (usuario, despesa, categoria, c_custo, valor, status, data, caminho_arquivo) 
-                                      VALUES (?,?,?,?,?,?,?,?)""", 
+                    cursor.execute("INSERT INTO reembolsos (usuario, despesa, categoria, c_custo, valor, status, data, caminho_arquivo) VALUES (?,?,?,?,?,?,?,?)", 
                                    (st.session_state['user_info']['user'], desc, cat, cc, val, 'PENDENTE', datetime.now().date(), caminho_salvo))
                     conn.commit()
                     conn.close()
-                    
-                    registrar_log(st.session_state['user_info']['user'], f"SOLICITOU REEMBOLSO NO VALOR DE R$ {val:.2f} ({cc})")
-                    st.success("SOLICITAÇÃO ENVIADA COM SUCESSO PARA ANÁLISE!")
-                else:
-                    st.error("POR FAVOR, INSIRA UMA DESCRIÇÃO E UM VALOR VÁLIDO!")
+                    registrar_log(st.session_state['user_info']['user'], f"SOLICITOU REEMBOLSO DE R$ {val:.2f} ({cc})")
+                    st.success("SOLICITAÇÃO ENVIADA COM SUCESSO!")
+                else: st.error("DADOS DE SOLICITAÇÃO INVÁLIDOS!")
 
-    # --- MENU 2: MEUS PEDIDOS ---
+    # --- MENU 2: HISTÓRICO DO TRABALHADOR ---
     elif menu == "📋 MEUS PEDIDOS":
         st.title("📋 MEU HISTÓRICO DE SOLICITAÇÕES")
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
         df_meus = pd.read_sql(f"SELECT id, despesa, categoria, c_custo, valor, status, data FROM reembolsos WHERE usuario='{st.session_state['user_info']['user']}' ORDER BY id DESC", conn)
         conn.close()
-        
-        if df_meus.empty:
-            st.info("Você ainda não possui nenhuma solicitação registrada.")
-        else:
-            st.dataframe(df_meus, use_container_width=True)
+        if df_meus.empty: st.info("Nenhuma solicitação encontrada para o seu perfil.")
+        else: st.dataframe(df_meus, use_container_width=True)
 
-    # --- MENU 3: PAINEL ADMIN ---
+    # --- MENU 3: CONTROLE ADMIN ---
     elif menu == "📊 PAINEL ADMIN":
         if st.session_state['user_info']['nivel'] == 'admin':
-            st.title("📊 PAINEL DE GESTÃO E AUDITORIA")
+            st.title("📊 PAINEL DE GESTÃO E AUDITORIA GLOBAL")
             
-            # Logs de Auditoria
-            with st.expander("🕒 VISUALIZAR LOGS DE AUDITORIA (QUEM ACESSOU / O QUE FEZ)"):
+            with st.expander("🕒 LOGS DE AUDITORIA (HISTÓRICO REALTIME)"):
                 conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                 df_logs = pd.read_sql("SELECT * FROM logs ORDER BY data_hora DESC", conn)
                 conn.close()
                 st.dataframe(df_logs, use_container_width=True)
             
-            st.subheader("📋 TODAS AS SOLICITAÇÕES DA EMPRESA")
+            st.subheader("📋 REQUISIÇÕES EM ABERTO / HISTÓRICO COMPLETO")
             conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
             df_todos = pd.read_sql("SELECT * FROM reembolsos ORDER BY id DESC", conn)
             conn.close()
             st.dataframe(df_todos, use_container_width=True)
             
             st.markdown("---")
-            st.subheader("🕹️ OPERAR SOLICITAÇÃO")
-            
-            id_pg = st.number_input("DIGITE O ID DA SOLICITAÇÃO PARA GERENCIAR:", min_value=1, step=1)
-            
+            id_pg = st.number_input("DIGITE O ID DA SOLICITAÇÃO PARA FAZER A OPERAÇÃO:", min_value=1, step=1)
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                if st.button("👁️ VER/BAIXAR COMPROVANTE", use_container_width=True):
+                if st.button("👁️ VER COMPROVANTE", use_container_width=True):
                     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                     cursor = conn.cursor()
                     res = cursor.execute("SELECT caminho_arquivo FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
                     conn.close()
-                    
                     if res and res[0] and os.path.exists(res[0]):
                         with open(res[0], "rb") as file:
-                            st.download_button(label="CLIQUE PARA BAIXAR", data=file, file_name=os.path.basename(res[0]), use_container_width=True)
-                    else:
-                        st.error("NENHUM COMPROVANTE ENCONTRADO PARA ESTE ID!")
+                            st.download_button("BAIXAR COMPROVANTE", data=file, file_name=os.path.basename(res[0]), use_container_width=True)
+                    else: st.error("COMPROVANTE NÃO LOCALIZADO!")
                         
             with col2:
                 if st.button("✅ APROVAR PEDIDO", use_container_width=True):
                     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                     cursor = conn.cursor()
-                    verificar = cursor.execute("SELECT id FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
-                    if verificar:
+                    pedido = cursor.execute("SELECT r.id, u.email, u.nome_completo, r.despesa, r.valor FROM reembolsos r JOIN usuarios u ON r.usuario = u.usuario WHERE r.id=?", (id_pg,)).fetchone()
+                    if pedido:
                         cursor.execute("UPDATE reembolsos SET status='APROVADO' WHERE id=?", (id_pg,))
                         conn.commit()
                         conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"APROVOU SOLICITACAO ID {id_pg}")
-                        st.success(f"PEDIDO {id_pg} APROVADO!")
+                        enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "APROVADO")
+                        st.success(f"PEDIDO {id_pg} CONFIGURADO COMO APROVADO!")
                         st.rerun()
-                    else:
-                        conn.close()
-                        st.error("ID NÃO ENCONTRADO!")
+                    else: conn.close(); st.error("ID DE PEDIDO INEXISTENTE!")
                         
             with col3:
                 if st.button("❌ NEGAR PEDIDO", use_container_width=True):
                     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                     cursor = conn.cursor()
-                    verificar = cursor.execute("SELECT id FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
-                    if verificar:
+                    pedido = cursor.execute("SELECT r.id, u.email, u.nome_completo, r.despesa, r.valor FROM reembolsos r JOIN usuarios u ON r.usuario = u.usuario WHERE r.id=?", (id_pg,)).fetchone()
+                    if pedido:
                         cursor.execute("UPDATE reembolsos SET status='NEGADO' WHERE id=?", (id_pg,))
                         conn.commit()
                         conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"NEGOU SOLICITACAO ID {id_pg}")
-                        st.warning(f"PEDIDO {id_pg} REJEITADO E NEGADO!")
+                        enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "NEGADO")
+                        st.warning(f"PEDIDO {id_pg} MARCADADO COMO REJEITADO/NEGADO!")
                         st.rerun()
-                    else:
-                        conn.close()
-                        st.error("ID NÃO ENCONTRADO!")
+                    else: conn.close(); st.error("ID DE PEDIDO INEXISTENTE!")
                         
             with col4:
                 if st.button("💸 MARCAR COMO PAGO", use_container_width=True):
                     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                     cursor = conn.cursor()
-                    verificar = cursor.execute("SELECT id FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
-                    if verificar:
+                    pedido = cursor.execute("SELECT r.id, u.email, u.nome_completo, r.despesa, r.valor FROM reembolsos r JOIN usuarios u ON r.usuario = u.usuario WHERE r.id=?", (id_pg,)).fetchone()
+                    if pedido:
                         cursor.execute("UPDATE reembolsos SET status='PAGO' WHERE id=?", (id_pg,))
                         conn.commit()
                         conn.close()
-                        registrar_log(st.session_state['user_info']['user'], f"PAGOU E ENCERROU SOLICITACAO ID {id_pg}")
-                        st.success(f"PEDIDO {id_pg} MARCADO COMO PAGO!")
+                        registrar_log(st.session_state['user_info']['user'], f"PAGOU SOLICITACAO ID {id_pg}")
+                        enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "PAGO")
+                        st.success(f"PAGAMENTO DO PEDIDO {id_pg} REGISTRADO E E-MAIL DISPARADO!")
                         st.rerun()
-                    else:
-                        conn.close()
-                        st.error("ID NÃO ENCONTRADO!")
-        else:
-            st.error("ACESSO NEGADO! PERFIL INSUFICIENTE.")
+                    else: conn.close(); st.error("ID DE PEDIDO INEXISTENTE!")
