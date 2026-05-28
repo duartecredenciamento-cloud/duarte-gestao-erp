@@ -13,7 +13,7 @@ if not os.path.exists("comprovantes"):
 
 st.set_page_config(page_title="Duarte Reembolsos", layout="wide")
 
-# --- INJEÇÃO DE ESTILE CSS (VISUAL PRELIMINAR) ---
+# --- INJEÇÃO DE ESTILO CSS ---
 st.markdown("""
     <style>
         div.stButton > button {
@@ -31,14 +31,16 @@ st.markdown("""
 DB_PATH = "reembolso.db"
 DB_TIMEOUT = 30.0
 
-# --- CREDENCIAIS DE E-MAIL ---
+# --- CREDENCIAIS DE E-MAIL CONFIGURADAS ---
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 SMTP_USER = "financeiro.duartegestao@gmail.com"
 SMTP_PASS = "rotrhqmtmdbundgu"
 
-# --- FUNÇÃO DISPARO DE E-MAIL ---
+# --- FUNÇÃO DISPARO DE E-MAIL COM DIAGNÓSTICO ---
 def enviar_email_notificacao(email_destino, nome_funcionario, id_pedido, despesa, valor, status_novo):
+    if not email_destino or "@" not in email_destino:
+        return False, "E-mail de destino inválido ou em branco no cadastro do usuário."
     try:
         msg = MIMEMultipart()
         msg['From'] = SMTP_USER
@@ -106,7 +108,6 @@ def registrar_log(user, acao):
 
 inicializar_banco()
 
-# --- CONTROLE DE SESSÃO ---
 if "logado" not in st.session_state: 
     st.session_state["logado"] = False
 
@@ -164,7 +165,7 @@ else:
     opcoes_menu = ["💸 SOLICITAR REEMBOLSO", "📋 MEUS PEDIDOS"]
     if st.session_state['user_info']['nivel'] == 'admin':
         opcoes_menu.append("📊 PAINEL ADMIN")
-        opcoes_menu.append("📈 DASHBOARD")  # Nova aba adicionada aqui!
+        opcoes_menu.append("📈 DASHBOARD")
         
     menu = st.sidebar.radio("NAVEGAÇÃO", opcoes_menu)
     
@@ -208,7 +209,7 @@ else:
         if df_meus.empty: st.info("Nenhuma solicitação encontrada para o seu perfil.")
         else: st.dataframe(df_meus, use_container_width=True)
 
-    # --- MENU 3: PAINEL ADMIN ---
+    # --- MENU 3: PAINEL ADMIN (CORRIGIDO!) ---
     elif menu == "📊 PAINEL ADMIN":
         if st.session_state['user_info']['nivel'] == 'admin':
             st.title("📊 PAINEL DE GESTÃO E AUDITORIA GLOBAL")
@@ -250,8 +251,10 @@ else:
                         conn.commit()
                         conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"APROVOU SOLICITACAO ID {id_pg}")
+                        
                         envio_ok, msg_log = enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "APROVADO")
-                        st.rerun()
+                        if envio_ok: st.success(f"✅ Pedido #{id_pg} Aprovado! E-mail enviado para {pedido[1]}.")
+                        else: st.error(f"⚠️ Salvo no banco, mas o E-mail falhou: {msg_log}")
                     else: conn.close(); st.error("ID DE PEDIDO INEXISTENTE!")
                         
             with col3:
@@ -264,8 +267,10 @@ else:
                         conn.commit()
                         conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"NEGOU SOLICITACAO ID {id_pg}")
+                        
                         envio_ok, msg_log = enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "NEGADO")
-                        st.rerun()
+                        if envio_ok: st.warning(f"❌ Pedido #{id_pg} Negado! E-mail enviado para {pedido[1]}.")
+                        else: st.error(f"⚠️ Salvo no banco, mas o E-mail falhou: {msg_log}")
                     else: conn.close(); st.error("ID DE PEDIDO INEXISTENTE!")
                         
             with col4:
@@ -278,11 +283,13 @@ else:
                         conn.commit()
                         conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"PAGOU SOLICITACAO ID {id_pg}")
+                        
                         envio_ok, msg_log = enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "PAGO")
-                        st.rerun()
+                        if envio_ok: st.success(f"💸 Pedido #{id_pg} marcado como Pago! E-mail enviado para {pedido[1]}.")
+                        else: st.error(f"⚠️ Salvo no banco, mas o E-mail falhou: {msg_log}")
                     else: conn.close(); st.error("ID DE PEDIDO INEXISTENTE!")
 
-    # --- MENU 4: DASHBOARD (NOVO!) ---
+    # --- MENU 4: DASHBOARD ---
     elif menu == "📈 DASHBOARD":
         st.title("📈 DASHBOARD DE GESTÃO E ANALYTICS")
         
@@ -293,7 +300,6 @@ else:
         if df_dash.empty:
             st.info("Nenhum dado de reembolso localizado para gerar os gráficos ainda.")
         else:
-            # Indicadores Principais (Cards)
             total_geral = df_dash['valor'].sum()
             total_pago = df_dash[df_dash['status'] == 'PAGO']['valor'].sum()
             total_pendente = df_dash[df_dash['status'] == 'PENDENTE']['valor'].sum()
@@ -304,8 +310,6 @@ else:
             kpi3.metric("Aguardando Análise (Pendente) ⏳", f"R$ {total_pendente:,.2f}")
             
             st.markdown("---")
-            
-            # Divisão em duas colunas de gráficos
             g1, g2 = st.columns(2)
             
             with g1:
@@ -321,7 +325,6 @@ else:
             st.markdown("---")
             st.subheader("📥 Exportação de Dados para Auditoria")
             
-            # Geração do arquivo CSV para download
             csv_data = df_dash.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 EXPORTAR PLANILHA COMPLETA (.CSV)",
