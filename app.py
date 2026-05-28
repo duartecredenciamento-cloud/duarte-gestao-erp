@@ -22,7 +22,7 @@ cursor.execute("CREATE TABLE IF NOT EXISTS despesas (id INTEGER PRIMARY KEY AUTO
 conn.commit()
 
 # Sidebar Estilizada
-st.sidebar.image("c:\Users\User\Desktop\CODIGOS\duarte-app\assets\logo.png", use_container_width=True)
+st.sidebar.image(r"assets/logo.png", use_container_width=True)
 st.sidebar.title("🚀 Duarte ERP v2.0")
 menu = st.sidebar.radio("Navegação", ["📊 Dashboard Executivo", "💸 Lançar Despesa", "📋 Relatório Geral"])
 
