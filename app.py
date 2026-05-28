@@ -13,56 +13,31 @@ if not os.path.exists("comprovantes"):
 
 st.set_page_config(page_title="Duarte Reembolsos", layout="wide")
 
-# --- INJEÇÃO DE ESTILO CSS (O DESIGN PREMIUM) ---
+# --- INJEÇÃO DE ESTILE CSS (VISUAL PRELIMINAR) ---
 st.markdown("""
     <style>
-        /* Estilização dos Botões de Operação */
         div.stButton > button {
             border-radius: 8px;
             font-weight: bold;
             transition: all 0.3s ease;
         }
-        /* Botão Aprovar */
-        div[data-testid="stHorizontalBlock"] .col2 button, 
-        button:contains("✅") {
-            background-color: #2ecc71 !important;
-            color: white !important;
-            border: none;
-        }
-        /* Botão Negar */
-        button:contains("❌") {
-            background-color: #e74c3c !important;
-            color: white !important;
-            border: none;
-        }
-        /* Botão Pagar */
-        button:contains("💸") {
-            background-color: #3498db !important;
-            color: white !important;
-            border: none;
-        }
-        /* Ajustes de tabelas e inputs */
-        .stDataFrame {
-            border: 1px solid #34495e;
-            border-radius: 10px;
-        }
-        h1, h2, h3 {
-            color: #f3f3f3;
-            font-family: 'Helvetica Neue', sans-serif;
-        }
+        button:contains("✅") { background-color: #2ecc71 !important; color: white !important; border: none; }
+        button:contains("❌") { background-color: #e74c3c !important; color: white !important; border: none; }
+        button:contains("💸") { background-color: #3498db !important; color: white !important; border: none; }
+        .stDataFrame { border: 1px solid #34495e; border-radius: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
 DB_PATH = "reembolso.db"
 DB_TIMEOUT = 30.0
 
-# --- CREDENCIAIS DE E-MAIL CONFIGURADAS ---
+# --- CREDENCIAIS DE E-MAIL ---
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 SMTP_USER = "financeiro.duartegestao@gmail.com"
-SMTP_PASS = "rotr hqmt mdbu ndgu"
+SMTP_PASS = "rotrhqmtmdbundgu"
 
-# --- FUNÇÃO DISPARO DE E-MAIL REAL ---
+# --- FUNÇÃO DISPARO DE E-MAIL ---
 def enviar_email_notificacao(email_destino, nome_funcionario, id_pedido, despesa, valor, status_novo):
     try:
         msg = MIMEMultipart()
@@ -90,15 +65,14 @@ def enviar_email_notificacao(email_destino, nome_funcionario, id_pedido, despesa
         """
         msg.attach(MIMEText(corpo, 'html'))
         
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=10)
         server.starttls()
         server.login(SMTP_USER, SMTP_PASS)
         server.sendmail(SMTP_USER, email_destino, msg.as_string())
         server.quit()
-        return True
+        return True, "Sucesso"
     except Exception as e:
-        print(f"Erro no disparo do e-mail: {e}")
-        return False
+        return False, str(e)
 
 # --- FUNÇÕES DE BANCO DE DADOS ---
 def inicializar_banco():
@@ -112,16 +86,13 @@ def inicializar_banco():
                        categoria TEXT, c_custo TEXT, valor REAL, status TEXT, data DATE, caminho_arquivo TEXT)""")
     cursor.execute("""CREATE TABLE IF NOT EXISTS logs 
                       (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_acao TEXT, acao TEXT, data_hora DATETIME)""")
-    conn.commit()
-
-    # Atualiza ou insere os admins com a nova senha e e-mail corporativo solicitado
+    
     adms_atualizados = [
         ('admin', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'ADMINISTRADOR PRINCIPAL', '000.000.000-00', '(00) 00000-0000'),
         ('operacional', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'OPERACIONAL ADMINISTRATIVO', '000.000.000-00', '(00) 00000-0000'),
         ('financeiro', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'FINANCEIRO DIRETORIA', '000.000.000-00', '(00) 00000-0000')
     ]
     for u in adms_atualizados:
-        # INSERT OR REPLACE força a atualização dos dados se a chave primária existir
         cursor.execute("INSERT OR REPLACE INTO usuarios VALUES (?,?,?,?,?,?,?)", u)
     conn.commit()
     conn.close()
@@ -139,7 +110,7 @@ inicializar_banco()
 if "logado" not in st.session_state: 
     st.session_state["logado"] = False
 
-# --- INTERFACE DE LOGOUT/LOGIN ---
+# --- INTERFACE DE ACESSO ---
 if not st.session_state["logado"]:
     st.title("🔐 DUARTE REEMBOLSOS - ACESSO CONTÁBIL")
     tab1, tab2 = st.tabs(["ENTRAR NO SISTEMA", "CADASTRAR NOVO FUNCIONÁRIO"])
@@ -169,10 +140,10 @@ if not st.session_state["logado"]:
             new_nome = st.text_input("NOME COMPLETO")
             new_cpf = st.text_input("CPF")
             new_tel = st.text_input("TELEFONE DE CONTATO")
-            new_e = st.text_input("E-MAIL CORPORATIVO")
+            new_e = st.text_input("E-MAIL REAL (PARA RECEBER NOTIFICAÇÃO)")
             
             if st.form_submit_button("CADASTRAR FUNCIONÁRIO"):
-                if new_u and new_p and new_nome and new_cpf:
+                if new_u and new_p and new_nome and new_cpf and new_e:
                     try:
                         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                         cursor = conn.cursor()
@@ -186,13 +157,14 @@ if not st.session_state["logado"]:
                 else: st.warning("PREENCHA TODOS OS CAMPOS OBRIGATÓRIOS!")
 
 else:
-    # --- ÁREA INTERNA DO SISTEMA ---
+    # --- ÁREA INTERNA ---
     st.sidebar.title(f"👤 {st.session_state['user_info']['nome']}")
     st.sidebar.write(f"Nível de Acesso: **{st.session_state['user_info']['nivel'].upper()}**")
     
     opcoes_menu = ["💸 SOLICITAR REEMBOLSO", "📋 MEUS PEDIDOS"]
     if st.session_state['user_info']['nivel'] == 'admin':
         opcoes_menu.append("📊 PAINEL ADMIN")
+        opcoes_menu.append("📈 DASHBOARD")  # Nova aba adicionada aqui!
         
     menu = st.sidebar.radio("NAVEGAÇÃO", opcoes_menu)
     
@@ -227,7 +199,7 @@ else:
                     st.success("SOLICITAÇÃO ENVIADA COM SUCESSO!")
                 else: st.error("DADOS DE SOLICITAÇÃO INVÁLIDOS!")
 
-    # --- MENU 2: HISTÓRICO DO TRABALHADOR ---
+    # --- MENU 2: HISTÓRICO ---
     elif menu == "📋 MEUS PEDIDOS":
         st.title("📋 MEU HISTÓRICO DE SOLICITAÇÕES")
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
@@ -236,12 +208,12 @@ else:
         if df_meus.empty: st.info("Nenhuma solicitação encontrada para o seu perfil.")
         else: st.dataframe(df_meus, use_container_width=True)
 
-    # --- MENU 3: CONTROLE ADMIN ---
+    # --- MENU 3: PAINEL ADMIN ---
     elif menu == "📊 PAINEL ADMIN":
         if st.session_state['user_info']['nivel'] == 'admin':
             st.title("📊 PAINEL DE GESTÃO E AUDITORIA GLOBAL")
             
-            with st.expander("🕒 LOGS DE AUDITORIA (HISTÓRICO REALTIME)"):
+            with st.expander("🕒 LOGS DE AUDITORIA"):
                 conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                 df_logs = pd.read_sql("SELECT * FROM logs ORDER BY data_hora DESC", conn)
                 conn.close()
@@ -278,8 +250,7 @@ else:
                         conn.commit()
                         conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"APROVOU SOLICITACAO ID {id_pg}")
-                        enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "APROVADO")
-                        st.success(f"PEDIDO {id_pg} CONFIGURADO COMO APROVADO!")
+                        envio_ok, msg_log = enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "APROVADO")
                         st.rerun()
                     else: conn.close(); st.error("ID DE PEDIDO INEXISTENTE!")
                         
@@ -293,8 +264,7 @@ else:
                         conn.commit()
                         conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"NEGOU SOLICITACAO ID {id_pg}")
-                        enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "NEGADO")
-                        st.warning(f"PEDIDO {id_pg} MARCADADO COMO REJEITADO/NEGADO!")
+                        envio_ok, msg_log = enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "NEGADO")
                         st.rerun()
                     else: conn.close(); st.error("ID DE PEDIDO INEXISTENTE!")
                         
@@ -308,7 +278,55 @@ else:
                         conn.commit()
                         conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"PAGOU SOLICITACAO ID {id_pg}")
-                        enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "PAGO")
-                        st.success(f"PAGAMENTO DO PEDIDO {id_pg} REGISTRADO E E-MAIL DISPARADO!")
+                        envio_ok, msg_log = enviar_email_notificacao(pedido[1], pedido[2], pedido[0], pedido[3], pedido[4], "PAGO")
                         st.rerun()
                     else: conn.close(); st.error("ID DE PEDIDO INEXISTENTE!")
+
+    # --- MENU 4: DASHBOARD (NOVO!) ---
+    elif menu == "📈 DASHBOARD":
+        st.title("📈 DASHBOARD DE GESTÃO E ANALYTICS")
+        
+        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+        df_dash = pd.read_sql("SELECT * FROM reembolsos", conn)
+        conn.close()
+        
+        if df_dash.empty:
+            st.info("Nenhum dado de reembolso localizado para gerar os gráficos ainda.")
+        else:
+            # Indicadores Principais (Cards)
+            total_geral = df_dash['valor'].sum()
+            total_pago = df_dash[df_dash['status'] == 'PAGO']['valor'].sum()
+            total_pendente = df_dash[df_dash['status'] == 'PENDENTE']['valor'].sum()
+            
+            kpi1, kpi2, kpi3 = st.columns(3)
+            kpi1.metric("Total Solicitado Histórico", f"R$ {total_geral:,.2f}")
+            kpi2.metric("Total Pago à Equipe ✅", f"R$ {total_pago:,.2f}")
+            kpi3.metric("Aguardando Análise (Pendente) ⏳", f"R$ {total_pendente:,.2f}")
+            
+            st.markdown("---")
+            
+            # Divisão em duas colunas de gráficos
+            g1, g2 = st.columns(2)
+            
+            with g1:
+                st.subheader("📊 Gastos por Centro de Custo")
+                df_cc = df_dash.groupby("c_custo")["valor"].sum().reset_index()
+                st.bar_chart(data=df_cc, x="c_custo", y="valor")
+                
+            with g2:
+                st.subheader("🏷️ Gastos por Categoria de Despesa")
+                df_cat = df_dash.groupby("categoria")["valor"].sum().reset_index()
+                st.bar_chart(data=df_cat, x="categoria", y="valor")
+                
+            st.markdown("---")
+            st.subheader("📥 Exportação de Dados para Auditoria")
+            
+            # Geração do arquivo CSV para download
+            csv_data = df_dash.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 EXPORTAR PLANILHA COMPLETA (.CSV)",
+                data=csv_data,
+                file_name=f"duarte_gestao_reembolsos_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
