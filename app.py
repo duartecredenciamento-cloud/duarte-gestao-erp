@@ -128,7 +128,7 @@ DB_TIMEOUT = 30.0
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
-EMAIL_SENHA = "SUA_SENHA_DE_APP_AQUI" 
+EMAIL_SENHA = "rotrhqmtmdbundgu" 
 
 # --- GERADOR DE TABELAS ULTRA PROFISSIONAIS (SaaS DESIGN) ---
 def gerar_tabela_premium(df):
