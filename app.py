@@ -8,80 +8,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
-# --- CONFIGURAÇÃO DE SMTP (GMAIL) ---
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
-# 🔥 ATENÇÃO: Aqui você deve usar uma "Senha de App" gerada no painel do Google, não a sua senha normal.
-EMAIL_SENHA = "SUA_SENHA_DE_APP_AQUI" 
-
-def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, detalhes_html):
-    """Envia um e-mail com layout HTML FinTech Premium para o destinatário indicado."""
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = assunto
-    msg["From"] = f"Duarte Gestão Financeira <{EMAIL_REMETENTE}>"
-    msg["To"] = destinatario
-
-    # Define a cor do badge com base no status do reembolso
-    cor_status = "#001E57"  # Padrão
-    if "PENDENTE" in status_pedido: cor_status = "#FF9200"
-    elif "APROVADO" in status_pedido or "PAGO" in status_pedido: cor_status = "#10b981"
-    elif "NEGADO" in status_pedido or "REJEITADO" in status_pedido: cor_status = "#ef4444"
-
-    html = f"""
-    <html>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; padding: 30px; margin: 0;">
-        <div style="max-width: 600px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 12px rgba(0,30,87,0.03);">
-            
-            <!-- Header Corporativo -->
-            <div style="background-color: #001E57; padding: 30px; text-align: center;">
-                <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">DUARTE GESTÃO</h2>
-                <p style="color: #FF9200; margin: 5px 0 0 0; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Controladoria & Finanças</p>
-            </div>
-            
-            <!-- Conteúdo Principal -->
-            <div style="padding: 30px; color: #334155;">
-                <h3 style="color: #001E57; margin-top: 0; font-size: 18px; font-weight: 700;">{titulo_card}</h3>
-                
-                <div style="display: inline-block; background-color: {cor_status}; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 25px; text-transform: uppercase;">
-                    Status: {status_pedido}
-                </div>
-                
-                <!-- Caixa de Detalhes -->
-                <div style="background-color: #f1f5f9; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                        {detalhes_html}
-                    </table>
-                </div>
-                
-                <p style="font-size: 13px; color: #64748b; line-height: 1.6; margin-bottom: 0;">
-                    Este é um e-mail automático enviado pelo Portal de Reembolsos Duarte Gestão. Por favor, não responda a esta mensagem.
-                </p>
-            </div>
-            
-            <!-- Footer -->
-            <div style="background-color: #f8fafc; padding: 15px 30px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
-                &copy; {datetime.now().year} Duarte Gestão. Todos os direitos reservados.
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    msg.attach(MIMEText(html, "html"))
-    
-    try:
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
-        server.login(EMAIL_REMETENTE, EMAIL_SENHA)
-        server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
-        server.quit()
-        return True
-    except Exception as e:
-        print(f"Erro ao disparar e-mail: {e}")
-        return False
-
-# --- CONFIGURAÇÃO INICIAL ---
+# --- CONFIGURAÇÃO INICIAL DE DIRETÓRIOS ---
 if not os.path.exists("comprovantes"): 
     os.makedirs("comprovantes")
 
@@ -94,13 +21,13 @@ st.markdown("""
         
         * { font-family: 'Plus Jakarta Sans', sans-serif; }
 
-        /* Fundo Limpo, Claro e Sofisticado */
+        /* Fundo do Sistema: Limpo, Claro e Sofisticado (Padrão SaaS) */
         [data-testid="stAppViewContainer"] {
             background-color: #f8fafc !important;
             color: #001E57 !important;
         }
         
-        /* Sidebar Branca de Luxo */
+        /* Sidebar Branca de Luxo com Linha de Separação Fina */
         [data-testid="stSidebar"] {
             background-color: #ffffff !important;
             border-right: 1px solid #e2e8f0 !important;
@@ -123,17 +50,11 @@ st.markdown("""
             padding: 24px !important;
             border: 1px solid #e2e8f0 !important;
             box-shadow: 0 4px 12px rgba(0, 30, 87, 0.02) !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             margin-bottom: 20px;
             animation: softSlideUp 0.6s ease-out;
         }
-        .premium-card:hover {
-            transform: translateY(-3px) !important;
-            box-shadow: 0 12px 24px rgba(0, 30, 87, 0.06) !important;
-            border-color: #FF9200 !important;
-        }
 
-        /* Cards Vazios (Substitutos de Tabelas Feias) */
+        /* Caixas de Estado Vazio (Substitutos Elegantes) */
         .empty-state-box {
             background: #ffffff !important;
             border: 2px dashed #e2e8f0 !important;
@@ -183,13 +104,7 @@ st.markdown("""
             border-radius: 8px !important;
         }
 
-        /* Ajustes nas Tabelas Preenchidas */
-        .stDataFrame {
-            border: 1px solid #e2e8f0 !important;
-            border-radius: 10px !important;
-        }
-
-        /* Texto de Alerta Se a Logo Sumir */
+        /* Texto de Fallback caso a imagem da logo falte */
         .logo-fallback {
             font-size: 22px !important;
             font-weight: 800 !important;
@@ -209,35 +124,133 @@ st.markdown("""
 DB_PATH = "reembolso.db"
 DB_TIMEOUT = 30.0
 
-# --- FUNÇÃO DE BUSCA INTELIGENTE DE LOGO (RAIZ + ASSETS) ---
+# --- CONFIGURAÇÃO DE CONFIGURAÇÕES DE EMAIL ---
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
+EMAIL_SENHA = "SUA_SENHA_DE_APP_AQUI" 
+
+# --- GERADOR DE TABELAS ULTRA PROFISSIONAIS (SaaS DESIGN) ---
+def gerar_tabela_premium(df):
+    """Transforma um DataFrame do Pandas em uma tabela HTML5 digna de um sistema corporativo de elite."""
+    if df.empty:
+        return '<div class="empty-state-box">✨ Nenhuma solicitação localizada nesta fila.</div>'
+    
+    # Cabeçalho estruturado
+    headers = "".join([f"<th style='padding: 16px; text-align: left; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9;'>{col}</th>" for col in df.columns])
+    
+    rows_html = ""
+    for _, row in df.iterrows():
+        cells_html = ""
+        for col in df.columns:
+            val = row[col]
+            
+            # Badges Inteligentes e Customizados para cada Status
+            if col == "Status":
+                if val == "PENDENTE":
+                    badge = f"<span style='background: #fff7ed; color: #c2410c; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid #ffedd5;'>⏳ {val}</span>"
+                elif val in ["PAGO", "APROVADO"]:
+                    badge = f"<span style='background: #ecfdf5; color: #047857; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid #d1fae5;'>✅ {val}</span>"
+                elif val in ["NEGADO", "REJEITADO"]:
+                    badge = f"<span style='background: #fef2f2; color: #b91c1c; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid #fee2e2;'>❌ {val}</span>"
+                else:
+                    badge = f"<span style='background: #f1f5f9; color: #475569; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;'>{val}</span>"
+                cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9;'>{badge}</td>"
+                
+            # Formatação de Dinheiro Inteligente R$
+            elif "Valor" in col:
+                try: v_fmt = f"R$ {float(val):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                except: v_fmt = str(val)
+                cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9; font-weight: 700; color: #001E57;'>{v_fmt}</td>"
+                
+            # Marcador de ID Técnico
+            elif col == "ID":
+                cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #94a3b8;'>#{val}</td>"
+                
+            else:
+                cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 14px;'>{val}</td>"
+        
+        # Injeção de linha com efeito hover avançado
+        rows_html += f"<tr style='transition: background 0.2s;' onmouseover=\"this.style.backgroundColor='#f8fafc'\" onmouseout=\"this.style.backgroundColor='transparent'\">{cells_html}</tr>"
+        
+    return f"""
+    <div style='background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 30, 87, 0.01); overflow: hidden; margin-bottom: 25px;'>
+        <table style='width: 100%; border-collapse: collapse; text-align: left;'>
+            <thead><tr style='background: #fafafa;'>{headers}</tr></thead>
+            <tbody>{rows_html}</tbody>
+        </table>
+    </div>
+    """
+
+# --- FUNÇÃO DE RENDERIZAÇÃO DE LOGO CORPORATIVA ---
 def renderizar_logo(local="sidebar"):
-    # Varre a pasta raiz e a nova pasta assets de forma inteligente
     possiveis_caminhos = [
+        "logo.JPG", "logo.jpg", "logo.png", "logo.jpeg",
         "assets/logo_4.JPG", "assets/logo_4.jpg", "assets/logo_4.png", "assets/logo_4.jpeg",
         "logo_4.JPG", "logo_4.jpg", "logo_4.png", "logo_4.jpeg"
     ]
     logo_encontrada = None
-    
     for caminho in possiveis_caminhos:
         if os.path.exists(caminho):
             logo_encontrada = caminho
             break
-            
     if logo_encontrada:
-        if local == "sidebar":
-            st.sidebar.image(logo_encontrada, use_container_width=True)
+        if local == "sidebar": st.sidebar.image(logo_encontrada, use_container_width=True)
         else:
             col, _ = st.columns([1, 2])
-            with col:
-                st.image(logo_encontrada, use_container_width=True)
+            with col: st.image(logo_encontrada, use_container_width=True)
     else:
-        # Fallback elegante em CSS caso o arquivo mude de nome
         html_texto = '<div class="logo-fallback">Duarte<span>Gestão</span></div>'
-        if local == "sidebar":
-            st.sidebar.markdown(html_texto, unsafe_allow_html=True)
-        else:
-            st.markdown(html_texto, unsafe_allow_html=True)
+        if local == "sidebar": st.sidebar.markdown(html_texto, unsafe_allow_html=True)
+        else: st.markdown(html_texto, unsafe_allow_html=True)
 
+# --- NOTIFICAÇÕES VIA E-MAIL (HTML PREMIUM) ---
+def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, detalhes_html):
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = assunto
+    msg["From"] = f"Duarte Gestão Financeira <{EMAIL_REMETENTE}>"
+    msg["To"] = destinatario
+    cor_status = "#001E57"
+    if "PENDENTE" in status_pedido: cor_status = "#FF9200"
+    elif "APROVADO" in status_pedido or "PAGO" in status_pedido: cor_status = "#10b981"
+    elif "NEGADO" in status_pedido or "REJEITADO" in status_pedido: cor_status = "#ef4444"
+
+    html = f"""
+    <html>
+    <body style="font-family: 'Segoe UI', sans-serif; background-color: #f8fafc; padding: 30px; margin: 0;">
+        <div style="max-width: 600px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 12px rgba(0,30,87,0.03);">
+            <div style="background-color: #001E57; padding: 30px; text-align: center;">
+                <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">DUARTE GESTÃO</h2>
+                <p style="color: #FF9200; margin: 5px 0 0 0; font-size: 12px; font-weight: 600; text-transform: uppercase;">Controladoria & Finanças</p>
+            </div>
+            <div style="padding: 30px; color: #334155;">
+                <h3 style="color: #001E57; margin-top: 0; font-size: 18px; font-weight: 700;">{titulo_card}</h3>
+                <div style="display: inline-block; background-color: {cor_status}; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 25px; text-transform: uppercase;">
+                    Status: {status_pedido}
+                </div>
+                <div style="background-color: #f1f5f9; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">{detalhes_html}</table>
+                </div>
+                <p style="font-size: 13px; color: #64748b; line-height: 1.6;">Este é um e-mail automático enviado pelo Portal Duarte Gestão.</p>
+            </div>
+            <div style="background-color: #f8fafc; padding: 15px 30px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
+                &copy; {datetime.now().year} Duarte Gestão.
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    msg.attach(MIMEText(html, "html"))
+    try:
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(EMAIL_REMETENTE, EMAIL_SENHA)
+        server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
+        server.quit()
+        return True
+    except: return False
+
+# --- ESTRUTURA DO BANCO DE DADOS (SQLITE) ---
 def inicializar_banco():
     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
     cursor = conn.cursor()
@@ -249,6 +262,8 @@ def inicializar_banco():
                        categoria TEXT, c_custo TEXT, valor REAL, status TEXT, data DATE, caminho_arquivo TEXT)""")
     cursor.execute("""CREATE TABLE IF NOT EXISTS logs 
                       (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_acao TEXT, acao TEXT, data_hora DATETIME)""")
+    
+    # Credenciais Padrão do Sistema
     adms = [
         ('admin', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'ADMINISTRADOR PRINCIPAL', '000.000.000-00', '(00) 00000-0000'),
         ('operacional', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'OPERACIONAL ADMINISTRATIVO', '000.000.000-00', '(00) 00000-0000'),
@@ -267,7 +282,7 @@ inicializar_banco()
 
 if "logado" not in st.session_state: st.session_state["logado"] = False
 
-# --- TELA DE ACESSO ---
+# --- TELA DE AUTENTICAÇÃO (LOGIN / CADASTRO) ---
 if not st.session_state["logado"]:
     renderizar_logo(local="main")
     st.markdown('<h1 class="clean-title">Portal de Reembolsos Corporativos</h1>', unsafe_allow_html=True)
@@ -309,7 +324,7 @@ if not st.session_state["logado"]:
         st.markdown('</div>', unsafe_allow_html=True)
 
 else:
-    # --- PAINEL INTERNO ---
+    # --- AMBIENTE INTERNO LOGADO ---
     renderizar_logo(local="sidebar")
     
     st.sidebar.markdown(f'<div style="padding: 12px 0; border-top: 1px solid #f1f5f9; margin-top: 15px;">'
@@ -319,15 +334,14 @@ else:
     
     opcoes = ["💸 Solicitar Reembolso", "📋 Meus Pedidos"]
     if st.session_state['user_info']['nivel'] == 'admin':
-        opcoes += ["📊 Painel do Admin", "📈 Dashboard Executive"]
+        opcoes += ["📊 Painel do Admin", "📈 Painel Executivo"]
         
     menu = st.sidebar.radio("Menu", opcoes)
     
-    if st.sidebar.button("🔒 Desconectar Sair"):
+    if st.sidebar.button("🔒 Desconectar e Sair"):
         st.session_state["logado"] = False; st.rerun()
 
-
-# --- EMISSÃO ---
+    # --- ABA: SOLICITAR REEMBOLSO ---
     if menu == "💸 Solicitar Reembolso":
         st.markdown('<h1 class="clean-title">Nova Solicitação de Reembolso</h1>', unsafe_allow_html=True)
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -348,7 +362,6 @@ else:
                                    (st.session_state['user_info']['user'], desc, cat, cc, val, 'PENDENTE', datetime.now().date(), path))
                     conn.commit(); conn.close()
                     
-                    # 📨 ENVIAR ALERTA PARA O FINANCEIRO (Modificado)
                     detalhes = f"""
                         <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Colaborador:</td><td style='text-align:right;'>{st.session_state['user_info']['nome']}</td></tr>
                         <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Descrição:</td><td style='text-align:right;'>{desc}</td></tr>
@@ -356,18 +369,11 @@ else:
                         <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Centro de Custo:</td><td style='text-align:right;'>{cc}</td></tr>
                         <tr><td style='padding: 5px 0; font-weight:600; color:#001E57; font-size:16px;'>Valor:</td><td style='text-align:right; font-weight:700; color:#FF9200; font-size:16px;'>R$ {val:,.2f}</td></tr>
                     """
-                    enviar_notificacao_email(
-                        destinatario=EMAIL_REMETENTE, 
-                        assunto=f"🔔 Novo Reembolso Aguardando Análise - R$ {val:,.2f}",
-                        titulo_card="Nova Solicitação Registrada na Fila",
-                        status_pedido="PENDENTE",
-                        detalhes_html=detalhes
-                    )
-                    
-                    st.success("Solicitação salva e e-mail de auditoria enviado para o Financeiro!")
+                    enviar_notificacao_email(EMAIL_REMETENTE, f"🔔 Novo Reembolso Aguardando Análise - R$ {val:,.2f}", "Nova Solicitação Registrada na Fila", "PENDENTE", detalhes)
+                    st.success("Solicitação salva e enviada para a fila de aprovação!")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- MEUS PEDIDOS ---
+    # --- ABA: MEUS PEDIDOS COLABORADOR ---
     elif menu == "📋 Meus Pedidos":
         st.markdown('<h1 class="clean-title">Acompanhamento de Solicitações</h1>', unsafe_allow_html=True)
         
@@ -381,17 +387,13 @@ else:
             m_pago = df[df['Status'] == 'PAGO']['Valor (R$)'].sum()
             m_pend = df[df['Status'] == 'PENDENTE']['Valor (R$)'].sum()
             c1, c2 = st.columns(2)
-            with c1:
-                st.markdown(f'<div class="premium-card"><div class="kpi-title">Meus Reembolsos Pagos</div><div class="kpi-value val-pago">R$ {m_pago:,.2f}</div></div>', unsafe_allow_html=True)
-            with c2:
-                st.markdown(f'<div class="premium-card"><div class="kpi-title">Meus Pedidos Pendentes</div><div class="kpi-value val-pendente">R$ {m_pend:,.2f}</div></div>', unsafe_allow_html=True)
+            with c1: st.markdown(f'<div class="premium-card"><div class="kpi-title">Meus Reembolsos Pagos</div><div class="kpi-value val-pago">R$ {m_pago:,.2f}</div></div>', unsafe_allow_html=True)
+            with c2: st.markdown(f'<div class="premium-card"><div class="kpi-title">Meus Pedidos Pendentes</div><div class="kpi-value val-pendente">R$ {m_pend:,.2f}</div></div>', unsafe_allow_html=True)
 
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            # Injeção da Tabela HTML Premium Sem Componentes Nativos Conflitantes
+            st.markdown(gerar_tabela_premium(df), unsafe_allow_html=True)
 
-    # --- PAINEL DO ADMIN ---
-# --- PAINEL DO ADMIN ---
+    # --- ABA: PAINEL DO ADMIN (FILA DE AUDITORIA CONTÁBIL) ---
     elif menu == "📊 Painel do Admin":
         st.markdown('<h1 class="clean-title">Fila de Auditoria Contábil</h1>', unsafe_allow_html=True)
         
@@ -402,58 +404,37 @@ else:
         if df_todos.empty:
             st.markdown('<div class="empty-state-box">🍃 Excelente! Nenhuma solicitação aguardando análise na base de dados.</div>', unsafe_allow_html=True)
         else:
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.dataframe(df_todos, use_container_width=True, hide_index=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            # Correção Cirúrgica: Injeta a Tabela Limpa Pura, Eliminando as Caixas Vazias Fantasmas
+            st.markdown(gerar_tabela_premium(df_todos), unsafe_allow_html=True)
             
             st.markdown('<div class="premium-card">', unsafe_allow_html=True)
             st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:15px; font-size:16px;">🕹️ Despache Técnico de Lançamentos</p>', unsafe_allow_html=True)
             
             col_id, col_actions = st.columns([1, 3])
-            with col_id:
-                id_pg = st.number_input("ID do Alvo:", min_value=1, step=1)
+            with col_id: id_pg = st.number_input("ID do Alvo:", min_value=1, step=1)
             
             with col_actions:
-                st.write("") 
-                st.write("") 
+                st.write(""); st.write("") 
                 c1, c2, c3, c4 = st.columns(4)
                 
-                # FUNÇÃO DE DESPACHE ATUALIZADA COM EMAIL COM JOIN (Modificado)
                 def processar_acao_clean(id_target, novo_status, log_msg):
                     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                     cursor = conn.cursor()
-                    
-                    pedido = cursor.execute("""
-                        SELECT r.despesa, r.valor, u.email, u.nome_completo 
-                        FROM reembolsos r 
-                        JOIN usuarios u ON r.usuario = u.usuario 
-                        WHERE r.id=?
-                    """, (id_target,)).fetchone()
-                    
+                    pedido = cursor.execute("SELECT r.despesa, r.valor, u.email, u.nome_completo FROM reembolsos r JOIN usuarios u ON r.usuario = u.usuario WHERE r.id=?", (id_target,)).fetchone()
                     if pedido:
                         despesa, valor, email_usuario, nome_usuario = pedido
                         cursor.execute("UPDATE reembolsos SET status=? WHERE id=?", (novo_status, id_target))
                         conn.commit(); conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
                         
-                        # Envia o feedback em tempo real para o colaborador
                         detalhes = f"""
                             <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Nº Solicitação:</td><td style='text-align:right;'>#{id_target}</td></tr>
                             <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Item Solicitado:</td><td style='text-align:right;'>{despesa}</td></tr>
-                            <tr><td style='padding: 5px 0; font-weight:600; color:#001E57; font-size:15px;'>Valor Resolvido:</td><td style='text-align:right; font-weight:700; font-size:15px;'>R$ {valor:,.2f}</td></tr>
-                            <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Analisado por:</td><td style='text-align:right;'>{st.session_state['user_info']['nome']}</td></tr>
+                            <tr><td style='padding: 5px 0; font-weight:600; color:#001E57; font-size:15px;'>Valor:</td><td style='text-align:right; font-weight:700; font-size:15px;'>R$ {valor:,.2f}</td></tr>
                         """
-                        enviar_notificacao_email(
-                            destinatario=email_usuario, 
-                            assunto=f"📢 Atualização de Reembolso: Chamado #{id_target} foi {novo_status}",
-                            titulo_card=f"Olá {nome_usuario.split()[0]}, sua solicitação mudou de status.",
-                            status_pedido=novo_status,
-                            detalhes_html=detalhes
-                        )
+                        enviar_notificacao_email(email_usuario, f"📢 Reembolso Atualizado: Chamado #{id_target} {novo_status}", f"Olá {nome_usuario.split()[0]}, seu pedido mudou de status.", novo_status, detalhes)
                         st.rerun()
-                    else: 
-                        conn.close()
-                        st.error("ID não localizado.")
+                    else: conn.close(); st.error("ID não localizado.")
 
                 with c1:
                     if st.button("👁️ Recibo"):
@@ -471,8 +452,8 @@ else:
                     if st.button("💸 Pagar"): processar_acao_clean(id_pg, "PAGO", "PAGOU")
             st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- DASHBOARD EXECUTIVE ---
-    elif menu == "📈 Dashboard Executive":
+    # --- ABA: DASHBOARD/PAINEL EXECUTIVO ---
+    elif menu == "📈 Painel Executivo":
         st.markdown('<h1 class="clean-title">Métricas Estratégicas e Consolidação</h1>', unsafe_allow_html=True)
         
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
@@ -480,19 +461,16 @@ else:
         conn.close()
         
         if df_dash.empty:
-            st.markdown('<div class="empty-state-box">📊 Aguardando lançamentos de dados para gerar os relatórios e inteligência de negócios.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="empty-state-box">📊 Aguardando lançamentos de dados para gerar relatórios.</div>', unsafe_allow_html=True)
         else:
             t_geral = df_dash['valor'].sum()
             t_pago = df_dash[df_dash['status'] == 'PAGO']['valor'].sum()
             t_pend = df_dash[df_dash['status'] == 'PENDENTE']['valor'].sum()
             
             k1, k2, k3 = st.columns(3)
-            with k1:
-                st.markdown(f'<div class="premium-card"><div class="kpi-title">Gross Solicitado</div><div class="kpi-value val-total">R$ {t_geral:,.2f}</div></div>', unsafe_allow_html=True)
-            with k2:
-                st.markdown(f'<div class="premium-card"><div class="kpi-title">Volume Pago</div><div class="kpi-value val-pago">R$ {t_pago:,.2f}</div></div>', unsafe_allow_html=True)
-            with k3:
-                st.markdown(f'<div class="premium-card"><div class="kpi-title">Exposição Pendente</div><div class="kpi-value val-pendente">R$ {t_pend:,.2f}</div></div>', unsafe_allow_html=True)
+            with k1: st.markdown(f'<div class="premium-card"><div class="kpi-title">Gross Solicitado</div><div class="kpi-value val-total">R$ {t_geral:,.2f}</div></div>', unsafe_allow_html=True)
+            with k2: st.markdown(f'<div class="premium-card"><div class="kpi-title">Volume Pago</div><div class="kpi-value val-pago">R$ {t_pago:,.2f}</div></div>', unsafe_allow_html=True)
+            with k3: st.markdown(f'<div class="premium-card"><div class="kpi-title">Exposição Pendente</div><div class="kpi-value val-pendente">R$ {t_pend:,.2f}</div></div>', unsafe_allow_html=True)
             
             g1, g2 = st.columns(2)
             with g1:
