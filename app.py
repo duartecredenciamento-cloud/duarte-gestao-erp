@@ -1,4 +1,4 @@
-import streamlit as st
+code_content = """import streamlit as st
 import pandas as pd
 import sqlite3
 import os
@@ -15,25 +15,22 @@ if not os.path.exists("comprovantes"):
 st.set_page_config(page_title="Duarte Gestão - Financeiro", layout="wide", initial_sidebar_state="expanded")
 
 # --- 🎯 ARSENAL CSS: CLEAN, PREMIUM & LIGHT ANIMATIONS 🎯 ---
-st.markdown("""
+st.markdown(\"\"\"
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         
         * { font-family: 'Plus Jakarta Sans', sans-serif; }
 
-        /* Fundo do Sistema: Limpo, Claro e Sofisticado (Padrão SaaS) */
         [data-testid="stAppViewContainer"] {
             background-color: #f8fafc !important;
             color: #001E57 !important;
         }
         
-        /* Sidebar Branca de Luxo com Linha de Separação Fina */
         [data-testid="stSidebar"] {
             background-color: #ffffff !important;
             border-right: 1px solid #e2e8f0 !important;
         }
 
-        /* Títulos Corporativos Impecáveis */
         .clean-title {
             font-size: 28px !important;
             font-weight: 800 !important;
@@ -43,7 +40,6 @@ st.markdown("""
             animation: softSlideUp 0.5s ease-out;
         }
 
-        /* Cards Estilo Premium FinTech */
         .premium-card {
             background: #ffffff !important;
             border-radius: 14px !important;
@@ -54,7 +50,6 @@ st.markdown("""
             animation: softSlideUp 0.6s ease-out;
         }
 
-        /* Caixas de Estado Vazio (Substitutos Elegantes) */
         .empty-state-box {
             background: #ffffff !important;
             border: 2px dashed #e2e8f0 !important;
@@ -68,14 +63,12 @@ st.markdown("""
             animation: softSlideUp 0.5s ease-out;
         }
 
-        /* Indicadores KPI Clean */
         .kpi-title { color: #64748b !important; font-size: 12px !important; font-weight: 600 !important; text-transform: uppercase; letter-spacing: 0.5px; }
         .kpi-value { font-size: 28px !important; font-weight: 800 !important; margin-top: 4px; }
         .val-total { color: #001E57 !important; }
         .val-pago { color: #10b981 !important; }
         .val-pendente { color: #FF9200 !important; }
 
-        /* Botões Estilo Estúdio de Design */
         div.stButton > button {
             width: 100% !important;
             background-color: #001E57 !important;
@@ -94,17 +87,14 @@ st.markdown("""
             box-shadow: 0 4px 12px rgba(255, 146, 0, 0.15) !important;
         }
 
-        /* Cores dos Botões de Ação do Admin */
         button:contains("✅") { background-color: #10b981 !important; }
         button:contains("❌") { background-color: #ef4444 !important; }
         button:contains("💸") { background-color: #2563eb !important; }
 
-        /* Inputs e Selectboxes Elegantes */
         div[data-baseweb="input"], div[data-baseweb="select"] {
             border-radius: 8px !important;
         }
 
-        /* Texto de Fallback caso a imagem da logo falte */
         .logo-fallback {
             font-size: 22px !important;
             font-weight: 800 !important;
@@ -119,7 +109,7 @@ st.markdown("""
             to { opacity: 1; transform: translateY(0); }
         }
     </style>
-""", unsafe_allow_html=True)
+\"\"\", unsafe_allow_html=True)
 
 DB_PATH = "reembolso.db"
 DB_TIMEOUT = 30.0
@@ -128,15 +118,13 @@ DB_TIMEOUT = 30.0
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
-EMAIL_SENHA = "rotrhqmtmdbundgu" 
+EMAIL_SENHA = "zbvwzhnsjlqperfr"  # <-- Senha de App configurada sem espaços corporativos
 
 # --- GERADOR DE TABELAS ULTRA PROFISSIONAIS (SaaS DESIGN) ---
 def gerar_tabela_premium(df):
-    """Transforma um DataFrame do Pandas em uma tabela HTML5 digna de um sistema corporativo de elite."""
     if df.empty:
         return '<div class="empty-state-box">✨ Nenhuma solicitação localizada nesta fila.</div>'
     
-    # Cabeçalho estruturado
     headers = "".join([f"<th style='padding: 16px; text-align: left; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9;'>{col}</th>" for col in df.columns])
     
     rows_html = ""
@@ -145,7 +133,6 @@ def gerar_tabela_premium(df):
         for col in df.columns:
             val = row[col]
             
-            # Badges Inteligentes e Customizados para cada Status
             if col == "Status":
                 if val == "PENDENTE":
                     badge = f"<span style='background: #fff7ed; color: #c2410c; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid #ffedd5;'>⏳ {val}</span>"
@@ -157,30 +144,27 @@ def gerar_tabela_premium(df):
                     badge = f"<span style='background: #f1f5f9; color: #475569; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;'>{val}</span>"
                 cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9;'>{badge}</td>"
                 
-            # Formatação de Dinheiro Inteligente R$
             elif "Valor" in col:
                 try: v_fmt = f"R$ {float(val):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                 except: v_fmt = str(val)
                 cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9; font-weight: 700; color: #001E57;'>{v_fmt}</td>"
                 
-            # Marcador de ID Técnico
             elif col == "ID":
                 cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #94a3b8;'>#{val}</td>"
                 
             else:
                 cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 14px;'>{val}</td>"
         
-        # Injeção de linha com efeito hover avançado
-        rows_html += f"<tr style='transition: background 0.2s;' onmouseover=\"this.style.backgroundColor='#f8fafc'\" onmouseout=\"this.style.backgroundColor='transparent'\">{cells_html}</tr>"
+        rows_html += f"<tr style='transition: background 0.2s;' onmouseover=\\"this.style.backgroundColor='#f8fafc'\\" onmouseout=\\"this.style.backgroundColor='transparent'\\">{cells_html}</tr>"
         
-    return f"""
+    return f\"\"\"
     <div style='background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 30, 87, 0.01); overflow: hidden; margin-bottom: 25px;'>
         <table style='width: 100%; border-collapse: collapse; text-align: left;'>
             <thead><tr style='background: #fafafa;'>{headers}</tr></thead>
             <tbody>{rows_html}</tbody>
         </table>
     </div>
-    """
+    \"\"\"
 
 # --- FUNÇÃO DE RENDERIZAÇÃO DE LOGO CORPORATIVA ---
 def renderizar_logo(local="sidebar"):
@@ -204,7 +188,7 @@ def renderizar_logo(local="sidebar"):
         if local == "sidebar": st.sidebar.markdown(html_texto, unsafe_allow_html=True)
         else: st.markdown(html_texto, unsafe_allow_html=True)
 
-# --- NOTIFICAÇÕES VIA E-MAIL (HTML PREMIUM) ---
+# --- NOTIFICAÇÕES VIA E-MAIL (COM RASTREADOR DE ERROS ATIVO) ---
 def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, detalhes_html):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = assunto
@@ -215,7 +199,7 @@ def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, 
     elif "APROVADO" in status_pedido or "PAGO" in status_pedido: cor_status = "#10b981"
     elif "NEGADO" in status_pedido or "REJEITADO" in status_pedido: cor_status = "#ef4444"
 
-    html = f"""
+    html = f\"\"\"
     <html>
     <body style="font-family: 'Segoe UI', sans-serif; background-color: #f8fafc; padding: 30px; margin: 0;">
         <div style="max-width: 600px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 12px rgba(0,30,87,0.03);">
@@ -239,8 +223,9 @@ def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, 
         </div>
     </body>
     </html>
-    """
+    \"\"\"
     msg.attach(MIMEText(html, "html"))
+    
     try:
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.starttls()
@@ -248,22 +233,23 @@ def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, 
         server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
         server.quit()
         return True
-    except: return False
+    except Exception as error_details:
+        st.error(f"🚨 Alerta do Servidor de E-mail: {error_details}")
+        return False
 
 # --- ESTRUTURA DO BANCO DE DADOS (SQLITE) ---
 def inicializar_banco():
     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
     cursor = conn.cursor()
-    cursor.execute("""CREATE TABLE IF NOT EXISTS usuarios 
+    cursor.execute(\"\"\"CREATE TABLE IF NOT EXISTS usuarios 
                       (usuario TEXT PRIMARY KEY, senha TEXT, email TEXT, nivel TEXT, 
-                       nome_completo TEXT, cpf TEXT, telefone TEXT)""")
-    cursor.execute("""CREATE TABLE IF NOT EXISTS reembolsos 
+                       nome_completo TEXT, cpf TEXT, telefone TEXT)\"\"\")
+    cursor.execute(\"\"\"CREATE TABLE IF NOT EXISTS reembolsos 
                       (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT, despesa TEXT, 
-                       categoria TEXT, c_custo TEXT, valor REAL, status TEXT, data DATE, caminho_arquivo TEXT)""")
-    cursor.execute("""CREATE TABLE IF NOT EXISTS logs 
-                      (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_acao TEXT, acao TEXT, data_hora DATETIME)""")
+                       categoria TEXT, c_custo TEXT, valor REAL, status TEXT, data DATE, caminho_arquivo TEXT)\"\"\")
+    cursor.execute(\"\"\"CREATE TABLE IF NOT EXISTS logs 
+                      (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_acao TEXT, acao TEXT, data_hora DATETIME)\"\"\")
     
-    # Credenciais Padrão do Sistema
     adms = [
         ('admin', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'ADMINISTRADOR PRINCIPAL', '000.000.000-00', '(00) 00000-0000'),
         ('operacional', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'OPERACIONAL ADMINISTRATIVO', '000.000.000-00', '(00) 00000-0000'),
@@ -362,13 +348,7 @@ else:
                                    (st.session_state['user_info']['user'], desc, cat, cc, val, 'PENDENTE', datetime.now().date(), path))
                     conn.commit(); conn.close()
                     
-                    detalhes = f"""
-                        <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Colaborador:</td><td style='text-align:right;'>{st.session_state['user_info']['nome']}</td></tr>
-                        <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Descrição:</td><td style='text-align:right;'>{desc}</td></tr>
-                        <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Categoria:</td><td style='text-align:right;'>{cat}</td></tr>
-                        <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Centro de Custo:</td><td style='text-align:right;'>{cc}</td></tr>
-                        <tr><td style='padding: 5px 0; font-weight:600; color:#001E57; font-size:16px;'>Valor:</td><td style='text-align:right; font-weight:700; color:#FF9200; font-size:16px;'>R$ {val:,.2f}</td></tr>
-                    """
+                    detalhes = f"<tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Colaborador:</td><td style='text-align:right;'>{st.session_state['user_info']['nome']}</td></tr><tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Descrição:</td><td style='text-align:right;'>{desc}</td></tr><tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Categoria:</td><td style='text-align:right;'>{cat}</td></tr><tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Centro de Custo:</td><td style='text-align:right;'>{cc}</td></tr><tr><td style='padding: 5px 0; font-weight:600; color:#001E57; font-size:16px;'>Valor:</td><td style='text-align:right; font-weight:700; color:#FF9200; font-size:16px;'>R$ {val:,.2f}</td></tr>"
                     enviar_notificacao_email(EMAIL_REMETENTE, f"🔔 Novo Reembolso Aguardando Análise - R$ {val:,.2f}", "Nova Solicitação Registrada na Fila", "PENDENTE", detalhes)
                     st.success("Solicitação salva e enviada para a fila de aprovação!")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -390,10 +370,9 @@ else:
             with c1: st.markdown(f'<div class="premium-card"><div class="kpi-title">Meus Reembolsos Pagos</div><div class="kpi-value val-pago">R$ {m_pago:,.2f}</div></div>', unsafe_allow_html=True)
             with c2: st.markdown(f'<div class="premium-card"><div class="kpi-title">Meus Pedidos Pendentes</div><div class="kpi-value val-pendente">R$ {m_pend:,.2f}</div></div>', unsafe_allow_html=True)
 
-            # Injeção da Tabela HTML Premium Sem Componentes Nativos Conflitantes
             st.markdown(gerar_tabela_premium(df), unsafe_allow_html=True)
 
-    # --- ABA: PAINEL DO ADMIN (FILA DE AUDITORIA CONTÁBIL) ---
+    # --- ABA: PAINEL DO ADMIN ---
     elif menu == "📊 Painel do Admin":
         st.markdown('<h1 class="clean-title">Fila de Auditoria Contábil</h1>', unsafe_allow_html=True)
         
@@ -404,7 +383,6 @@ else:
         if df_todos.empty:
             st.markdown('<div class="empty-state-box">🍃 Excelente! Nenhuma solicitação aguardando análise na base de dados.</div>', unsafe_allow_html=True)
         else:
-            # Correção Cirúrgica: Injeta a Tabela Limpa Pura, Eliminando as Caixas Vazias Fantasmas
             st.markdown(gerar_tabela_premium(df_todos), unsafe_allow_html=True)
             
             st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -427,11 +405,7 @@ else:
                         conn.commit(); conn.close()
                         registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
                         
-                        detalhes = f"""
-                            <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Nº Solicitação:</td><td style='text-align:right;'>#{id_target}</td></tr>
-                            <tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Item Solicitado:</td><td style='text-align:right;'>{despesa}</td></tr>
-                            <tr><td style='padding: 5px 0; font-weight:600; color:#001E57; font-size:15px;'>Valor:</td><td style='text-align:right; font-weight:700; font-size:15px;'>R$ {valor:,.2f}</td></tr>
-                        """
+                        detalhes = f"<tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Nº Solicitação:</td><td style='text-align:right;'>#{id_target}</td></tr><tr><td style='padding: 5px 0; font-weight:600; color:#001E57;'>Item Solicitado:</td><td style='text-align:right;'>{despesa}</td></tr><tr><td style='padding: 5px 0; font-weight:600; color:#001E57; font-size:15px;'>Valor:</td><td style='text-align:right; font-weight:700; font-size:15px;'>R$ {valor:,.2f}</td></tr>"
                         enviar_notificacao_email(email_usuario, f"📢 Reembolso Atualizado: Chamado #{id_target} {novo_status}", f"Olá {nome_usuario.split()[0]}, seu pedido mudou de status.", novo_status, detalhes)
                         st.rerun()
                     else: conn.close(); st.error("ID não localizado.")
@@ -501,3 +475,9 @@ else:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
             st.markdown('</div>', unsafe_allow_html=True)
+"""
+
+with open("app.py", "w", encoding="utf-8") as f:
+    f.write(code_content)
+
+print("File generated successfully")
