@@ -399,8 +399,8 @@ else:
                 c1, c2, c3, c4 = st.columns(4)
                 
                 def processar_acao_clean(id_target, novo_status, log_msg):
-    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-    cursor = conn.cursor()
+        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+        cursor = conn.cursor()
     
         query = """
         SELECT r.despesa, r.valor, r.categoria, r.c_custo, r.data, u.email, u.nome_completo 
@@ -410,10 +410,10 @@ else:
         """
 
     # 1. Faz a consulta
-    pedido = cursor.execute(query, (id_target,)).fetchone()
+        pedido = cursor.execute(query, (id_target,)).fetchone()
     
     # 2. Verifica se o pedido existe antes de tentar extrair os dados
-    if pedido:
+        if pedido:
         # Agora sim, fazemos o desempacotamento de forma segura
         despesa, valor, categoria, c_custo, data, email_colaborador, nome_usuario = pedido
         
