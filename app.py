@@ -402,12 +402,13 @@ else:
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
         cursor = conn.cursor()
     
-        query = """
-        SELECT r.despesa, r.valor, r.categoria, r.c_custo, r.data, u.email, u.nome_completo 
-        FROM reembolsos r 
-        JOIN usuarios u ON r.usuario = u.usuario 
-        WHERE r.id=?
-        """
+    # Substitua sua linha 405 por esta estrutura:
+    query = (
+        "SELECT r.despesa, r.valor, r.categoria, r.c_custo, r.data, u.email, u.nome_completo "
+        "FROM reembolsos r "
+        "JOIN usuarios u ON r.usuario = u.usuario "
+        "WHERE r.id = ?"
+    )
 
     # 1. Faz a consulta
         pedido = cursor.execute(query, (id_target,)).fetchone()
@@ -420,26 +421,32 @@ else:
         # 3. Atualiza o status
         cursor.execute("UPDATE reembolsos SET status=? WHERE id=?", (novo_status, id_target))
         conn.commit()
-        
-        # 4. Montagem dos detalhes (seus detalhes e aviso estão perfeitos)
-        detalhes = f"""
-        <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Despesa:</td><td style='padding: 8px;'>{despesa}</td></tr>
-        <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Categoria:</td><td style='padding: 8px;'>{categoria}</td></tr>
-        <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Centro de Custo:</td><td style='padding: 8px;'>{c_custo}</td></tr>
-        <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Data:</td><td style='padding: 8px;'>{data}</td></tr>
-        <tr><td style='padding: 8px; font-weight:600; color:#001E57; font-size:16px;'>Valor:</td>
-            <td style='padding: 8px; font-weight:700; color:#FF9200; font-size:16px;'>R$ {valor:,.2f}</td></tr>
-        """
-        
-        aviso = """
-        <tr><td colspan='2' style='padding: 20px 8px 0 8px; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;'>
-        ⚠️ <b>Este é um e-mail automático.</b> Por favor, não responda a esta mensagem. 
-        Em caso de dúvidas ou reclamações, entre em contato diretamente com o <b>Setor Financeiro</b>.
-        </td></tr>
-        """
+
+    # 1. Prepare o valor
+    valor_float = float(valor)
+
+    # 2. Monte usando concatenação (evita qualquer conflito de sintaxe)
+    linha_valor = '<td style="padding: 8px; font-weight:700; color:#FF9200; font-size:16px;">R$ {:,.2f}</td></tr>'.format(valor_float)
+    
+    # Adicione a barra \ antes das 3 aspas no início e no fim dele:
+detalhes = \"\"\"<tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Despesa:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
+<tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Categoria:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
+<tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Centro de Custo:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
+<tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Data:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
+<tr><td style='padding: 8px; font-weight:600; color:#001E57; font-size:16px;'>Valor:</td><td style='padding: 8px; font-weight:700; color:#FF9200; font-size:16px;'>R$ {:,.2f}</td></tr>\"\"\"
+
+detalhes = detalhes.format(st.session_state['user_info']['nome'], despesa, categoria, c_custo, data)
+       
+# Adicione a barra \ aqui também:
+aviso = \"\"\"
+<tr><td colspan='2' style='padding: 20px 8px 0 8px; font-size: 11px; color: #777;'>
+Aviso: Este é um e-mail automático. Por favor, não responda a esta mensagem.
+Em caso de dúvidas ou reclamações, entre em contato diretamente com o Setor Financeiro.
+</td></tr>
+\"\"\"
         
         # 5. Envio
-        enviar_notificacao_email(
+enviar_notificacao_email(
             destinatario=email_colaborador, 
             assunto=f"Atualização de Reembolso: {despesa} - {novo_status}", 
             titulo_card=f"Olá {nome_usuario.split()[0]}, seu pedido foi atualizado para: {novo_status}", 
@@ -448,16 +455,18 @@ else:
         )
         
         # 6. Log, Finalização e Redirecionamento
-        registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
-        conn.close()
-        st.success(f"Status atualizado para {novo_status} e e-mail enviado para {email_colaborador}")
-        st.rerun()
-    else:
+registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
+conn.close()
+st.success(f"Status atualizado para {novo_status} e e-mail enviado para {email_colaborador}")
+st.rerun()
+if usuario_encontrado:
+    pass
+else:
         conn.close()
         st.error("Erro: ID não encontrado ou usuário sem e-mail cadastrado.")
 
 
-                with c1:
+        with c1:
                     if st.button("👁️ Recibo"):
                         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                         res = conn.cursor().execute("SELECT caminho_arquivo FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
@@ -465,16 +474,16 @@ else:
                         if res and res[0] and os.path.exists(res[0]):
                             with open(res[0], "rb") as f: st.download_button("📥 Baixar", data=f, file_name=os.path.basename(res[0]))
                         else: st.error("Sem anexo.")
-                with c2:
+        with c2:
                     if st.button("✅ Aprovar"): processar_acao_clean(id_pg, "APROVADO", "APROVOU")
-                with c3:
+        with c3:
                     if st.button("❌ Rejeitar"): processar_acao_clean(id_pg, "NEGADO", "NEGOU")
-                with c4:
+        with c4:
                     if st.button("💸 Pagar"): processar_acao_clean(id_pg, "PAGO", "PAGOU")
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ABA: DASHBOARD/PAINEL EXECUTIVO ---
-    elif menu == "📈 Painel Executivo":
+# --- ABA: DASHBOARD/PAINEL EXECUTIVO ---
+elif menu == "📈 Painel Executivo":
         st.markdown('<h1 class="clean-title">Métricas Estratégicas e Consolidação</h1>', unsafe_allow_html=True)
         
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
