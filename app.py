@@ -290,7 +290,7 @@ if not st.session_state["logado"]:
             else: st.error("Usuário ou senha inválidos.")
         st.markdown('</div>', unsafe_allow_html=True)
             
-    with tab2:
+        with tab2:
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
         with st.form("cad_form", clear_on_submit=True):
             nu = st.text_input("Username")
@@ -300,17 +300,19 @@ if not st.session_state["logado"]:
             nt = st.text_input("Telefone")
             ne = st.text_input("E-mail")
             
+            # Linha 303: O botão do formulário
             if st.form_submit_button("Cadastrar Profissional"):
-            if verificar_email and (not ne or "@" not in ne):    
-                st.error("Por favor, informe um e-mail válido para receber as notificações.")
-            elif nu and np and nn:
+                # Linha 304: ATENÇÃO! Ela tem que estar para a DIREITA do "if" de cima!
+                if verificar_email and (not ne or "@" not in ne):    
+                    st.error("Por favor, informe um e-mail válido para receber as notificações.")
+                elif nu and np and nn:
                     try:
                         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                         conn.cursor().execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", (nu, np, ne, 'usuario', nn, nc, nt))
                         conn.commit(); conn.close()
-                    except:
+                        st.success("Cadastro efetuado com sucesso!")
+                    except: 
                         st.error("Este nome de usuário já está em uso.")
-                    st.success("Cadastro efetuado com sucesso!")
         st.markdown('</div>', unsafe_allow_html=True)
 
 # --- AMBIENTE INTERNO LOGADO ---
