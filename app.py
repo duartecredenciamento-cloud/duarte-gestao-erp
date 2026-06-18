@@ -299,21 +299,21 @@ if not st.session_state["logado"]:
             nc = st.text_input("CPF")
             nt = st.text_input("Telefone")
             ne = st.text_input("E-mail")
+            
             if st.form_submit_button("Cadastrar Profissional"):
-            if not ne or "@" not in ne:
+            if verificar_email and (not ne or "@" not in ne):    
                 st.error("Por favor, informe um e-mail válido para receber as notificações.")
             elif nu and np and nn:
-                if nu and np and nn and ne:
                     try:
                         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                         conn.cursor().execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", (nu, np, ne, 'usuario', nn, nc, nt))
                         conn.commit(); conn.close()
-                        st.success("Cadastro efetuado com sucesso!")
-                    except: st.error("Este nome de usuário já está em uso.")
+                    except:
+                        st.error("Este nome de usuário já está em uso.")
+                    st.success("Cadastro efetuado com sucesso!")
         st.markdown('</div>', unsafe_allow_html=True)
 
-else:
-    # --- AMBIENTE INTERNO LOGADO ---
+# --- AMBIENTE INTERNO LOGADO ---
     renderizar_logo(local="sidebar")
     
     st.sidebar.markdown(f'<div style="padding: 12px 0; border-top: 1px solid #f1f5f9; margin-top: 15px;">'
