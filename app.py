@@ -11,6 +11,9 @@ from datetime import datetime
 import re
 
 # 🌟 ADICIONE ESTA INICIALIZAÇÃO AQUI NO TOPO:
+if "logado" not in st.session_state:
+    st.session_state["logado"] = False
+
 if "user_info" not in st.session_state:
     st.session_state["user_info"] = None
 
@@ -343,10 +346,12 @@ if not st.session_state["logado"]:
 # --- AMBIENTE INTERNO LOGADO ---
     renderizar_logo(local="sidebar")
     
-    st.sidebar.markdown(f'<div style="padding: 12px 0; border-top: 1px solid #f1f5f9; margin-top: 15px;">'
-                        f'<p style="margin:0; font-size:14px; font-weight:700; color:#001E57;">{st.session_state["user_info"]["nome"]}</p>'
-                        f'<span style="color:#FF9200; font-size:11px; font-weight:600; text-transform:uppercase;">Acesso: {st.session_state["user_info"]["nivel"].upper()}</span>'
-                        f'</div>', unsafe_allow_html=True)
+    st.sidebar.markdown(
+        f'<div style="padding: 12px 0; border-top: 1px solid #f1f5f9; margin-top: 15px;">'
+        f'<p style="margin:0; font-size:14px; font-weight:700; color:#001E57;">{st.session_state["user_info"]["nome"]}</p>'
+        f'<span style="color:#FF9200; font-size:11px; font-weight:600; text-transform:uppercase;">Painel Ativo</span>'
+        f'</div>', 
+        unsafe_allow_html=True)
     
     opcoes = ["💸 Solicitar Reembolso", "📋 Meus Pedidos"]
     if st.session_state['user_info']['nivel'] == 'admin':
