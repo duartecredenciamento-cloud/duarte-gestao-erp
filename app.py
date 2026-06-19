@@ -10,6 +10,10 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 import re
 
+# 🌟 ADICIONE ESTA INICIALIZAÇÃO AQUI NO TOPO:
+if "user_info" not in st.session_state:
+    st.session_state["user_info"] = None
+
 def verificar_email(email):
     # Função simples para checar se o formato do e-mail é válido
     padrao = r'^[\w\.-]+@[\w\.-]+\.\w+$'
@@ -278,6 +282,14 @@ inicializar_banco()
 
 if "logado" not in st.session_state: st.session_state["logado"] = False
 
+# 🌟 SEGURANÇA MÁXIMA: Garante que as variáveis existam no primeiro acesso
+if "logado" not in st.session_state:
+    st.session_state["logado"] = False
+
+if "user_info" not in st.session_state:
+    st.session_state["user_info"] = None
+
+
 # --- TELA DE AUTENTICAÇÃO (LOGIN / CADASTRO) ---
 if not st.session_state["logado"]:
     renderizar_logo(local="main")
@@ -294,14 +306,17 @@ if not st.session_state["logado"]:
             conn.close()
             if user:
                 st.session_state["logado"] = True
+                # Salvando as informações exatamente como você configurou
                 st.session_state["user_info"] = {"user": user[0], "nivel": user[3], "nome": user[4]}
                 registrar_log(user[0], "LOGIN SUCESSO")
                 st.rerun()
-            else: st.error("Usuário ou senha inválidos.")
+            else: 
+                st.error("Usuário ou senha inválidos.")
         st.markdown('</div>', unsafe_allow_html=True)
             
-        with tab2:
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+    with tab2:
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        # CORREÇÃO: O form agora está INDENTADO para a direita, ficando DENTRO da tab2
         with st.form("cad_form", clear_on_submit=True):
             nu = st.text_input("Username")
             np = st.text_input("Senha", type="password")
@@ -310,18 +325,18 @@ if not st.session_state["logado"]:
             nt = st.text_input("Telefone")
             ne = st.text_input("E-mail")
             
-            # Linha 303: O botão do formulário
             if st.form_submit_button("Cadastrar Profissional"):
-                # Linha 304: ATENÇÃO! Ela tem que estar para a DIREITA do "if" de cima!
-                if verificar_email and (not ne or "@" not in ne):    
+                # Se 'verificar_email' for uma função ou flag externa, o fluxo segue aqui:
+                if not ne or "@" not in ne:    
                     st.error("Por favor, informe um e-mail válido para receber as notificações.")
                 elif nu and np and nn:
                     try:
                         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                         conn.cursor().execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", (nu, np, ne, 'usuario', nn, nc, nt))
-                        conn.commit(); conn.close()
+                        conn.commit()
+                        conn.close()
                         st.success("Cadastro efetuado com sucesso!")
-                    except: 
+                    except Exception as e: 
                         st.error("Este nome de usuário já está em uso.")
         st.markdown('</div>', unsafe_allow_html=True)
 
