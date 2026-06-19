@@ -1,4 +1,5 @@
-code_content = """import streamlit as st
+from wsgiref import headers
+import streamlit as st
 import pandas as pd
 import sqlite3
 import os
@@ -7,6 +8,12 @@ import io
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
+import re
+
+def verificar_email(email):
+    # Função simples para checar se o formato do e-mail é válido
+    padrao = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+    return bool(re.match(padrao, email))
 
 # --- CONFIGURAÇÃO INICIAL DE DIRETÓRIOS ---
 if not os.path.exists("comprovantes"): 
@@ -15,7 +22,7 @@ if not os.path.exists("comprovantes"):
 st.set_page_config(page_title="Duarte Gestão - Financeiro", layout="wide", initial_sidebar_state="expanded")
 
 # --- 🎯 ARSENAL CSS: CLEAN, PREMIUM & LIGHT ANIMATIONS 🎯 ---
-st.markdown(\"\"\"
+st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         
@@ -109,7 +116,7 @@ st.markdown(\"\"\"
             to { opacity: 1; transform: translateY(0); }
         }
     </style>
-\"\"\", unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 DB_PATH = "reembolso.db"
 DB_TIMEOUT = 30.0
@@ -155,16 +162,16 @@ def gerar_tabela_premium(df):
             else:
                 cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 14px;'>{val}</td>"
         
-        rows_html += f"<tr style='transition: background 0.2s;' onmouseover=\\"this.style.backgroundColor='#f8fafc'\\" onmouseout=\\"this.style.backgroundColor='transparent'\\">{cells_html}</tr>"
+        rows_html += f"""<tr style="transition: background 0.2s;" onmouseover="this.style.backgroundColor='#fafafa'" onmouseout="this.style.backgroundColor='white'">""" + cells_html + "</tr>"
         
-    return f\"\"\"
-    <div style='background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0, 30, 87, 0.01); overflow: hidden; margin-bottom: 25px;'>
-        <table style='width: 100%; border-collapse: collapse; text-align: left;'>
-            <thead><tr style='background: #fafafa;'>{headers}</tr></thead>
-            <tbody>{rows_html}</tbody>
-        </table>
-    </div>
-    \"\"\"
+    return f"""
+        <div style='background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0;'>
+            <table style='width: 100%; border-collapse: collapse; text-align: left;'>
+                <thead><tr style='background: #fafafa;'>{headers}</tr></thead>
+                <tbody>{rows_html}</tbody>
+            </table>
+        </div>
+        """
 
 # --- FUNÇÃO DE RENDERIZAÇÃO DE LOGO CORPORATIVA ---
 def renderizar_logo(local="sidebar"):
@@ -199,31 +206,31 @@ def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, 
     elif "APROVADO" in status_pedido or "PAGO" in status_pedido: cor_status = "#10b981"
     elif "NEGADO" in status_pedido or "REJEITADO" in status_pedido: cor_status = "#ef4444"
 
-    html = f\"\"\"
-    <html>
-    <body style="font-family: 'Segoe UI', sans-serif; background-color: #f8fafc; padding: 30px; margin: 0;">
-        <div style="max-width: 600px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 12px rgba(0,30,87,0.03);">
-            <div style="background-color: #001E57; padding: 30px; text-align: center;">
-                <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">DUARTE GESTÃO</h2>
-                <p style="color: #FF9200; margin: 5px 0 0 0; font-size: 12px; font-weight: 600; text-transform: uppercase;">Controladoria & Finanças</p>
-            </div>
-            <div style="padding: 30px; color: #334155;">
-                <h3 style="color: #001E57; margin-top: 0; font-size: 18px; font-weight: 700;">{titulo_card}</h3>
-                <div style="display: inline-block; background-color: {cor_status}; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 25px; text-transform: uppercase;">
-                    Status: {status_pedido}
-                </div>
-                <div style="background-color: #f1f5f9; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">{detalhes_html}</table>
-                </div>
-                <p style="font-size: 13px; color: #64748b; line-height: 1.6;">Este é um e-mail automático enviado pelo Portal Duarte Gestão.</p>
-            </div>
-            <div style="background-color: #f8fafc; padding: 15px 30px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
-                &copy; {datetime.now().year} Duarte Gestão.
-            </div>
+    html = f"""
+<html>
+<body style="font-family: 'Segoe UI', sans-serif; background-color: #f8fafc; padding: 30px; margin: 0;">
+    <div style="max-width: 600px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 12px rgba(0,30,87,0.03);">
+        <div style="background-color: #001E57; padding: 30px; text-align: center;">
+            <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">DUARTE GESTÃO</h2>
+            <p style="color: #FF9200; margin: 5px 0 0 0; font-size: 12px; font-weight: 600; text-transform: uppercase;">Controladoria & Finanças</p>
         </div>
-    </body>
-    </html>
-    \"\"\"
+        <div style="padding: 30px; color: #334155;">
+            <h3 style="color: #001E57; margin-top: 0; font-size: 18px; font-weight: 700;">{titulo_card}</h3>
+            <div style="display: inline-block; background-color: {cor_status}; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 25px; text-transform: uppercase;">
+                Status: {status_pedido}
+            </div>
+            <div style="background-color: #f1f5f9; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">{detalhes_html}</table>
+            </div>
+            <p style="font-size: 13px; color: #64748b; line-height: 1.6;">Este é um e-mail automático enviado pelo Portal Duarte Gestão.</p>
+        </div>
+        <div style="background-color: #f8fafc; padding: 15px 30px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">
+            &copy; {datetime.now().year} Duarte Gestão.
+        </div>
+    </div>
+</body>
+</html>
+"""
     msg.attach(MIMEText(html, "html"))
     
     try:
@@ -241,14 +248,17 @@ def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, 
 def inicializar_banco():
     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
     cursor = conn.cursor()
-    cursor.execute(\"\"\"CREATE TABLE IF NOT EXISTS usuarios 
+    
+    cursor.execute("""CREATE TABLE IF NOT EXISTS usuarios 
                       (usuario TEXT PRIMARY KEY, senha TEXT, email TEXT, nivel TEXT, 
-                       nome_completo TEXT, cpf TEXT, telefone TEXT)\"\"\")
-    cursor.execute(\"\"\"CREATE TABLE IF NOT EXISTS reembolsos 
+                       nome_completo TEXT, cpf TEXT, telefone TEXT)""")
+                       
+    cursor.execute("""CREATE TABLE IF NOT EXISTS reembolsos 
                       (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT, despesa TEXT, 
-                       categoria TEXT, c_custo TEXT, valor REAL, status TEXT, data DATE, caminho_arquivo TEXT)\"\"\")
-    cursor.execute(\"\"\"CREATE TABLE IF NOT EXISTS logs 
-                      (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_acao TEXT, acao TEXT, data_hora DATETIME)\"\"\")
+                       categoria TEXT, c_custo TEXT, valor REAL, status TEXT, data DATE, caminho_arquivo TEXT)""")
+                       
+    cursor.execute("""CREATE TABLE IF NOT EXISTS logs 
+                      (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_acao TEXT, acao TEXT, data_hora DATETIME)""")
     
     adms = [
         ('admin', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'ADMINISTRADOR PRINCIPAL', '000.000.000-00', '(00) 00000-0000'),
@@ -291,7 +301,7 @@ if not st.session_state["logado"]:
         st.markdown('</div>', unsafe_allow_html=True)
             
         with tab2:
-        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
         with st.form("cad_form", clear_on_submit=True):
             nu = st.text_input("Username")
             np = st.text_input("Senha", type="password")
@@ -377,164 +387,167 @@ if not st.session_state["logado"]:
 
             st.markdown(gerar_tabela_premium(df), unsafe_allow_html=True)
 
-    # --- ABA: PAINEL DO ADMIN ---
-    elif menu == "📊 Painel do Admin":
-        st.markdown('<h1 class="clean-title">Fila de Auditoria Contábil</h1>', unsafe_allow_html=True)
-        
-        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-        df_todos = pd.read_sql("SELECT id as 'ID', usuario as 'Funcionário', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data Lançamento' FROM reembolsos ORDER BY id DESC", conn)
-        conn.close()
-        
-        if df_todos.empty:
-            st.markdown('<div class="empty-state-box">🍃 Excelente! Nenhuma solicitação aguardando análise na base de dados.</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(gerar_tabela_premium(df_todos), unsafe_allow_html=True)
-            
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:15px; font-size:16px;">🕹️ Despache Técnico de Lançamentos</p>', unsafe_allow_html=True)
-            
-            col_id, col_actions = st.columns([1, 3])
-            with col_id: id_pg = st.number_input("ID do Alvo:", min_value=1, step=1)
-            
-            with col_actions:
-                st.write(""); st.write("") 
-                c1, c2, c3, c4 = st.columns(4)
-                
-                def processar_acao_clean(id_target, novo_status, log_msg):
+# Certifique-se de que a sua variável code_content comece com aspas duplas triplas:
+code_content = """
+# --- ABA: PAINEL DO ADMIN ---
+elif menu == "📊 Painel do Admin":
+    st.markdown('<h1 class="clean-title">Fila de Auditoria Contábil</h1>', unsafe_allow_html=True)
+    
+    # 🛠️ FUNÇÃO AUXILIAR DE PROCESSAMENTO
+    def processar_acao_clean(id_target, novo_status, log_msg):
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
         cursor = conn.cursor()
-    
-    # Substitua sua linha 405 por esta estrutura:
-    query = (
-        "SELECT r.despesa, r.valor, r.categoria, r.c_custo, r.data, u.email, u.nome_completo "
-        "FROM reembolsos r "
-        "JOIN usuarios u ON r.usuario = u.usuario "
-        "WHERE r.id = ?"
-    )
-
-    # 1. Faz a consulta
-        pedido = cursor.execute(query, (id_target,)).fetchone()
-    
-    # 2. Verifica se o pedido existe antes de tentar extrair os dados
-        if pedido:
-        # Agora sim, fazemos o desempacotamento de forma segura
-        despesa, valor, categoria, c_custo, data, email_colaborador, nome_usuario = pedido
         
-        # 3. Atualiza o status
-        cursor.execute("UPDATE reembolsos SET status=? WHERE id=?", (novo_status, id_target))
-        conn.commit()
-
-    # 1. Prepare o valor
-    valor_float = float(valor)
-
-    # 2. Monte usando concatenação (evita qualquer conflito de sintaxe)
-    linha_valor = '<td style="padding: 8px; font-weight:700; color:#FF9200; font-size:16px;">R$ {:,.2f}</td></tr>'.format(valor_float)
-    
-    # Adicione a barra \ antes das 3 aspas no início e no fim dele:
-detalhes = \"\"\"<tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Despesa:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
-<tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Categoria:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
-<tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Centro de Custo:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
-<tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Data:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
-<tr><td style='padding: 8px; font-weight:600; color:#001E57; font-size:16px;'>Valor:</td><td style='padding: 8px; font-weight:700; color:#FF9200; font-size:16px;'>R$ {:,.2f}</td></tr>\"\"\"
-
-detalhes = detalhes.format(st.session_state['user_info']['nome'], despesa, categoria, c_custo, data)
-       
-# Adicione a barra \ aqui também:
-aviso = \"\"\"
-<tr><td colspan='2' style='padding: 20px 8px 0 8px; font-size: 11px; color: #777;'>
-Aviso: Este é um e-mail automático. Por favor, não responda a esta mensagem.
-Em caso de dúvidas ou reclamações, entre em contato diretamente com o Setor Financeiro.
-</td></tr>
-\"\"\"
-        
-        # 5. Envio
-enviar_notificacao_email(
-            destinatario=email_colaborador, 
-            assunto=f"Atualização de Reembolso: {despesa} - {novo_status}", 
-            titulo_card=f"Olá {nome_usuario.split()[0]}, seu pedido foi atualizado para: {novo_status}", 
-            status_pedido=novo_status, 
-            detalhes_html=detalhes + aviso
+        query = (
+            "SELECT r.despesa, r.valor, r.categoria, r.c_custo, r.data, u.email, u.nome_completo "
+            "FROM reembolsos r "
+            "JOIN usuarios u ON r.usuario = u.usuario "
+            "WHERE r.id = ?"
         )
+
+        pedido = cursor.execute(query, (id_target,)).fetchone()
         
-        # 6. Log, Finalização e Redirecionamento
-registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
-conn.close()
-st.success(f"Status atualizado para {novo_status} e e-mail enviado para {email_colaborador}")
-st.rerun()
-if usuario_encontrado:
-    pass
-else:
-        conn.close()
-        st.error("Erro: ID não encontrado ou usuário sem e-mail cadastrado.")
+        if pedido:
+            despesa, valor, categoria, c_custo, data, email_colaborador, nome_usuario = pedido
+            
+            # Atualiza o status no banco de dados
+            cursor.execute("UPDATE reembolsos SET status=? WHERE id=?", (novo_status, id_target))
+            conn.commit()
 
+            # Prepara e formata o valor para o e-mail
+            valor_float = float(valor)
+            
+            # CORRIGIDO: Uso de aspas simples triplas para não quebrar a string principal
+            detalhes = '''
+            <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Despesa:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
+            <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Categoria:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
+            <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Centro de Custo:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
+            <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Data:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
+            <tr><td style='padding: 8px; font-weight:600; color:#001E57; font-size:16px;'>Valor:</td><td style='padding: 8px; font-weight:700; color:#FF9200; font-size:16px;'>R$ {:,.2f}</td></tr>
+            '''.format(despesa, categoria, c_custo, data, valor_float)
 
-        with c1:
-                    if st.button("👁️ Recibo"):
-                        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-                        res = conn.cursor().execute("SELECT caminho_arquivo FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
-                        conn.close()
-                        if res and res[0] and os.path.exists(res[0]):
-                            with open(res[0], "rb") as f: st.download_button("📥 Baixar", data=f, file_name=os.path.basename(res[0]))
-                        else: st.error("Sem anexo.")
-        with c2:
-                    if st.button("✅ Aprovar"): processar_acao_clean(id_pg, "APROVADO", "APROVOU")
-        with c3:
-                    if st.button("❌ Rejeitar"): processar_acao_clean(id_pg, "NEGADO", "NEGOU")
-        with c4:
-                    if st.button("💸 Pagar"): processar_acao_clean(id_pg, "PAGO", "PAGOU")
+            # CORRIGIDO: Uso de aspas simples triplas aqui também
+            aviso = '''
+            <tr><td colspan='2' style='padding: 20px 8px 0 8px; font-size: 11px; color: #777;'>
+            Aviso: Este é um e-mail automático. Por favor, não responda a esta mensagem.
+            Em caso de dúvidas ou reclamações, entre em contato diretamente com o Setor Financeiro.
+            </td></tr>'''
+
+            # Envio da Notificação por E-mail
+            enviar_notificacao_email(
+                destinatario=email_colaborador, 
+                assunto=f"Atualização de Reembolso: {despesa} - {novo_status}", 
+                titulo_card=f"Olá {nome_usuario.split()[0]}, seu pedido foi atualizado para: {novo_status}", 
+                status_pedido=novo_status, 
+                detalhes_html=detalhes + aviso
+            )
+            
+            # Registro de Log e Finalização
+            registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
+            conn.close()
+            st.success(f"Status updated to {novo_status} and email sent to {email_colaborador}")
+            st.rerun()
+        else:
+            conn.close()
+            st.error("Erro: ID não encontrado ou usuário sem e-mail cadastrado.")
+
+    # 📊 CARREGAMENTO DA FILA DE AUDITORIA
+    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+    df_todos = pd.read_sql("SELECT id as 'ID', usuario as 'Funcionário', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data Lançamento' FROM reembolsos ORDER BY id DESC", conn)
+    conn.close()
+    
+    if df_todos.empty:
+        st.markdown('<div class="empty-state-box">🍃 Excelente! Nenhuma solicitação aguardando análise na base de dados.</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(gerar_tabela_premium(df_todos), unsafe_allow_html=True)
+        
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:15px; font-size:16px;">🕹️ Despache Técnico de Lançamentos</p>', unsafe_allow_html=True)
+        
+        col_id, col_actions = st.columns([1, 3])
+        with col_id: 
+            id_pg = st.number_input("ID do Alvo:", min_value=1, step=1)
+        
+        with col_actions:
+            st.write("")
+            st.write("") 
+            c1, c2, c3, c4 = st.columns(4)
+            
+            with c1:
+                if st.button("👁️ Recibo"):
+                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                    res = conn.cursor().execute("SELECT caminho_arquivo FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
+                    conn.close()
+                    if res and res[0] and os.path.exists(res[0]):
+                        with open(res[0], "rb") as f: 
+                            st.download_button("📥 Baixar", data=f, file_name=os.path.basename(res[0]))
+                    else: 
+                        st.error("Sem anexo.")
+            with c2:
+                if st.button("✅ Aprovar"): 
+                    processar_acao_clean(id_pg, "APROVADO", "APROVOU")
+            with c3:
+                if st.button("❌ Rejeitar"): 
+                    processar_acao_clean(id_pg, "NEGADO", "NEGOU")
+            with c4:
+                if st.button("💸 Pagar"): 
+                    processar_acao_clean(id_pg, "PAGO", "PAGOU")
+                    
         st.markdown('</div>', unsafe_allow_html=True)
+
 
 # --- ABA: DASHBOARD/PAINEL EXECUTIVO ---
 elif menu == "📈 Painel Executivo":
-        st.markdown('<h1 class="clean-title">Métricas Estratégicas e Consolidação</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="clean-title">Métricas Estratégicas e Consolidação</h1>', unsafe_allow_html=True)
+    
+    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+    df_dash = pd.read_sql("SELECT * FROM reembolsos", conn)
+    conn.close()
+    
+    if df_dash.empty:
+        st.markdown('<div class="empty-state-box">📊 Aguardando lançamentos de dados para gerar relatórios.</div>', unsafe_allow_html=True)
+    else:
+        t_geral = df_dash['valor'].sum()
+        t_pago = df_dash[df_dash['status'] == 'PAGO']['valor'].sum()
+        t_pend = df_dash[df_dash['status'] == 'PENDENTE']['valor'].sum()
         
-        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-        df_dash = pd.read_sql("SELECT * FROM reembolsos", conn)
-        conn.close()
+        k1, k2, k3 = st.columns(3)
+        with k1: st.markdown(f'<div class="premium-card"><div class="kpi-title">Gross Solicitado</div><div class="kpi-value val-total">R$ {t_geral:,.2f}</div></div>', unsafe_allow_html=True)
+        with k2: st.markdown(f'<div class="premium-card"><div class="kpi-title">Volume Pago</div><div class="kpi-value val-pago">R$ {t_pago:,.2f}</div></div>', unsafe_allow_html=True)
+        with k3: st.markdown(f'<div class="premium-card"><div class="kpi-title">Exposição Pendente</div><div class="kpi-value val-pendente">R$ {t_pend:,.2f}</div></div>', unsafe_allow_html=True)
         
-        if df_dash.empty:
-            st.markdown('<div class="empty-state-box">📊 Aguardando lançamentos de dados para gerar relatórios.</div>', unsafe_allow_html=True)
-        else:
-            t_geral = df_dash['valor'].sum()
-            t_pago = df_dash[df_dash['status'] == 'PAGO']['valor'].sum()
-            t_pend = df_dash[df_dash['status'] == 'PENDENTE']['valor'].sum()
-            
-            k1, k2, k3 = st.columns(3)
-            with k1: st.markdown(f'<div class="premium-card"><div class="kpi-title">Gross Solicitado</div><div class="kpi-value val-total">R$ {t_geral:,.2f}</div></div>', unsafe_allow_html=True)
-            with k2: st.markdown(f'<div class="premium-card"><div class="kpi-title">Volume Pago</div><div class="kpi-value val-pago">R$ {t_pago:,.2f}</div></div>', unsafe_allow_html=True)
-            with k3: st.markdown(f'<div class="premium-card"><div class="kpi-title">Exposição Pendente</div><div class="kpi-value val-pendente">R$ {t_pend:,.2f}</div></div>', unsafe_allow_html=True)
-            
-            g1, g2 = st.columns(2)
-            with g1:
-                st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-                st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:15px;">📊 Consolidação por Centro de Custo</p>', unsafe_allow_html=True)
-                df_cc = df_dash.groupby("c_custo")["valor"].sum().reset_index()
-                st.bar_chart(data=df_cc, x="c_custo", y="valor", color="#001E57") 
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-            with g2:
-                st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-                st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:15px;">🏷️ Custos por Categoria de Despesa</p>', unsafe_allow_html=True)
-                df_cat = df_dash.groupby("categoria")["valor"].sum().reset_index()
-                st.bar_chart(data=df_cat, x="categoria", y="valor", color="#FF9200") 
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-            st.markdown('<div class="premium-card" style="text-align: center;">', unsafe_allow_html=True)
-            buffer_excel = io.BytesIO()
-            with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
-                df_cc.rename(columns={"c_custo": "Centro de Custo", "valor": "Total Gasto (R$)"}).to_excel(writer, sheet_name='📊 RESUMO EXECUTIVO', index=False)
-                df_dash.to_excel(writer, sheet_name='📁 BASE DE DADOS', index=False)
-            buffer_excel.seek(0)
-            
-            st.download_button(
-                label="📥 Baixar Relatório Consolidado em Excel (.XLSX)",
-                data=buffer_excel,
-                file_name=f"duarte_analytics_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        g1, g2 = st.columns(2)
+        with g1:
+            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+            st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:15px;">📊 Consolidação por Centro de Custo</p>', unsafe_allow_html=True)
+            df_cc = df_dash.groupby("c_custo")["valor"].sum().reset_index()
+            st.bar_chart(data=df_cc, x="c_custo", y="valor", color="#001E57") 
             st.markdown('</div>', unsafe_allow_html=True)
+            
+        with g2:
+            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+            st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:15px;">🏷️ Custos por Categoria de Despesa</p>', unsafe_allow_html=True)
+            df_cat = df_dash.groupby("categoria")["valor"].sum().reset_index()
+            st.bar_chart(data=df_cat, x="categoria", y="valor", color="#FF9200") 
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+        st.markdown('<div class="premium-card" style="text-align: center;">', unsafe_allow_html=True)
+        buffer_excel = io.BytesIO()
+        with pd.ExcelWriter(buffer_excel, engine='openpyxl') as writer:
+            df_cc.rename(columns={"c_custo": "Centro de Custo", "valor": "Total Gasto (R$)"}).to_excel(writer, sheet_name='📊 RESUMO EXECUTIVO', index=False)
+            df_dash.to_excel(writer, sheet_name='📁 BASE DE DADOS', index=False)
+        buffer_excel.seek(0)
+        
+        st.download_button(
+            label="📥 Baixar Relatório Consolidado em Excel (.XLSX)",
+            data=buffer_excel,
+            file_name=f"duarte_analytics_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
 """
 
+# Escrita limpa do arquivo sem interferência das aspas
 with open("app.py", "w", encoding="utf-8") as f:
     f.write(code_content)
 
