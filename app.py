@@ -356,7 +356,7 @@ else:
         st.session_state["user_info"] = None
         st.rerun()
 
-    # --- ABA: INÍCIO (AGORA COM O MANUAL INTEGRADO) ---
+    # --- ABA: INÍCIO (COM O MANUAL INTEGRADO) ---
     if menu == "🏠 Início":
         st.markdown('<h1 class="clean-title">Manual de Utilização do Sistema</h1>', unsafe_allow_html=True)
         
@@ -426,7 +426,7 @@ else:
                 </p>
                 <ul style="color: #475569; font-size: 13px; padding-left: 20px;">
                     <li>⏳ <b>PENDENTE:</b> Aguardando verificação fiscal.</li>
-                    <li>❌ <b>NEGADO:</b> Identificada inconsistência. Você receberá um e-mail informando.</li>
+                    <li>❌ <b>NEGADO:</b> Identificada inconsistência. Você receberá um e-mail informando o motivo.</li>
                     <li>✅ <b>APROVADO / PAGO:</b> Nota fiscal auditada e transferência bancária executada.</li>
                 </ul>
             </div>
@@ -477,11 +477,11 @@ else:
 
             st.markdown(gerar_tabela_premium(df), unsafe_allow_html=True)
 
-    # --- ABA: PAINEL DO ADMIN ---
+    # --- ABA: PAINEL DO ADMIN (CENTRAL EXPRESS TOTALMENTE REMODELADA) ---
     elif menu == "📊 Painel do Admin":
-        st.markdown('<h1 class="clean-title">Fila de Auditoria Contábil</h1>', unsafe_allow_html=True)
+        st.markdown('<h1 class="clean-title">Central de Despache Express</h1>', unsafe_allow_html=True)
         
-        def processar_acao_clean(id_target, novo_status, log_msg):
+        def processar_acao_clean(id_target, novo_status, log_msg, motivo_rejeicao=""):
             conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
             cursor = conn.cursor()
             
@@ -499,13 +499,18 @@ else:
                 conn.commit()
 
                 valor_float = float(valor)
-                detalhes = '''
-                <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Despesa:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
-                <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Categoria:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
-                <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Centro de Custo:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
-                <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Data:</td><td style='padding: 8px; color:#333;'>{}</td></tr>
-                <tr><td style='padding: 8px; font-weight:600; color:#001E57; font-size:16px;'>Valor:</td><td style='padding: 8px; font-weight:700; color:#FF9200; font-size:16px;'>R$ {:,.2f}</td></tr>
-                '''.format(despesa, categoria, c_custo, data, valor_float)
+                detalhes = f'''
+                <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Despesa:</td><td style='padding: 8px; color:#333;'>{despesa}</td></tr>
+                <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Categoria:</td><td style='padding: 8px; color:#333;'>{categoria}</td></tr>
+                <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Centro de Custo:</td><td style='padding: 8px; color:#333;'>{c_custo}</td></tr>
+                <tr><td style='padding: 8px; font-weight:600; color:#001E57;'>Data:</td><td style='padding: 8px; color:#333;'>{data}</td></tr>
+                <tr><td style='padding: 8px; font-weight:600; color:#001E57; font-size:16px;'>Valor:</td><td style='padding: 8px; font-weight:700; color:#001E57; font-size:16px;'>R$ {valor_float:,.2f}</td></tr>
+                '''
+                
+                if novo_status == "NEGADO" and motivo_rejeicao:
+                    detalhes += f'''
+                    <tr><td style='padding: 8px; font-weight:600; color:#ef4444;'>Motivo da Recusa:</td><td style='padding: 8px; color:#ef4444; font-weight:600;'>{motivo_rejeicao}</td></tr>
+                    '''
 
                 aviso = '''
                 <tr><td colspan='2' style='padding: 20px 8px 0 8px; font-size: 11px; color: #777;'>
@@ -523,54 +528,102 @@ else:
                 
                 registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
                 conn.close()
-                st.success(f"Status updated to {novo_status}")
+                st.success(f"Status atualizado para {novo_status}")
                 st.rerun()
             else:
                 conn.close()
                 st.error("Erro: ID não localizado.")
 
+        # Carregar toda a base contábil do banco
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-        df_todos = pd.read_sql("SELECT id as 'ID', usuario as 'Funcionário', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data Lançamento' FROM reembolsos ORDER BY id DESC", conn)
+        df_todos = pd.read_sql("SELECT id as 'ID', usuario as 'Funcionário', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data Lançamento', caminho_arquivo FROM reembolsos ORDER BY id DESC", conn)
         conn.close()
         
-        if df_todos.empty:
-            st.markdown('<div class="empty-state-box">🍃 Excelente! Nenhuma solicitação aguardando análise na base de dados.</div>', unsafe_allow_html=True)
+        # 1. VISUALIZAÇÃO EM ABAS SEPARADAS (Foco Total)
+        tab_pendente, tab_aprovado, tab_historico = st.tabs(["⏳ Aguardando Análise", "💸 Pronto para Pagamento", "🗂️ Histórico Geral"])
+        
+        with tab_pendente:
+            df_p = df_todos[df_todos['Status'] == 'PENDENTE'].drop(columns=['caminho_arquivo'], errors='ignore')
+            st.markdown(gerar_tabela_premium(df_p), unsafe_allow_html=True)
+            
+        with tab_aprovado:
+            df_a = df_todos[df_todos['Status'] == 'APROVADO'].drop(columns=['caminho_arquivo'], errors='ignore')
+            st.markdown(gerar_tabela_premium(df_a), unsafe_allow_html=True)
+            
+        with tab_historico:
+            df_h = df_todos[df_todos['Status'].isin(['PAGO', 'NEGADO'])].drop(columns=['caminho_arquivo'], errors='ignore')
+            st.markdown(gerar_tabela_premium(df_h), unsafe_allow_html=True)
+
+        # 2. SEÇÃO DE DESPACHE INTELIGENTE COM VISUALIZADOR ACOPLADO
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:20px; font-size:18px;">🕹️ Painel de Ações Rápidas</p>', unsafe_allow_html=True)
+        
+        # Filtramos apenas o que é acionável pelo administrador (Pendentes ou já Aprovados prontos para pagar)
+        df_acionaveis = df_todos[df_todos['Status'].isin(['PENDENTE', 'APROVADO'])].copy()
+        
+        if df_acionaveis.empty:
+            st.info("✨ Excelente! Nenhuma ação pendente ou liquidação aguardando processamento.")
         else:
-            st.markdown(gerar_tabela_premium(df_todos), unsafe_allow_html=True)
+            # Criamos um texto amigável para o dropdown de seleção
+            df_acionaveis['selector_text'] = df_acionaveis.apply(
+                lambda r: f"#{r['ID']} - {r['Funcionário']} | {r['Descrição']} (R$ {r['Valor (R$)']:.2f}) [{r['Status']}]", axis=1
+            )
             
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:15px; font-size:16px;">🕹️ Despache Técnico de Lançamentos</p>', unsafe_allow_html=True)
+            # Layout em duas colunas: Controle Operacional à esquerda e Comprovante à direita
+            col_ctrl, col_preview = st.columns([1.3, 1])
             
-            col_id, col_actions = st.columns([1, 3])
-            with col_id: 
-                id_pg = st.number_input("ID do Alvo:", min_value=1, step=1)
-            
-            with col_actions:
-                st.write("")
-                st.write("") 
-                c1, c2, c3, c4 = st.columns(4)
+            with col_ctrl:
+                item_selecionado = st.selectbox("Selecione qual lançamento deseja processar agora:", df_acionaveis['selector_text'].tolist())
+                
+                # Captura a linha exata selecionada no dropdown
+                row_sel = df_acionaveis[df_acionaveis['selector_text'] == item_selecionado].iloc[0]
+                id_target = int(row_sel['ID'])
+                status_atual = row_sel['Status']
+                caminho_comprovante = row_sel['caminho_arquivo']
+                
+                st.markdown(f"**Status Atual do Item:** `{status_atual}`")
+                
+                # Caixa de justificativa integrada
+                justificativa = st.text_input("Justificativa / Motivo de Recusa (Obrigatório apenas para Rejeitar):", placeholder="Ex: Cupom sem CNPJ da Duarte Gestão, valor incorreto...")
+                
+                st.write("<br>", unsafe_allow_html=True)
+                c1, c2, c3 = st.columns(3)
                 
                 with c1:
-                    if st.button("👁️ Recibo"):
-                        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-                        res = conn.cursor().execute("SELECT caminho_arquivo FROM reembolsos WHERE id=?", (id_pg,)).fetchone()
-                        conn.close()
-                        if res and res[0] and os.path.exists(res[0]):
-                            with open(res[0], "rb") as f: 
-                                st.download_button("📥 Baixar", data=f, file_name=os.path.basename(res[0]))
-                        else: 
-                            st.error("Sem anexo.")
-                with c2:
-                    if st.button("✅ Aprovar"): 
-                        processar_acao_clean(id_pg, "APROVADO", "APROVOU")
-                with c3:
-                    if st.button("❌ Rejeitar"): 
-                        processar_acao_clean(id_pg, "NEGADO", "NEGOU")
-                with c4:
-                    if st.button("💸 Pagar"): 
-                        processar_acao_clean(id_pg, "PAGO", "PAGOU")
+                    btn_aprove = st.button("✅ Aprovar Nota", disabled=(status_atual == "APROVADO"))
+                    if btn_aprove:
+                        processar_acao_clean(id_target, "APROVADO", "APROVOU")
                         
-            st.markdown('</div>', unsafe_allow_html=True)
+                with c2:
+                    if st.button("❌ Rejeitar e Notificar"):
+                        if not justificativa:
+                            st.error("⚠️ Atenção: Para rejeitar uma despesa, escreva o motivo na caixa acima para o funcionário saber o que corrigir.")
+                        else:
+                            processar_acao_clean(id_target, "NEGADO", "NEGOU", justificativa)
+                            
+                with c3:
+                    if st.button("💸 Confirmar Pagamento"):
+                        processar_acao_clean(id_target, "PAGO", "PAGOU")
+                        
+            with col_preview:
+                st.markdown('<p style="font-weight:600; color:#64748b; font-size:13px; text-transform:uppercase; margin-bottom:10px;">🖼️ Preview do Comprovante</p>', unsafe_allow_html=True)
+                
+                if caminho_comprovante and os.path.exists(caminho_comprovante):
+                    extensao = os.path.splitext(caminho_comprovante)[1].lower()
+                    
+                    if extensao in ['.jpg', '.jpeg', '.png']:
+                        st.image(caminho_comprovante, caption=f"Recibo ID #{id_target}", use_container_width=True)
+                    elif extensao == '.pdf':
+                        st.warning("📄 Este anexo é um documento PDF.")
+                        with open(caminho_comprovante, "rb") as f:
+                            st.download_button("📥 Abrir / Baixar PDF", data=f, file_name=os.path.basename(caminho_comprovante))
+                    else:
+                        st.info("Arquivo anexado em um formato desconhecido.")
+                else:
+                    st.markdown('<div style="background:#f1f5f9; border-radius:12px; height:220px; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:14px; border: 1px dashed #e2e8f0;">Nenhum arquivo enviado ou anexo corrompido</div>', unsafe_allow_html=True)
+                    
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # --- ABA: DASHBOARD/PAINEL EXECUTIVO ---
     elif menu == "📈 Painel Executivo":
