@@ -329,12 +329,11 @@ if not st.session_state["logado"]:
 
 
 # =================================================================
-# FASE 2: AMBIENTE INTERNO LOGADO (Tudo encapsulado no ELSE)
+# FASE 2: AMBIENTE INTERNO LOGADO
 # =================================================================
 else:
     renderizar_logo(local="sidebar")
     
-    # Trava de segurança para renderização do card lateral do usuário
     if st.session_state.get("user_info") is not None:
         nome_usuario = st.session_state["user_info"].get("nome", "Usuário")
         st.sidebar.markdown(
@@ -345,25 +344,94 @@ else:
             unsafe_allow_html=True
         )
     
-    # Construção Inteligente do Menu conforme o nível de acesso
     opcoes_menu = ["🏠 Início", "💸 Solicitar Reembolso", "📋 Meus Pedidos"]
     if st.session_state['user_info']['nivel'] == 'admin':
         opcoes_menu += ["📊 Painel do Admin", "📈 Painel Executivo"]
         
     menu = st.sidebar.radio("Navegação", opcoes_menu)
     
-    # Botão de Logout fixado no rodapé da barra lateral
     st.sidebar.write("---")
     if st.sidebar.button("🔒 Desconectar e Sair"):
         st.session_state["logado"] = False
         st.session_state["user_info"] = None
         st.rerun()
 
-    # --- ABA: INÍCIO ---
+    # --- ABA: INÍCIO (AGORA COM O MANUAL INTEGRADO) ---
     if menu == "🏠 Início":
-        st.markdown('<h1 class="clean-title">Painel Geral Duarte Gestão</h1>', unsafe_allow_html=True)
-        st.write("Boas-vindas ao sistema! Use o menu lateral esquerdo para navegar pelas ferramentas operacionais.")
-    
+        st.markdown('<h1 class="clean-title">Manual de Utilização do Sistema</h1>', unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class="premium-card">
+            <h3 style="color: #001E57; margin-top: 0; font-weight: 700;">👋 Boas-vindas ao Portal de Reembolsos Duarte Gestão</h3>
+            <p style="color: #334155; font-size: 15px; line-height: 1.6;">
+                Este espaço foi projetado para simplificar, organizar e auditar a prestação de contas de despesas corporativas. 
+                Siga as diretrizes abaixo para garantir que o seu reembolso seja processado e pago sem pendências ou atrasos.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<p style="font-weight: 700; color: #001E57; font-size: 18px; margin-bottom: 15px;">📋 Como solicitar o seu reembolso — Passo a Passo</p>', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            <div class="premium-card" style="height: 100%;">
+                <h4 style="color: #FF9200; margin-top: 0; font-weight: 700;">1. Organize o Comprovante</h4>
+                <p style="color: #334155; font-size: 14px; line-height: 1.5;">
+                    Antes de abrir o formulário, certifique-se de que possui o documento fiscal em mãos.
+                </p>
+                <ul style="color: #475569; font-size: 13px; padding-left: 20px;">
+                    <li>Formatos aceitos pelo portal: <b>PDF, JPG ou PNG</b>.</li>
+                    <li>O documento deve estar **totalmente legível**, exibindo claramente a <b>Data de Emissão</b>, o <b>Valor Total</b> e a <b>Razão Social / CNPJ</b> do estabelecimento.</li>
+                    <li>Comprovantes cortados, rasurados ou borrados serão rejeitados pela auditoria.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div class="premium-card" style="height: 100%;">
+                <h4 style="color: #001E57; margin-top: 0; font-weight: 700;">2. Preencha os Dados Técnicos</h4>
+                <p style="color: #334155; font-size: 14px; line-height: 1.5;">
+                    Navegue até a aba <b>💸 Solicitar Reembolso</b> no menu lateral e preencha:
+                </p>
+                <ul style="color: #475569; font-size: 13px; padding-left: 20px;">
+                    <li><b>Descrição Clara:</b> Detalhe brevemente o motivo do gasto (ex: <i>"Alimentação em viagem de alinhamento com a equipe Vivest"</i>).</li>
+                    <li><b>Categoria:</b> Selecione o grupo contábil correspondente à despesa.</li>
+                    <li><b>Centro de Custo:</b> Indique o projeto/setor responsável pelo custo (ex: <i>Credenciamento, Rede, Diretoria</i>).</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col2:
+            st.markdown("""
+            <div class="premium-card" style="height: 100%;">
+                <h4 style="color: #001E57; margin-top: 0; font-weight: 700;">3. Faça o Anexo e Envie</h4>
+                <p style="color: #334155; font-size: 14px; line-height: 1.5;">
+                    Finalize inserindo as informações financeiras brutas no sistema.
+                </p>
+                <ul style="color: #475569; font-size: 13px; padding-left: 20px;">
+                    <li>Insira o valor exato pago na nota no campo <b>Valor da Operação (R$)</b>.</li>
+                    <li>Clique em <i>Browse files</i> para carregar o arquivo do seu comprovante.</li>
+                    <li>Clique em <b>Enviar Solicitação</b>. O sistema salvará o registro e enviará um e-mail de alerta para o Setor Financeiro imediatamente.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("""
+            <div class="premium-card" style="height: 100%;">
+                <h4 style="color: #10b981; margin-top: 0; font-weight: 700;">4. Monitore o Status</h4>
+                <p style="color: #334155; font-size: 14px; line-height: 1.5;">
+                    Você pode acompanhar o ciclo de vida do seu pedido na aba <b>📋 Meus Pedidos</b>:
+                </p>
+                <ul style="color: #475569; font-size: 13px; padding-left: 20px;">
+                    <li>⏳ <b>PENDENTE:</b> Aguardando verificação fiscal.</li>
+                    <li>❌ <b>NEGADO:</b> Identificada inconsistência. Você receberá um e-mail informando.</li>
+                    <li>✅ <b>APROVADO / PAGO:</b> Nota fiscal auditada e transferência bancária executada.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+            
     # --- ABA: SOLICITAR REEMBOLSO ---
     elif menu == "💸 Solicitar Reembolso":
         st.markdown('<h1 class="clean-title">Nova Solicitação de Reembolso</h1>', unsafe_allow_html=True)
@@ -413,7 +481,6 @@ else:
     elif menu == "📊 Painel do Admin":
         st.markdown('<h1 class="clean-title">Fila de Auditoria Contábil</h1>', unsafe_allow_html=True)
         
-        # 🛠️ FUNÇÃO AUXILIAR DE PROCESSAMENTO DE DESPACHE
         def processar_acao_clean(id_target, novo_status, log_msg):
             conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
             cursor = conn.cursor()
@@ -456,13 +523,12 @@ else:
                 
                 registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
                 conn.close()
-                st.success(f"Status atualizado para {novo_status} e e-mail enviado para {email_colaborador}")
+                st.success(f"Status updated to {novo_status}")
                 st.rerun()
             else:
                 conn.close()
-                st.error("Erro: ID não encontrado ou usuário sem e-mail cadastrado.")
+                st.error("Erro: ID não localizado.")
 
-        # 📊 CARREGAMENTO DA FILA DE AUDITORIA
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
         df_todos = pd.read_sql("SELECT id as 'ID', usuario as 'Funcionário', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data Lançamento' FROM reembolsos ORDER BY id DESC", conn)
         conn.close()
