@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Injeção de CSS Premium (Cores corporativas: Azul Profundo #001E57 e Amarelo/Laranja #FF9200)
+# Injeção de CSS Premium e Identidade Visual Clássica da Duarte Gestão
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;600;700&display=swap');
@@ -21,6 +21,32 @@ st.markdown("""
     html, body, [data-testid="stAppViewContainer"] {
         font-family: 'Inter', sans-serif;
         background-color: #F8FAFC;
+    }
+    
+    /* Logomarca Customizada Duarte Gestão - Identidade Forte */
+    .logo-container {
+        background: linear-gradient(135deg, #001E57 0%, #002D80 100%);
+        padding: 30px;
+        border-radius: 12px;
+        text-align: center;
+        margin-bottom: 30px;
+        border-bottom: 5px solid #FF9200;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+    .logo-main {
+        color: #FFFFFF;
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        margin: 0;
+    }
+    .logo-sub {
+        color: #FF9200;
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        margin-top: 5px;
     }
     
     /* Cards Premium */
@@ -87,7 +113,7 @@ st.markdown("""
     .btn-whatsapp {
         background-color: #25D366;
         color: white !important;
-        padding: 10px 20px;
+        padding: 12px 24px;
         border-radius: 6px;
         text-decoration: none;
         font-weight: 600;
@@ -95,15 +121,15 @@ st.markdown("""
         align-items: center;
         gap: 8px;
         margin-top: 10px;
+        box-shadow: 0 4px 6px rgba(37, 211, 102, 0.2);
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Inicialização e Modelagem do Banco de Dados (SQLite Local Autosuficiente)
+# Inicialização do Banco de Dados (SQLite)
 def init_db():
     conn = sqlite3.connect("reembolsos.db")
     c = conn.cursor()
-    # Tabela de Usuários com chave primária baseada em CPF (sem pontos/traços)
     c.execute("""
         CREATE TABLE IF NOT EXISTS usuarios (
             cpf TEXT PRIMARY KEY,
@@ -113,7 +139,6 @@ def init_db():
             cargo TEXT
         )
     """)
-    # Tabela de Solicitações de Reembolso
     c.execute("""
         CREATE TABLE IF NOT EXISTS solicitacoes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,17 +153,14 @@ def init_db():
         )
     """)
     
-    # Criar dados iniciais/Admin caso o banco esteja vazio
+    # Criar admin e time inicial se vazio
     c.execute("SELECT * FROM usuarios WHERE cargo='admin'")
     if not c.fetchone():
-        # Admin Padrão (CPF: 00000000000 | Senha: admin123 | Telefone da Duarte)
-        c.execute("INSERT INTO usuarios VALUES ('00000000000', 'Erick Admin', '1126573437', 'admin123', 'admin')")
-        # Time Inicial (Aline, Lucas, Patricia)
+        c.execute("INSERT INTO usuarios VALUES ('00000000000', 'Erick Admin', '11918551349', 'admin123', 'admin')")
         c.execute("INSERT INTO usuarios VALUES ('11111111111', 'Aline Silva', '11988888888', '1234', 'colaborador')")
         c.execute("INSERT INTO usuarios VALUES ('22222222222', 'Lucas Souza', '11977777777', '1234', 'colaborador')")
         c.execute("INSERT INTO usuarios VALUES ('33333333333', 'Patricia Costa', '11966666666', '1234', 'colaborador')")
         
-        # Inserção de dados simulados iniciais para os gráficos (DNA Care, Vivest, Fisio Life)
         c.execute("""
             INSERT INTO solicitacoes (cpf_usuario, nome_usuario, descricao, categoria, valor, data, status, comprovante) 
             VALUES 
@@ -170,26 +192,32 @@ def atualizar_senha(cpf, nova_senha):
     conn.commit()
     conn.close()
 
-# Gerenciamento do Estado da Sessão
 if "logado" not in st.session_state:
     st.session_state.logado = False
     st.session_state.usuario = None
 
+# --- EXIBIÇÃO DA LOGO ANTIGA/TRADICIONAL ---
+st.markdown("""
+    <div class="logo-container">
+        <div class="logo-main">DUARTE GESTÃO</div>
+        <div class="logo-sub">SISTEMA INTERNO DE REEMBOLSOS</div>
+    </div>
+""", unsafe_allow_html=True)
+
 # --- FLUXO DE AUTENTICAÇÃO ---
 if not st.session_state.logado:
-    st.title("💼 Portal de Reembolsos | Duarte Gestão")
     st.write("Insira o seu CPF para acessar o painel de despesas.")
     
     tab_login, tab_cadastro, tab_recuperar = st.tabs(["🔑 Entrar", "📝 Novo Cadastro", "🔒 Esqueci a Senha"])
     
-    # Aba 1: Login Inteligente (Habilita autopreenchimento e gravação de senha no Google Chrome)
+    # Aba 1: Login
     with tab_login:
         with st.form("form_login", clear_on_submit=False):
             st.markdown("### Acesso ao Sistema")
             login_cpf = st.text_input("CPF (Apenas números)", max_chars=11, placeholder="Ex: 12345678901")
             login_senha = st.text_input("Senha", type="password", placeholder="Digite sua senha")
             
-            st.markdown("<p style='font-size:12px; color:#64748B;'>💡 <b>Dica de Praticidade:</b> Ao clicar em entrar, autorize o seu navegador (Google Chrome) a 'Salvar Senha'. Assim, você não precisará digitá-la novamente.</p>", unsafe_allow_html=True)
+            st.markdown("<p style='font-size:12px; color:#64748B;'>💡 <b>Dica de Praticidade:</b> Ao clicar em entrar, autorize o seu navegador a 'Salvar Senha' para agilizar os próximos acessos.</p>", unsafe_allow_html=True)
             
             botao_entrar = st.form_submit_button("Entrar no Painel", use_container_width=True)
             
@@ -205,12 +233,12 @@ if not st.session_state.logado:
                 else:
                     st.error("CPF ou Senha incorretos. Por favor, revise as informações.")
                     
-    # Aba 2: Cadastro Simplificado por CPF
+    # Aba 2: Cadastro
     with tab_cadastro:
         with st.form("form_cadastro"):
             st.markdown("### Criar Perfil de Colaborador")
             cad_nome = st.text_input("Nome Completo", placeholder="Ex: Aline Silva")
-            cad_cpf = st.text_input("CPF (Apenas números - será seu login único)", max_chars=11, placeholder="Ex: 11122233344")
+            cad_cpf = st.text_input("CPF (Apenas números)", max_chars=11, placeholder="Ex: 11122233344")
             cad_tel = st.text_input("Telefone com DDD (Apenas números)", placeholder="Ex: 11999999999")
             cad_senha = st.text_input("Crie uma Senha Forte", type="password")
             
@@ -221,7 +249,7 @@ if not st.session_state.logado:
                 tel_limpo = limpar_cpf(cad_tel)
                 
                 if not cad_nome or len(cpf_limpo) != 11 or not tel_limpo or not cad_senha:
-                    st.warning("Preencha todos os campos corretamente para validar o perfil (CPF deve ter 11 dígitos).")
+                    st.warning("Preencha todos os campos corretamente para validar o perfil.")
                 else:
                     if buscar_usuario(cpf_limpo):
                         st.error("Este CPF já se encontra registrado no sistema.")
@@ -233,10 +261,10 @@ if not st.session_state.logado:
                         conn.close()
                         st.success("🎉 Perfil criado com sucesso! Faça login na primeira aba.")
 
-    # Aba 3: Mecanismo de Recuperação de Senha com o número da Duarte Gestão
+    # Aba 3: Recuperação com o Novo Número Atualizado
     with tab_recuperar:
         st.markdown("### 🔑 Recuperação de Acesso")
-        st.write("Confirme seus dados cadastrais para redefinir sua senha imediatamente sem depender de ninguém:")
+        st.write("Confirme seus dados cadastrais para redefinir sua senha imediatamente:")
         
         rec_cpf = st.text_input("Digite seu CPF cadastrado", max_chars=11, key="rec_cpf")
         rec_tel = st.text_input("Digite seu Telefone cadastrado", key="rec_tel")
@@ -249,7 +277,7 @@ if not st.session_state.logado:
             if user and limpar_cpf(user[2]) == tel_limpo:
                 st.success("✅ Identidade validada! Insira a sua nova senha abaixo:")
                 nova_senha = st.text_input("Nova Senha", type="password", key="nova_senha")
-                confirma_nova_senha = st.text_input("Confirme a Nova Senha", type="password", key="confirma_senha")
+                confirma_nova_senha = st.text_input("Confirme a Nova Senha", type="password", key="confirma_nova_senha")
                 
                 if st.button("Gravar Nova Senha", use_container_width=True):
                     if nova_senha == confirma_nova_senha and nova_senha != "":
@@ -263,17 +291,15 @@ if not st.session_state.logado:
         
         st.markdown("---")
         st.markdown("#### 🛠️ Problemas com o número antigo?")
-        st.write("Caso não consiga recuperar pelo formulário automático, solicite a redefinição direta ao suporte da empresa clicando no botão abaixo:")
+        st.write("Caso não consiga recuperar pelo formulário automático, solicite a redefinição direta ao suporte clicando abaixo:")
         
-        # Link do WhatsApp apontando para o número oficial da Duarte Gestão: (11) 2657-3437
-        link_suporte_whatsapp = "https://wa.me/551126573437?text=Olá,%20esqueci%20minha%20senha%20de%20acesso%20ao%20Painel%20de%20Reembolsos%20da%20Duarte%20Gestão.%20Poderia%20redefinir%20para%20mim?"
-        st.markdown(f'<a href="{link_suporte_whatsapp}" target="_blank" class="btn-whatsapp">💬 Solicitar Suporte da Empresa via WhatsApp</a>', unsafe_allow_html=True)
+        # LINK ATUALIZADO: Direcionando para o número 11 91855-1349
+        link_suporte_whatsapp = "https://wa.me/5511918551349?text=Olá,%20esqueci%20minha%20senha%20de%20acesso%20ao%20Painel%20de%20Reembolsos%20da%20Duarte%20Gestão.%20Poderia%20redefinir%20para%20mim?"
+        st.markdown(f'<a href="{link_suporte_whatsapp}" target="_blank" class="btn-whatsapp">💬 Solicitar Suporte via WhatsApp</a>', unsafe_allow_html=True)
 
 else:
     # --- INTERFACE PRINCIPAL (SESSÃO ATIVA) ---
     user_atual = st.session_state.usuario
-    
-    # Painel Lateral de Controle e Logout
     st.sidebar.markdown(f"### 👤 {user_atual['nome']}")
     st.sidebar.markdown(f"**Nível:** {user_atual['cargo'].upper()}")
     if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
@@ -283,13 +309,11 @@ else:
         
     # --- VISÃO COLABORADOR ---
     if user_atual["cargo"] == "colaborador":
-        st.title("🚀 Painel do Colaborador | Duarte Gestão")
         menu_colab = st.sidebar.radio("Menu de Opções", ["✨ Solicitar Reembolso", "📋 Meus Pedidos"])
         
         if menu_colab == "✨ Solicitar Reembolso":
             st.markdown('<div class="premium-card">', unsafe_allow_html=True)
             st.markdown("### Solicitar Novo Reembolso")
-            
             with st.form("form_solicitacao", clear_on_submit=True):
                 desc = st.text_input("Descrição do Gasto / Nome do Projeto", placeholder="Ex: Almoço comercial - Projeto DNA Care")
                 cat = st.selectbox("Categoria", ["Transporte", "Alimentação", "Hospedagem", "Ferramentas/Software", "Outros"])
@@ -297,7 +321,6 @@ else:
                 upload_file = st.file_uploader("Anexe o Comprovante Fiscal (Imagem/PDF)", type=["png", "jpg", "jpeg", "pdf"])
                 
                 btn_enviar = st.form_submit_button("Enviar para Auditoria", use_container_width=True)
-                
                 if btn_enviar:
                     if not desc or valor <= 0:
                         st.error("Por favor, preencha a descrição correta e o valor do gasto.")
@@ -305,7 +328,6 @@ else:
                         comp_b64 = ""
                         if upload_file is not None:
                             comp_b64 = base64.b64encode(upload_file.read()).decode("utf-8")
-                            
                         data_atual = datetime.now().strftime("%Y-%m-%d")
                         
                         conn = sqlite3.connect("reembolsos.db")
@@ -316,7 +338,7 @@ else:
                         """, (user_atual["cpf"], user_atual["nome"], desc, cat, valor, data_atual, comp_b64))
                         conn.commit()
                         conn.close()
-                        st.success("🚀 Solicitação enviada! O financeiro foi alertado para validação.")
+                        st.success("🚀 Solicitação enviada com sucesso!")
             st.markdown('</div>', unsafe_allow_html=True)
             
         elif menu_colab == "📋 Meus Pedidos":
@@ -337,18 +359,16 @@ else:
 
     # --- VISÃO ADMINISTRADOR (ERICK) ---
     elif user_atual["cargo"] == "admin":
-        st.title("🔱 Painel Gestor Financeiro | Duarte Gestão")
         menu_admin = st.sidebar.radio("Painel do Gestor", ["📥 Central de Aprovações", "📈 Painel Executivo", "📊 Exportar Dados"])
         
         if menu_admin == "📥 Central de Aprovações":
             st.markdown("### Auditoria de Reembolsos Recebidos")
-            
             conn = sqlite3.connect("reembolsos.db")
             df_admin = pd.read_sql_query("SELECT * FROM solicitacoes", conn)
             conn.close()
             
             if df_admin.empty:
-                st.info("Sem solicitações em aberto no banco de dados.")
+                st.info("Sem solicitações no banco de dados.")
             else:
                 filtro_status = st.selectbox("Status para Análise", ["Todos", "Pendente", "Aprovado", "Pago", "Negado"])
                 df_filtered = df_admin if filtro_status == "Todos" else df_admin[df_admin["status"] == filtro_status]
@@ -370,15 +390,14 @@ else:
                                 c.execute("UPDATE solicitacoes SET status=? WHERE id=?", (novo_status, row['id']))
                                 conn.commit()
                                 conn.close()
-                                st.success("Status operacional modificado com sucesso!")
+                                st.success("Status modificado com sucesso!")
                                 st.rerun()
                                 
-                            # Integração direta com WhatsApp para notificar colaborador
                             user_destino = buscar_usuario(row['cpf_usuario'])
                             if user_destino:
                                 tel_destino = user_destino[2]
                                 msg_texto = f"Olá {row['nome_usuario']}, o status do seu pedido de reembolso #{row['id']} ({row['descricao']}) foi alterado para: *{novo_status}*."
-                                msg_encoded = msg_texto.replace(" ", "%20").replace("-", "%2D")
+                                msg_encoded = msg_texto.replace(" ", "%20")
                                 url_wa = f"https://wa.me/55{tel_destino}?text={msg_encoded}"
                                 st.markdown(f'<a href="{url_wa}" target="_blank" class="btn-whatsapp">💬 Enviar Notificação via WhatsApp</a>', unsafe_allow_html=True)
                                 
@@ -388,19 +407,18 @@ else:
                                 try:
                                     st.image(base64.b64decode(row['comprovante']), use_container_width=True)
                                 except:
-                                    st.warning("Comprovante armazenado em formato PDF ou não renderizável diretamente.")
+                                    st.warning("Formato de comprovante não renderizável diretamente (PDF).")
                             else:
-                                st.info("O colaborador não anexou comprovante para esta despesa.")
+                                st.info("Sem comprovante anexo.")
                                 
         elif menu_admin == "📈 Painel Executivo":
             st.markdown("### Visão Consolidada de Fluxo de Caixa")
-            
             conn = sqlite3.connect("reembolsos.db")
             df_dash = pd.read_sql_query("SELECT categoria, valor, status FROM solicitacoes", conn)
             conn.close()
             
             if df_dash.empty:
-                st.info("Insira dados de reembolsos para estruturar a visão analítica.")
+                st.info("Insira dados de reembolsos para estruturar os gráficos.")
             else:
                 m1, m2, m3 = st.columns(3)
                 with m1:
@@ -424,7 +442,6 @@ else:
         elif menu_admin == "📊 Exportar Dados":
             st.markdown('<div class="premium-card">', unsafe_allow_html=True)
             st.markdown("### Exportar Dados para Contabilidade")
-            st.write("Efetue o download imediato de toda a massa de dados em formato Excel unificado para conciliação bancária de fim de mês.")
             
             conn = sqlite3.connect("reembolsos.db")
             df_export = pd.read_sql_query("SELECT id, cpf_usuario, nome_usuario, descricao, categoria, valor, data, status FROM solicitacoes", conn)
