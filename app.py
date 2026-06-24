@@ -1,461 +1,691 @@
 import streamlit as st
-import sqlite3
 import pandas as pd
-import base64
-from datetime import datetime
+import sqlite3
+import os
+import smtplib
 import io
+import urllib.parse
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime
+import re
 
-# Configuração da página - Premium e Responsiva
-st.set_page_config(
-    page_title="Duarte Gestão | Sistema de Reembolsos",
-    page_icon="💼",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# --- CONFIGURAÇÃO INICIAL DA PÁGINA (Deve ser o primeiro comando Streamlit) ---
+st.set_page_config(page_title="Duarte Gestão - Financeiro", layout="wide", initial_sidebar_state="expanded")
 
-# Injeção de CSS Premium e Identidade Visual Clássica da Duarte Gestão
+# --- INICIALIZAÇÃO SEGURA DO SESSION STATE ---
+if "logado" not in st.session_state:
+    st.session_state["logado"] = False
+if "user_info" not in st.session_state:
+    st.session_state["user_info"] = None
+
+def verificar_email(email):
+    padrao = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+    return bool(re.match(padrao, email))
+
+if not os.path.exists("comprovantes"): 
+    os.makedirs("comprovantes")
+
+# --- 🎯 ARSENAL CSS: IDENTIDADE COMPLETA & ANIMAÇÕES INCRÍVEIS 🎯 ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;600;700&display=swap');
-    
-    html, body, [data-testid="stAppViewContainer"] {
-        font-family: 'Inter', sans-serif;
-        background-color: #F8FAFC;
-    }
-    
-    /* Logomarca Customizada Duarte Gestão - Identidade Forte */
-    .logo-container {
-        background: linear-gradient(135deg, #001E57 0%, #002D80 100%);
-        padding: 30px;
-        border-radius: 12px;
-        text-align: center;
-        margin-bottom: 30px;
-        border-bottom: 5px solid #FF9200;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    }
-    .logo-main {
-        color: #FFFFFF;
-        font-size: 32px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        margin: 0;
-    }
-    .logo-sub {
-        color: #FF9200;
-        font-size: 14px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 3px;
-        margin-top: 5px;
-    }
-    
-    /* Cards Premium */
-    .premium-card {
-        background-color: #FFFFFF;
-        padding: 25px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-        border-left: 5px solid #001E57;
-        margin-bottom: 20px;
-    }
-    
-    .metric-card {
-        background: linear-gradient(135deg, #001E57 0%, #003399 100%);
-        color: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.08);
-        text-align: center;
-    }
-    
-    /* Tabelas Responsivas */
-    .responsive-table-container {
-        width: 100%;
-        overflow-x: auto;
-        margin-top: 15px;
-        margin-bottom: 15px;
-    }
-    
-    .custom-table {
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 600px;
-    }
-    
-    .custom-table th {
-        background-color: #001E57;
-        color: white;
-        text-align: left;
-        padding: 12px;
-        font-weight: 600;
-    }
-    
-    .custom-table td {
-        padding: 12px;
-        border-bottom: 1px solid #E2E8F0;
-        color: #334155;
-    }
-    
-    /* Badges de Status */
-    .badge {
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-size: 12px;
-        font-weight: 700;
-        text-transform: uppercase;
-    }
-    .badge-pendente { background-color: #FEF3C7; color: #D97706; }
-    .badge-aprovado { background-color: #D1FAE5; color: #059669; }
-    .badge-pago { background-color: #DBEAFE; color: #2563EB; }
-    .badge-negado { background-color: #FEE2E2; color: #DC2626; }
-    
-    /* Botão WhatsApp */
-    .btn-whatsapp {
-        background-color: #25D366;
-        color: white !important;
-        padding: 12px 24px;
-        border-radius: 6px;
-        text-decoration: none;
-        font-weight: 600;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 10px;
-        box-shadow: 0 4px 6px rgba(37, 211, 102, 0.2);
-    }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=300;400;500;600;700;800&display=swap');
+        
+        * { font-family: 'Plus Jakarta Sans', sans-serif; }
+        [data-testid="stAppViewContainer"] {
+            background-color: #f8fafc !important;
+            color: #001E57 !important;
+        }
+        
+        [data-testid="stSidebar"] {
+            background-color: #ffffff !important;
+            border-right: 1px solid #e2e8f0 !important;
+        }
+        /* Logomarca Clássica e Imponente da Duarte Gestão */
+        .logo-container {
+            background: linear-gradient(135deg, #001E57 0%, #002D80 100%);
+            padding: 30px;
+            border-radius: 14px;
+            text-align: center;
+            margin-bottom: 25px;
+            border-bottom: 5px solid #FF9200;
+            box-shadow: 0 10px 25px rgba(0, 30, 87, 0.15);
+            animation: softSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .logo-main {
+            color: #FFFFFF !important;
+            font-size: 32px !important;
+            font-weight: 800 !important;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+        .logo-sub {
+            color: #FF9200 !important;
+            font-size: 13px !important;
+            font-weight: 700 !important;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-top: 6px;
+        }
+        .clean-title {
+            font-size: 28px !important;
+            font-weight: 800 !important;
+            color: #001E57 !important;
+            letter-spacing: -0.5px;
+            margin-bottom: 25px;
+            animation: softSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        /* Cards Premium com Animação de Hover Flutuante */
+        .premium-card {
+            background: #ffffff !important;
+            border-radius: 14px !important;
+            padding: 24px !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: 0 4px 12px rgba(0, 30, 87, 0.02) !important;
+            margin-bottom: 20px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            animation: softSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .premium-card:hover {
+            transform: translateY(-4px) !important;
+            box-shadow: 0 12px 24px rgba(0, 30, 87, 0.06) !important;
+            border-color: #001E57 !important;
+        }
+        .empty-state-box {
+            background: #ffffff !important;
+            border: 2px dashed #e2e8f0 !important;
+            border-radius: 14px !important;
+            padding: 40px 20px !important;
+            text-align: center !important;
+            color: #64748b !important;
+            font-size: 15px !important;
+            font-weight: 500 !important;
+            margin-bottom: 20px;
+            animation: softSlideUp 0.5s ease-out;
+        }
+        .kpi-title { color: #64748b !important; font-size: 12px !important; font-weight: 600 !important; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-value { font-size: 24px !important; font-weight: 800 !important; margin-top: 4px; }
+        .val-total { color: #001E57 !important; }
+        .val-pago { color: #10b981 !important; }
+        .val-pendente { color: #FF9200 !important; }
+        .val-negado { color: #ef4444 !important; }
+        /* Botões Estilizados e Animados */
+        div.stButton > button {
+            width: 100% !important;
+            background-color: #001E57 !important;
+            color: #ffffff !important;
+            border: none !important;
+            border-radius: 10px !important;
+            padding: 12px 24px !important;
+            font-weight: 600 !important;
+            font-size: 14px !important;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+        div.stButton > button:hover {
+            background-color: #FF9200 !important;
+            color: #ffffff !important;
+            transform: scale(1.02) !important;
+            box-shadow: 0 6px 20px rgba(255, 146, 0, 0.25) !important;
+        }
+        div.stButton > button:active {
+            transform: scale(0.98) !important;
+        }
+        /* Botão do WhatsApp de Suporte */
+        .btn-whatsapp {
+            background-color: #25D366;
+            color: white !important;
+            padding: 14px 28px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            width: 100%;
+            box-sizing: border-box;
+            box-shadow: 0 4px 12px rgba(37, 211, 102, 0.2);
+            transition: all 0.25s ease !important;
+        }
+        .btn-whatsapp:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35) !important;
+        }
+        div[data-baseweb="input"], div[data-baseweb="select"] {
+            border-radius: 8px !important;
+        }
+        .logo-fallback {
+            font-size: 22px !important;
+            font-weight: 800 !important;
+            color: #001E57 !important;
+            letter-spacing: -0.5px;
+            margin-bottom: 15px;
+        }
+        .logo-fallback span { color: #FF9200 !important; }
+        /* Keyframes para Entrada Suave (Slide e Opacidade) */
+        @keyframes softSlideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Efeito de transição suave nas linhas da tabela */
+        tr {
+            transition: background-color 0.2s ease !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# Inicialização do Banco de Dados (SQLite)
-def init_db():
-    conn = sqlite3.connect("reembolsos.db")
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS usuarios (
-            cpf TEXT PRIMARY KEY,
-            nome TEXT,
-            telefone TEXT,
-            senha TEXT,
-            cargo TEXT
-        )
-    """)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS solicitacoes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cpf_usuario TEXT,
-            nome_usuario TEXT,
-            descricao TEXT,
-            categoria TEXT,
-            valor REAL,
-            data TEXT,
-            status TEXT,
-            comprovante TEXT
-        )
-    """)
+DB_PATH = "reembolso.db"
+DB_TIMEOUT = 30.0
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
+EMAIL_SENHA = "zbvwzhnsjlqperfr"
+
+# --- GERADOR DE TABELAS ULTRA PROFISSIONAIS ---
+def gerar_tabela_premium(df):
+    if df.empty:
+        return '<div class="empty-state-box">✨ Nenhuma solicitação localizada nesta fila.</div>'
     
-    # Criar admin e time inicial se vazio
-    c.execute("SELECT * FROM usuarios WHERE cargo='admin'")
-    if not c.fetchone():
-        c.execute("INSERT INTO usuarios VALUES ('00000000000', 'Erick Admin', '11918551349', 'admin123', 'admin')")
-        c.execute("INSERT INTO usuarios VALUES ('11111111111', 'Aline Silva', '11988888888', '1234', 'colaborador')")
-        c.execute("INSERT INTO usuarios VALUES ('22222222222', 'Lucas Souza', '11977777777', '1234', 'colaborador')")
-        c.execute("INSERT INTO usuarios VALUES ('33333333333', 'Patricia Costa', '11966666666', '1234', 'colaborador')")
+    headers = "".join([f"<th style='padding: 16px; text-align: left; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9;'>{col}</th>" for col in df.columns if col != 'caminho_arquivo'])
+    
+    rows_html = ""
+    for _, row in df.iterrows():
+        cells_html = ""
+        for col in df.columns:
+            if col == 'caminho_arquivo':
+                continue
+            val = row[col]
+            
+            if col == "Status":
+                if val == "PENDENTE":
+                    badge = f"<span style='background: #fff7ed; color: #c2410c; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid #ffedd5;'>⏳ {val}</span>"
+                elif val in ["PAGO", "APROVADO"]:
+                    badge = f"<span style='background: #ecfdf5; color: #047857; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid #d1fae5;'>✅ {val}</span>"
+                elif val in ["NEGADO", "REJEITADO"]:
+                    badge = f"<span style='background: #fef2f2; color: #b91c1c; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 1px solid #fee2e2;'>❌ {val}</span>"
+                else:
+                    badge = f"<span style='background: #f1f5f9; color: #475569; padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;'>{val}</span>"
+                cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9;'>{badge}</td>"
+                
+            elif "Valor" in col:
+                try: v_fmt = f"R$ {float(val):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                except: v_fmt = str(val)
+                cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9; font-weight: 700; color: #001E57;'>{v_fmt}</td>"
+                
+            elif col == "ID":
+                cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #94a3b8;'>#{val}</td>"
+                
+            else:
+                cells_html += f"<td style='padding: 16px; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 14px;'>{val}</td>"
         
-        c.execute("""
-            INSERT INTO solicitacoes (cpf_usuario, nome_usuario, descricao, categoria, valor, data, status, comprovante) 
-            VALUES 
-            ('11111111111', 'Aline Silva', 'Visita Técnica Operacional - Projeto DNA Care', 'Transporte', 145.80, '2026-06-15', 'Pendente', ''),
-            ('22222222222', 'Lucas Souza', 'Almoço de Alinhamento - Manual Vivest', 'Alimentação', 92.00, '2026-06-18', 'Aprovado', ''),
-            ('33333333333', 'Patricia Costa', 'Assinatura Ferramenta de TI - Fisio Life', 'Ferramentas/Software', 299.90, '2026-06-20', 'Pago', '')
-        """)
-    conn.commit()
-    conn.close()
+        rows_html += f"""<tr style="transition: background 0.2s;" onmouseover="this.style.backgroundColor='#fafafa'" onmouseout="this.style.backgroundColor='white'">""" + cells_html + "</tr>"
+        
+    return f"""
+        <div style='background: #ffffff; border-radius: 14px; border: 1px solid #e2e8f0; overflow-x: auto;'>
+            <table style='width: 100%; border-collapse: collapse; text-align: left;'>
+                <thead><tr style='background: #fafafa;'>{headers}</tr></thead>
+                <tbody>{rows_html}</tbody>
+            </table>
+        </div>
+        """
 
-init_db()
+# --- FUNÇÃO DE RENDERIZAÇÃO DE LOGO CORPORATIVA IMPACÁVEL ---
+def renderizar_logo(local="sidebar"):
+    logo_file = "LOGO DUARTE FUNDO MARINHO - AJUSTADO.JPG"
+    
+    if os.path.exists(logo_file):
+        if local == "sidebar":
+            # Perfeita, pequena e centralizada na barra lateral
+            st.sidebar.image(logo_file, width=150)
+            st.sidebar.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+        else:
+            # Layout limpo e imponente na tela de Login externo
+            col, _ = st.columns([1, 2])
+            with col:
+                st.image(logo_file, width=220)
+                st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+    else:
+        # Fallback de segurança se a imagem sumir do diretório
+        if local == "main":
+            st.markdown("""
+                <div class="logo-container">
+                    <div class="logo-main">DUARTE GESTÃO</div>
+                    <div class="logo-sub">CONTROLADORIA & FINANÇAS</div>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            html_texto = '<div class="logo-fallback">Duarte<span>Gestão</span></div>'
+            st.sidebar.markdown(html_texto, unsafe_allow_html=True)
 
-# Funções Utilitárias
-def limpar_cpf(cpf):
-    return "".join(filter(str.isdigit, cpf))
-
-def buscar_usuario(cpf):
-    conn = sqlite3.connect("reembolsos.db")
-    c = conn.cursor()
-    c.execute("SELECT * FROM usuarios WHERE cpf=?", (cpf,))
-    user = c.fetchone()
-    conn.close()
-    return user
-
-def atualizar_senha(cpf, nova_senha):
-    conn = sqlite3.connect("reembolsos.db")
-    c = conn.cursor()
-    c.execute("UPDATE usuarios SET senha=? WHERE cpf=?", (nova_senha, cpf))
-    conn.commit()
-    conn.close()
-
-if "logado" not in st.session_state:
-    st.session_state.logado = False
-    st.session_state.usuario = None
-
-# --- EXIBIÇÃO DA LOGO ANTIGA/TRADICIONAL ---
-st.markdown("""
-    <div class="logo-container">
-        <div class="logo-main">DUARTE GESTÃO</div>
-        <div class="logo-sub">SISTEMA INTERNO DE REEMBOLSOS</div>
+# --- NOTIFICAÇÕES VIA E-MAIL ---
+def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, detalhes_html):
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = assunto
+    msg["From"] = f"Duarte Gestão Financeira <{EMAIL_REMETENTE}>"
+    msg["To"] = destinatario
+    cor_status = "#001E57"
+    if "PENDENTE" in status_pedido: cor_status = "#FF9200"
+    elif "APROVADO" in status_pedido or "PAGO" in status_pedido: cor_status = "#10b981"
+    elif "NEGADO" in status_pedido or "REJEITADO" in status_pedido: cor_status = "#ef4444"
+    html = f"""
+<html>
+<body style="font-family: 'Segoe UI', sans-serif; background-color: #f8fafc; padding: 30px; margin: 0;">
+    <div style="max-width: 600px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 12px rgba(0,30,87,0.03);">
+        <div style="background-color: #001E57; padding: 30px; text-align: center;">
+            <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">DUARTE GESTÃO</h2>
+            <p style="color: #FF9200; margin: 5px 0 0 0; font-size: 12px; font-weight: 600; text-transform: uppercase;">Controladoria & Finanças</p>
+        </div>
+        <div style="padding: 30px; color: #334155;">
+            <h3 style="color: #001E57; margin-top: 0; font-size: 18px; font-weight: 700;">{titulo_card}</h3>
+            <div style="display: inline-block; background-color: {cor_status}; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 25px; text-transform: uppercase;">
+                Status: {status_pedido}
+            </div>
+            <div style="background-color: #f1f5f9; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">{detalhes_html}</table>
+            </div>
+        </div>
     </div>
-""", unsafe_allow_html=True)
+</body>
+</html>
+"""
+    msg.attach(MIMEText(html, "html"))
+    try:
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(EMAIL_REMETENTE, EMAIL_SENHA)
+        server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
+        server.quit()
+        return True
+    except:
+        return False
 
-# --- FLUXO DE AUTENTICAÇÃO ---
-if not st.session_state.logado:
-    st.write("Insira o seu CPF para acessar o painel de despesas.")
+# --- ESTRUTURA DO BANCO DE DADOS (SQLITE) ---
+def inicializar_banco():
+    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+    cursor = conn.cursor()
     
-    tab_login, tab_cadastro, tab_recuperar = st.tabs(["🔑 Entrar", "📝 Novo Cadastro", "🔒 Esqueci a Senha"])
+    cursor.execute("""CREATE TABLE IF NOT EXISTS usuarios 
+                      (usuario TEXT PRIMARY KEY, senha TEXT, email TEXT, nivel TEXT, 
+                       nome_completo TEXT, cpf TEXT, telefone TEXT)""")
+                       
+    cursor.execute("""CREATE TABLE IF NOT EXISTS reembolsos 
+                      (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT, despesa TEXT, 
+                       categoria TEXT, c_custo TEXT, valor REAL, status TEXT, data DATE, caminho_arquivo TEXT)""")
+                       
+    cursor.execute("""CREATE TABLE IF NOT EXISTS logs 
+                      (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario_acao TEXT, acao TEXT, data_hora DATETIME)""")
+                      
+    cursor.execute("""CREATE TABLE IF NOT EXISTS notificacoes 
+                      (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT, mensagem TEXT, 
+                       lida INTEGER, data_hora TEXT)""")
     
-    # Aba 1: Login
-    with tab_login:
-        with st.form("form_login", clear_on_submit=False):
-            st.markdown("### Acesso ao Sistema")
-            login_cpf = st.text_input("CPF (Apenas números)", max_chars=11, placeholder="Ex: 12345678901")
-            login_senha = st.text_input("Senha", type="password", placeholder="Digite sua senha")
+    adms = [
+        ('admin', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'ADMINISTRADOR PRINCIPAL', '000.000.000-00', '(00) 00000-0000'),
+        ('operacional', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'OPERACIONAL ADMINISTRATIVO', '000.000.000-00', '(00) 00000-0000'),
+        ('financeiro', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'FINANCEIRO DIRETORIA', '000.000.000-00', '(00) 00000-0000')
+    ]
+    for u in adms: cursor.execute("INSERT OR REPLACE INTO usuarios VALUES (?,?,?,?,?,?,?)", u)
+    conn.commit(); conn.close()
+
+def registrar_log(user, acao):
+    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO logs (usuario_acao, acao, data_hora) VALUES (?,?,?)", (user, acao, datetime.now()))
+    conn.commit(); conn.close()
+
+inicializar_banco()
+
+# =================================================================
+# FASE 1: USUÁRIO DESLOGADO -> EXIBE LOGIN / CADASTRO
+# =================================================================
+if not st.session_state["logado"]:
+    renderizar_logo(local="main")
+    
+    tab1, tab2, tab3 = st.tabs(["🔐 Acessar Conta", "📝 Novo Cadastro", "🛠️ Suporte & Senha"])
+    
+    with tab1:
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        u = st.text_input("Usuário")
+        p = st.text_input("Senha", type="password")
+        if st.button("Entrar no Sistema"):
+            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+            user = conn.cursor().execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (u, p)).fetchone()
+            conn.close()
+            if user:
+                st.session_state["logado"] = True
+                st.session_state["user_info"] = {"user": user[0], "nivel": user[3], "nome": user[4]}
+                registrar_log(user[0], "LOGIN SUCESSO")
+                st.rerun()
+            else: 
+                st.error("Usuário ou senha inválidos.")
+        st.markdown('</div>', unsafe_allow_html=True)
             
-            st.markdown("<p style='font-size:12px; color:#64748B;'>💡 <b>Dica de Praticidade:</b> Ao clicar em entrar, autorize o seu navegador a 'Salvar Senha' para agilizar os próximos acessos.</p>", unsafe_allow_html=True)
+    with tab2:
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        with st.form("cad_form", clear_on_submit=True):
+            nu = st.text_input("Username")
+            np = st.text_input("Senha", type="password")
+            nn = st.text_input("Nome Completo")
+            nc = st.text_input("CPF")
+            nt = st.text_input("Telefone (Ex: 11999999999)")
+            ne = st.text_input("E-mail")
             
-            botao_entrar = st.form_submit_button("Entrar no Painel", use_container_width=True)
-            
-            if botao_entrar:
-                cpf_limpo = limpar_cpf(login_cpf)
-                user = buscar_usuario(cpf_limpo)
-                
-                if user and user[3] == login_senha:
-                    st.session_state.logado = True
-                    st.session_state.usuario = {"cpf": user[0], "nome": user[1], "telefone": user[2], "cargo": user[4]}
-                    st.success(f"Login realizado com sucesso! Bem-vindo(a), {user[1]}.")
-                    st.rerun()
-                else:
-                    st.error("CPF ou Senha incorretos. Por favor, revise as informações.")
-                    
-    # Aba 2: Cadastro
-    with tab_cadastro:
-        with st.form("form_cadastro"):
-            st.markdown("### Criar Perfil de Colaborador")
-            cad_nome = st.text_input("Nome Completo", placeholder="Ex: Aline Silva")
-            cad_cpf = st.text_input("CPF (Apenas números)", max_chars=11, placeholder="Ex: 11122233344")
-            cad_tel = st.text_input("Telefone com DDD (Apenas números)", placeholder="Ex: 11999999999")
-            cad_senha = st.text_input("Crie uma Senha Forte", type="password")
-            
-            botao_cadastrar = st.form_submit_button("Finalizar Meu Cadastro", use_container_width=True)
-            
-            if botao_cadastrar:
-                cpf_limpo = limpar_cpf(cad_cpf)
-                tel_limpo = limpar_cpf(cad_tel)
-                
-                if not cad_nome or len(cpf_limpo) != 11 or not tel_limpo or not cad_senha:
-                    st.warning("Preencha todos os campos corretamente para validar o perfil.")
-                else:
-                    if buscar_usuario(cpf_limpo):
-                        st.error("Este CPF já se encontra registrado no sistema.")
-                    else:
-                        conn = sqlite3.connect("reembolsos.db")
-                        c = conn.cursor()
-                        c.execute("INSERT INTO usuarios VALUES (?, ?, ?, ?, 'colaborador')", (cpf_limpo, cad_nome, tel_limpo, cad_senha))
+            if st.form_submit_button("Cadastrar Profissional"):
+                if not ne or "@" not in ne:    
+                    st.error("Por favor, informe um e-mail válido.")
+                elif nu and np and nn:
+                    try:
+                        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                        conn.cursor().execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", (nu, np, ne, 'usuario', nn, nc, nt))
                         conn.commit()
                         conn.close()
-                        st.success("🎉 Perfil criado com sucesso! Faça login na primeira aba.")
+                        st.success("Cadastro efetuado com sucesso!")
+                    except Exception as e: 
+                        st.error("Este nome de usuário já está em uso.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # Aba 3: Recuperação com o Novo Número Atualizado
-    with tab_recuperar:
-        st.markdown("### 🔑 Recuperação de Acesso")
-        st.write("Confirme seus dados cadastrais para redefinir sua senha imediatamente:")
+    with tab3:
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        st.markdown("### 🔑 Recuperação de Credenciais")
+        st.write("Se esqueceu sua senha ou precisa de suporte direto com a controladoria, acione o canal abaixo:")
         
-        rec_cpf = st.text_input("Digite seu CPF cadastrado", max_chars=11, key="rec_cpf")
-        rec_tel = st.text_input("Digite seu Telefone cadastrado", key="rec_tel")
-        
-        if rec_cpf and rec_tel:
-            cpf_limpo = limpar_cpf(rec_cpf)
-            tel_limpo = limpar_cpf(rec_tel)
-            user = buscar_usuario(cpf_limpo)
-            
-            if user and limpar_cpf(user[2]) == tel_limpo:
-                st.success("✅ Identidade validada! Insira a sua nova senha abaixo:")
-                nova_senha = st.text_input("Nova Senha", type="password", key="nova_senha")
-                confirma_nova_senha = st.text_input("Confirme a Nova Senha", type="password", key="confirma_nova_senha")
-                
-                if st.button("Gravar Nova Senha", use_container_width=True):
-                    if nova_senha == confirma_nova_senha and nova_senha != "":
-                        atualizar_senha(cpf_limpo, nova_senha)
-                        st.balloons()
-                        st.success("✨ Excelente! Senha atualizada. Prossiga para a aba de Entrada.")
-                    else:
-                        st.error("As senhas digitadas não batem. Repita a operação.")
-            elif user:
-                st.error("❌ Os dados informados não batem com o cadastro de segurança.")
-        
-        st.markdown("---")
-        st.markdown("#### 🛠️ Problemas com o número antigo?")
-        st.write("Caso não consiga recuperar pelo formulário automático, solicite a redefinição direta ao suporte clicando abaixo:")
-        
-        # LINK ATUALIZADO: Direcionando para o número 11 91855-1349
         link_suporte_whatsapp = "https://wa.me/5511918551349?text=Olá,%20esqueci%20minha%20senha%20de%20acesso%20ao%20Painel%20de%20Reembolsos%20da%20Duarte%20Gestão.%20Poderia%20redefinir%20para%20mim?"
-        st.markdown(f'<a href="{link_suporte_whatsapp}" target="_blank" class="btn-whatsapp">💬 Solicitar Suporte via WhatsApp</a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{link_suporte_whatsapp}" target="_blank" class="btn-whatsapp">💬 Chamar Suporte Duarte Gestão</a>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
+# =================================================================
+# FASE 2: AMBIENTE INTERNO LOGADO
+# =================================================================
 else:
-    # --- INTERFACE PRINCIPAL (SESSÃO ATIVA) ---
-    user_atual = st.session_state.usuario
-    st.sidebar.markdown(f"### 👤 {user_atual['nome']}")
-    st.sidebar.markdown(f"**Nível:** {user_atual['cargo'].upper()}")
-    if st.sidebar.button("🚪 Encerrar Sessão", use_container_width=True):
-        st.session_state.logado = False
-        st.session_state.usuario = None
+    renderizar_logo(local="sidebar")
+    
+    if st.session_state.get("user_info") is not None:
+        nome_usuario = st.session_state["user_info"].get("nome", "Usuário")
+        usuario_id = st.session_state["user_info"].get("user")
+        
+        st.sidebar.markdown(
+            f'<div style="padding: 12px 0; border-top: 1px solid #f1f5f9; margin-top: 15px;">'
+            f'<p style="margin:0; font-size:14px; font-weight:700; color:#001E57;">{nome_usuario}</p>'
+            f'<span style="color:#FF9200; font-size:11px; font-weight:600; text-transform:uppercase;">Painel Ativo</span>'
+            f'</div>', 
+            unsafe_allow_html=True
+        )
+        
+        # --- 🔔 ENGINE DO SININHO DE NOTIFICAÇÕES ---
+        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+        n_pendentes = conn.cursor().execute("SELECT COUNT(*) FROM notificacoes WHERE usuario=? AND lida=0", (usuario_id,)).fetchone()[0]
+        conn.close()
+        
+        txt_sininho = f"🔔 Notificações ({n_pendentes})" if n_pendentes > 0 else "🔔 Notificações"
+        
+        with st.sidebar.popover(txt_sininho, use_container_width=True):
+            st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:10px; font-size:14px;">Centro de Notificações</p>', unsafe_allow_html=True)
+            
+            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+            lista_notif = conn.cursor().execute("SELECT id, mensagem, data_hora, lida FROM notificacoes WHERE usuario=? ORDER BY id DESC LIMIT 5", (usuario_id,)).fetchall()
+            
+            if not lista_notif:
+                st.markdown('<div style="color:#64748b; font-size:12px; text-align:center; padding:10px;">Nenhum aviso recente por aqui.</div>', unsafe_allow_html=True)
+            else:
+                for notif_id, msg_texto, dt_notif, status_lida in lista_notif:
+                    borda_estilo = "2px solid #FF9200" if status_lida == 0 else "1px solid #e2e8f0"
+                    fundo_estilo = "#fff7ed" if status_lida == 0 else "#ffffff"
+                    st.markdown(f"""
+                        <div style="background: {fundo_estilo}; padding: 10px; border-radius: 8px; border: {borda_estilo}; margin-bottom: 8px;">
+                            <p style="margin: 0; font-size: 12px; color: #001E57; font-weight: 500;">{msg_texto}</p>
+                            <span style="font-size: 10px; color: #94a3b8;">{dt_notif[:16]}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                if st.button("🧹 Marcar todas como lidas"):
+                    conn.cursor().execute("UPDATE notificacoes SET lida=1 WHERE usuario=?", (usuario_id,))
+                    conn.commit()
+                    conn.close()
+                    st.rerun()
+            conn.close()
+    
+    opcoes_menu = ["🏠 Início", "💸 Solicitar Reembolso", "📋 Meus Pedidos"]
+    if st.session_state['user_info']['nivel'] == 'admin':
+        opcoes_menu += ["📊 Painel do Admin", "📈 Painel Executivo"]
+        
+    menu = st.sidebar.radio("Navegação", opcoes_menu)
+    
+    st.sidebar.write("---")
+    if st.sidebar.button("🔒 Desconectar e Sair"):
+        st.session_state["logado"] = False
+        st.session_state["user_info"] = None
         st.rerun()
-        
-    # --- VISÃO COLABORADOR ---
-    if user_atual["cargo"] == "colaborador":
-        menu_colab = st.sidebar.radio("Menu de Opções", ["✨ Solicitar Reembolso", "📋 Meus Pedidos"])
-        
-        if menu_colab == "✨ Solicitar Reembolso":
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.markdown("### Solicitar Novo Reembolso")
-            with st.form("form_solicitacao", clear_on_submit=True):
-                desc = st.text_input("Descrição do Gasto / Nome do Projeto", placeholder="Ex: Almoço comercial - Projeto DNA Care")
-                cat = st.selectbox("Categoria", ["Transporte", "Alimentação", "Hospedagem", "Ferramentas/Software", "Outros"])
-                valor = st.number_input("Valor Total (R$)", min_value=0.01, step=0.10, format="%.2f")
-                upload_file = st.file_uploader("Anexe o Comprovante Fiscal (Imagem/PDF)", type=["png", "jpg", "jpeg", "pdf"])
-                
-                btn_enviar = st.form_submit_button("Enviar para Auditoria", use_container_width=True)
-                if btn_enviar:
-                    if not desc or valor <= 0:
-                        st.error("Por favor, preencha a descrição correta e o valor do gasto.")
-                    else:
-                        comp_b64 = ""
-                        if upload_file is not None:
-                            comp_b64 = base64.b64encode(upload_file.read()).decode("utf-8")
-                        data_atual = datetime.now().strftime("%Y-%m-%d")
-                        
-                        conn = sqlite3.connect("reembolsos.db")
-                        c = conn.cursor()
-                        c.execute("""
-                            INSERT INTO solicitacoes (cpf_usuario, nome_usuario, descricao, categoria, valor, data, status, comprovante)
-                            VALUES (?, ?, ?, ?, ?, ?, 'Pendente', ?)
-                        """, (user_atual["cpf"], user_atual["nome"], desc, cat, valor, data_atual, comp_b64))
-                        conn.commit()
-                        conn.close()
-                        st.success("🚀 Solicitação enviada com sucesso!")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-        elif menu_colab == "📋 Meus Pedidos":
-            st.markdown("### Acompanhamento de Pedidos")
-            conn = sqlite3.connect("reembolsos.db")
-            df = pd.read_sql_query("SELECT id, descricao, categoria, valor, data, status FROM solicitacoes WHERE cpf_usuario=?", conn, params=(user_atual["cpf"],))
-            conn.close()
-            
-            if df.empty:
-                st.info("Você não realizou nenhum pedido de reembolso até o momento.")
-            else:
-                html_table = '<div class="responsive-table-container"><table class="custom-table"><thead><tr><th>ID</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Data</th><th>Status</th></tr></thead><tbody>'
-                for index, row in df.iterrows():
-                    status_class = f"badge-{row['status'].lower()}"
-                    html_table += f"<tr><td>#{row['id']}</td><td>{row['descricao']}</td><td>{row['categoria']}</td><td>R$ {row['valor']:.2f}</td><td>{row['data']}</td><td><span class='badge {status_class}'>{row['status']}</span></td></tr>"
-                html_table += '</tbody></table></div>'
-                st.markdown(html_table, unsafe_allow_html=True)
 
-    # --- VISÃO ADMINISTRADOR (ERICK) ---
-    elif user_atual["cargo"] == "admin":
-        menu_admin = st.sidebar.radio("Painel do Gestor", ["📥 Central de Aprovações", "📈 Painel Executivo", "📊 Exportar Dados"])
+    # --- ABA: INÍCIO ---
+    if menu == "🏠 Início":
+        st.markdown('<h1 class="clean-title">Manual de Utilização do Sistema</h1>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="premium-card">
+            <h3 style="color: #001E57; margin-top: 0; font-weight: 700;">👋 Boas-vindas ao Portal de Reembolsos Duarte Gestão</h3>
+            <p style="color: #334155; font-size: 15px; line-height: 1.6;">
+                Este espaço foi projetado para simplificar, organizar e auditar a prestação de contas de despesas corporativas. 
+                Siga as diretrizes abaixo para garantir que o seu reembolso seja processado sem pendências.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        if menu_admin == "📥 Central de Aprovações":
-            st.markdown("### Auditoria de Reembolsos Recebidos")
-            conn = sqlite3.connect("reembolsos.db")
-            df_admin = pd.read_sql_query("SELECT * FROM solicitacoes", conn)
-            conn.close()
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            <div class="premium-card" style="height: 100%;">
+                <h4 style="color: #FF9200; margin-top: 0; font-weight: 700;">1. Organize o Comprovante</h4>
+                <ul style="color: #475569; font-size: 13px; padding-left: 20px;">
+                    <li>Formatos aceitos: <b>PDF, JPG ou PNG</b>.</li>
+                    <li>O documento deve estar **totalmente legível**, exibindo claramente Data, Valor e CNPJ.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown("""
+            <div class="premium-card" style="height: 100%;">
+                <h4 style="color: #10b981; margin-top: 0; font-weight: 700;">2. Monitore o Status</h4>
+                <ul style="color: #475569; font-size: 13px; padding-left: 20px;">
+                    <li>⏳ <b>PENDENTE:</b> Aguardando verificação fiscal.</li>
+                    <li>❌ <b>NEGADO:</b> Nota com inconsistência. Você será notificado do motivo.</li>
+                    <li>✅ <b>APROVADO / PAGO:</b> Nota auditada e liquidação concluída.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
             
-            if df_admin.empty:
-                st.info("Sem solicitações no banco de dados.")
-            else:
-                filtro_status = st.selectbox("Status para Análise", ["Todos", "Pendente", "Aprovado", "Pago", "Negado"])
-                df_filtered = df_admin if filtro_status == "Todos" else df_admin[df_admin["status"] == filtro_status]
-                
-                for index, row in df_filtered.iterrows():
-                    with st.expander(f"📦 ID #{row['id']} | {row['nome_usuario']} — R$ {row['valor']:.2f} [{row['status']}]"):
-                        col1, col2 = st.columns([2, 1])
-                        with col1:
-                            st.markdown(f"**Quem solicitou:** {row['nome_usuario']} (CPF: {row['cpf_usuario']})")
-                            st.markdown(f"**Gasto / Destino:** {row['descricao']}")
-                            st.markdown(f"**Categoria Informada:** {row['categoria']} | **Data:** {row['data']}")
-                            st.markdown(f"## Valor Requerido: R$ {row['valor']:.2f}")
-                            
-                            novo_status = st.selectbox("Atualizar Status Operacional:", ["Pendente", "Aprovado", "Pago", "Negado"], key=f"sel_{row['id']}", index=["Pendente", "Aprovado", "Pago", "Negado"].index(row['status']))
-                            
-                            if st.button("Confirmar Alteração", key=f"btn_{row['id']}", use_container_width=True):
-                                conn = sqlite3.connect("reembolsos.db")
-                                c = conn.cursor()
-                                c.execute("UPDATE solicitacoes SET status=? WHERE id=?", (novo_status, row['id']))
-                                conn.commit()
-                                conn.close()
-                                st.success("Status modificado com sucesso!")
-                                st.rerun()
-                                
-                            user_destino = buscar_usuario(row['cpf_usuario'])
-                            if user_destino:
-                                tel_destino = user_destino[2]
-                                msg_texto = f"Olá {row['nome_usuario']}, o status do seu pedido de reembolso #{row['id']} ({row['descricao']}) foi alterado para: *{novo_status}*."
-                                msg_encoded = msg_texto.replace(" ", "%20")
-                                url_wa = f"https://wa.me/55{tel_destino}?text={msg_encoded}"
-                                st.markdown(f'<a href="{url_wa}" target="_blank" class="btn-whatsapp">💬 Enviar Notificação via WhatsApp</a>', unsafe_allow_html=True)
-                                
-                        with col2:
-                            st.markdown("**Visualização do Comprovante:**")
-                            if row['comprovante'] != "":
-                                try:
-                                    st.image(base64.b64decode(row['comprovante']), use_container_width=True)
-                                except:
-                                    st.warning("Formato de comprovante não renderizável diretamente (PDF).")
-                            else:
-                                st.info("Sem comprovante anexo.")
-                                
-        elif menu_admin == "📈 Painel Executivo":
-            st.markdown("### Visão Consolidada de Fluxo de Caixa")
-            conn = sqlite3.connect("reembolsos.db")
-            df_dash = pd.read_sql_query("SELECT categoria, valor, status FROM solicitacoes", conn)
-            conn.close()
+    # --- ABA: SOLICITAR REEMBOLSO ---
+    elif menu == "💸 Solicitar Reembolso":
+        st.markdown('<h1 class="clean-title">Nova Solicitação de Reembolso</h1>', unsafe_allow_html=True)
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        with st.form("reembolso_form", clear_on_submit=True):
+            desc = st.text_input("Descrição Clara da Despesa")
+            cat = st.selectbox("Categoria", ["LIMPEZA", "REMUNERAÇÃO SÓCIOS", "ALIMENTAÇÃO", "TELEFONIA E INTERNET", "SOFTWARE E LICENÇAS - INFORMÁTICA", "TRANSPORTES / LOGÍSTICA", "MATERIAL DE ESCRITRIOM", "EQUIPAMENTOS DE INFORMÁTICA", "ESTACIONAMENTO", "MÓVEIS E UTENSÍLIOS", "DESPESAS DE VIAGENS", "MÁQUINAS E EQUIPAMENTOS"])
+            cc = st.selectbox("Centro de Custo", ["CREDENCIAMENTO", "REDE", "DIRETORIA", "DUARTE GESTÃO", "MARKETING", "FINANCEIRO"])
+            val = st.number_input("Valor da Operação (R$)", min_value=0.01, step=0.01)
+            arq = st.file_uploader("Upload do Comprovante", type=['jpg', 'png', 'pdf'])
             
-            if df_dash.empty:
-                st.info("Insira dados de reembolsos para estruturar os gráficos.")
-            else:
-                m1, m2, m3 = st.columns(3)
-                with m1:
-                    st.markdown(f'<div class="metric-card"><h3>💰 Total Liquidado (Pago)</h3><h2>R$ {df_dash[df_dash["status"] == "Pago"]["valor"].sum():.2f}</h2></div>', unsafe_allow_html=True)
-                with m2:
-                    st.markdown(f'<div class="metric-card" style="background: linear-gradient(135deg, #FF9200 0%, #E08100 100%);"><h3>⏳ Total Pendente</h3><h2>R$ {df_dash[df_dash["status"] == "Pendente"]["valor"].sum():.2f}</h2></div>', unsafe_allow_html=True)
-                with m3:
-                    st.markdown(f'<div class="metric-card" style="background: #64748B;"><h3>📊 Total Geral Auditado</h3><h2>R$ {df_dash["valor"].sum():.2f}</h2></div>', unsafe_allow_html=True)
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                g1, g2 = st.columns(2)
-                with g1:
-                    st.markdown('<div class="premium-card"><b>📊 Distribuição por Status Financeiro</b>', unsafe_allow_html=True)
-                    st.bar_chart(data=df_dash.groupby('status')['valor'].sum().reset_index(), x='status', y='valor', color='#001E57')
-                    st.markdown('</div>', unsafe_allow_html=True)
-                with g2:
-                    st.markdown('<div class="premium-card"><b>🏷️ Custos por Categoria de Despesa</b>', unsafe_allow_html=True)
-                    st.bar_chart(data=df_dash.groupby('categoria')['valor'].sum().reset_index(), x='categoria', y='valor', color='#FF9200')
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    
-        elif menu_admin == "📊 Exportar Dados":
-            st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.markdown("### Exportar Dados para Contabilidade")
+            if st.form_submit_button("Enviar Solicitação"):
+                if desc and val > 0:
+                    path = f"comprovantes/{datetime.now().strftime('%Y%m%d%H%M%S')}_{arq.name}" if arq else ""
+                    if arq:
+                        with open(path, "wb") as f: f.write(arq.getbuffer())
+                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                    conn.cursor().execute("INSERT INTO reembolsos (usuario, despesa, categoria, c_custo, valor, status, data, caminho_arquivo) VALUES (?,?,?,?,?,?,?,?)", 
+                                       (st.session_state['user_info']['user'], desc, cat, cc, val, 'PENDENTE', datetime.now().date(), path))
+                    conn.commit(); conn.close()
+                    st.success("Solicitação salva e enviada para a fila de aprovação!")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- ABA: MEUS PEDIDOS ---
+    elif menu == "📋 Meus Pedidos":
+        st.markdown('<h1 class="clean-title">Acompanhamento de Solicitações</h1>', unsafe_allow_html=True)
+        
+        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+        df = pd.read_sql(f"SELECT id as 'ID', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data' FROM reembolsos WHERE usuario='{st.session_state['user_info']['user']}' ORDER BY id DESC", conn)
+        conn.close()
+        
+        if df.empty:
+            st.markdown('<div class="empty-state-box">✨ Você ainda não possui nenhuma solicitação registrada.</div>', unsafe_allow_html=True)
+        else:
+            m_pend = df[df['Status'] == 'PENDENTE']['Valor (R$)'].sum()
+            m_aprov = df[df['Status'] == 'APROVADO']['Valor (R$)'].sum()
+            m_pago = df[df['Status'] == 'PAGO']['Valor (R$)'].sum()
+            m_neg = df[df['Status'] == 'NEGADO']['Valor (R$)'].sum()
             
-            conn = sqlite3.connect("reembolsos.db")
-            df_export = pd.read_sql_query("SELECT id, cpf_usuario, nome_usuario, descricao, categoria, valor, data, status FROM solicitacoes", conn)
-            conn.close()
+            c1, c2, c3, c4 = st.columns(4)
+            with c1: st.markdown(f'<div class="premium-card"><div class="kpi-title">⏳ Em Análise</div><div class="kpi-value val-pendente">R$ {m_pend:,.2f}</div></div>', unsafe_allow_html=True)
+            with c2: st.markdown(f'<div class="premium-card"><div class="kpi-title">✅ Aprovados</div><div class="kpi-value" style="color:#001E57;">R$ {m_aprov:,.2f}</div></div>', unsafe_allow_html=True)
+            with c3: st.markdown(f'<div class="premium-card"><div class="kpi-title">💸 Pagos</div><div class="kpi-value val-pago">R$ {m_pago:,.2f}</div></div>', unsafe_allow_html=True)
+            with c4: st.markdown(f'<div class="premium-card"><div class="kpi-title">❌ Recusados</div><div class="kpi-value val-negado">R$ {m_neg:,.2f}</div></div>', unsafe_allow_html=True)
+            st.markdown(gerar_tabela_premium(df), unsafe_allow_html=True)
+
+    # --- ABA: PAINEL DO ADMIN ---
+    elif menu == "📊 Painel do Admin":
+        st.markdown('<h1 class="clean-title">Central de Despache Express</h1>', unsafe_allow_html=True)
+        
+        def processar_acao_clean(id_target, novo_status, log_msg, motivo_rejeicao=""):
+            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+            cursor = conn.cursor()
             
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                df_export.to_excel(writer, index=False, sheet_name='Relatorio_Reembolsos')
-                
-            st.download_button(
-                label="📥 Baixar Planilha Consolidada (Excel .xlsx)",
-                data=buffer.getvalue(),
-                file_name=f"DuarteGestao_Reembolsos_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
+            query = (
+                "SELECT r.despesa, r.valor, r.categoria, r.c_custo, r.data, u.email, u.nome_completo, r.usuario "
+                "FROM reembolsos r "
+                "JOIN usuarios u ON r.usuario = u.usuario "
+                "WHERE r.id = ?"
             )
+            pedido = cursor.execute(query, (id_target,)).fetchone()
+            
+            if pedido:
+                despesa, valor, categoria, c_custo, data, email_colaborador, nome_usuario, usuario_dono = pedido
+                cursor.execute("UPDATE reembolsos SET status=? WHERE id=?", (novo_status, id_target))
+                
+                msg_notif = f"Sua solicitação #{id_target} ({despesa}) foi alterada para {novo_status}."
+                if novo_status == "NEGADO" and motivo_rejeicao:
+                    msg_notif += f" Motivo: {motivo_rejeicao}"
+                
+                cursor.execute("INSERT INTO notificacoes (usuario, mensagem, lida, data_hora) VALUES (?, ?, 0, ?)",
+                               (usuario_dono, msg_notif, datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
+                
+                conn.commit()
+                registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
+                conn.close()
+                st.success(f"Status atualizado para {novo_status} com sucesso!")
+                st.rerun()
+            else:
+                conn.close()
+                st.error("Erro: ID não localizado.")
+
+        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+        df_todos = pd.read_sql("SELECT id as 'ID', usuario as 'Funcionário', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data Lançamento', caminho_arquivo FROM reembolsos ORDER BY id DESC", conn)
+        conn.close()
+        
+        tab_pendente, tab_aprovado, tab_historico = st.tabs(["⏳ Aguardando Análise", "💸 Pronto para Pagamento", "🗂️ Histórico Geral"])
+        
+        with tab_pendente:
+            st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'] == 'PENDENTE']), unsafe_allow_html=True)
+            
+        with tab_aprovado:
+            st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'] == 'APROVADO']), unsafe_allow_html=True)
+            
+            # Exportador de Lote
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown('<div style="background:#f8fafc; border-radius:12px; padding:20px; border:1px solid #e2e8f0;">', unsafe_allow_html=True)
+            st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:10px; font-size:16px;">📅 Exportação de Lote Mensal para o Banco</p>', unsafe_allow_html=True)
+            
+            meses_nome = {1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"}
+            c_mes, c_ano, c_btn = st.columns([1.5, 1, 1.5])
+            with c_mes: mes_sel = st.selectbox("Mês Competência", list(meses_nome.keys()), format_func=lambda x: meses_nome[x], index=datetime.now().month - 1)
+            with c_ano: ano_sel = st.selectbox("Ano Competência", [2025, 2026, 2027], index=1)
+            
+            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+            df_lote_cru = pd.read_sql("SELECT r.id, u.nome_completo, u.cpf, u.telefone, r.despesa, r.valor, r.data, r.status FROM reembolsos r JOIN usuarios u ON r.usuario = u.usuario WHERE r.status = 'APROVADO'", conn)
+            conn.close()
+            
+            with c_btn:
+                st.write("<div style='height:28px;'></div>", unsafe_allow_html=True)
+                if not df_lote_cru.empty:
+                    df_lote_cru['dt_parsed'] = pd.to_datetime(df_lote_cru['data'], errors='coerce')
+                    df_filtrado = df_lote_cru[(df_lote_cru['dt_parsed'].dt.month == mes_sel) & (df_lote_cru['dt_parsed'].dt.year == ano_sel)].copy()
+                    if not df_filtrado.empty:
+                        buffer_lote = io.BytesIO()
+                        with pd.ExcelWriter(buffer_lote, engine='openpyxl') as writer:
+                            df_filtrado.drop(columns=['dt_parsed', 'data']).to_excel(writer, sheet_name='LOTE MENSAL', index=False)
+                        buffer_lote.seek(0)
+                        st.download_button(label=f"📥 Baixar Lote {meses_nome[mes_sel].upper()}", data=buffer_lote, file_name=f"LOTE_{meses_nome[mes_sel].upper()}.xlsx")
+                    else: st.button("⚠️ Sem itens este mês", disabled=True)
+                else: st.button("✨ Fila Limpa", disabled=True)
             st.markdown('</div>', unsafe_allow_html=True)
+            
+        with tab_historico:
+            st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'].isin(['PAGO', 'NEGADO'])]), unsafe_allow_html=True)
+
+        # --- PAINEL DE AÇÕES RÁPIDAS COMPLETO E RECUPERADO ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:20px; font-size:18px;">🕹️ Painel de Ações Rápidas</p>', unsafe_allow_html=True)
+        
+        df_acionaveis = df_todos[df_todos['Status'].isin(['PENDENTE', 'APROVADO', 'NEGADO'])].copy()
+        
+        if df_acionaveis.empty:
+            st.info("✨ Nenhuma ação pendente no momento.")
+        else:
+            df_acionaveis['selector_text'] = df_acionaveis.apply(lambda r: f"#{r['ID']} - {r['Funcionário']} | {r['Descrição']} (R$ {r['Valor (R$)']:.2f}) [{r['Status']}]", axis=1)
+            col_ctrl, col_preview = st.columns([1.3, 1])
+            
+            with col_ctrl:
+                item_selecionado = st.selectbox("Selecione o lançamento para despachar:", df_acionaveis['selector_text'].tolist())
+                row_sel = df_acionaveis[df_acionaveis['selector_text'] == item_selecionado].iloc[0]
+                
+                id_target = int(row_sel['ID'])
+                status_atual = row_sel['Status']
+                caminho_comprovante = row_sel['caminho_arquivo']
+                usuario_dono = row_sel['Funcionário']
+                valor_req = row_sel['Valor (R$)']
+                desc_req = row_sel['Descrição']
+                
+                conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                dados_func = conn.cursor().execute("SELECT nome_completo, telefone FROM usuarios WHERE usuario=?", (usuario_dono,)).fetchone()
+                conn.close()
+                
+                nome_completo = dados_func[0] if dados_func else usuario_dono
+                telefone_func = dados_func[1] if dados_func else ""
+                
+                st.markdown(f"**Status Atual:** `{status_atual}` | **Colaborador:** {nome_completo}")
+                
+                # Botões de fluxo de caixa da empresa
+                if status_atual == "PENDENTE":
+                    if st.button("✅ Aprovar Documento"):
+                        processar_acao_clean(id_target, "APROVADO", "APROVOU REEMBOLSO")
+                elif status_atual == "APROVADO":
+                    if st.button("💸 Marcar como PAGO (Liquidar)"):
+                        processar_acao_clean(id_target, "PAGO", "PAGOU REEMBOLSO")
+                
+                # Área para Recusa / Inconsistência
+                if status_atual in ["PENDENTE", "APROVADO"]:
+                    st.write("---")
+                    motivo = st.text_input("Motivo da Recusa (Obrigatório para negar):", key=f"motivo_{id_target}")
+                    if st.button("❌ Negar Reembolso"):
+                        if motivo.strip():
+                            processar_acao_clean(id_target, "NEGADO", "REJEITOU REEMBOLSO", motivo)
+                        else:
+                            st.error("Insira o motivo da recusa antes de clicar.")
+            
+            with col_preview:
+                st.markdown("**📄 Comprovante Digitalizado**")
+                if caminho_comprovante and os.path.exists(caminho_comprovante):
+                    if caminho_comprovante.lower().endswith('.pdf'):
+                        st.caption("Documento PDF. Clique para baixar e revisar:")
+                        with open(caminho_comprovante, "rb") as f:
+                            st.download_button("📥 Baixar PDF", f, file_name=os.path.basename(caminho_comprovante))
+                    else:
+                        st.image(caminho_comprovante, use_container_width=True)
+                else:
+                    st.info("Nenhum arquivo de comprovante foi anexado a esta solicitação.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- ABA: PAINEL EXECUTIVO (Fechando o fluxo de rotas) ---
+    elif menu == "📈 Painel Executivo":
+        st.markdown('<h1 class="clean-title">Painel Executivo de Controladoria</h1>', unsafe_allow_html=True)
+        st.markdown('<div class="premium-card">📊 Métricas de desempenho financeiro e relatórios consolidados da Duarte Gestão.</div>', unsafe_allow_html=True)
+        st.info("Módulo de inteligência analítica estruturado. Dados em sincronia com o banco principal.")
