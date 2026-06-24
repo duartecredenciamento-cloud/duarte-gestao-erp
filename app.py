@@ -105,7 +105,7 @@ st.markdown("""
         div.stButton > button:active {
             transform: scale(0.98) !important;
         }
-        /* Botão do WhatsApp de Suporte */
+        /* Botão do WhatsApp de Suporte e Disparos */
         .btn-whatsapp {
             background-color: #25D366;
             color: white !important;
@@ -216,7 +216,6 @@ def renderizar_logo(local="sidebar"):
             st.image(logo_file, width=140)
             st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
     else:
-        # Fallback minimalista sem blocos coloridos gigantes
         html_texto = '<div class="logo-fallback">Duarte<span>Gestão</span></div>'
         if local == "sidebar":
             st.sidebar.markdown(html_texto, unsafe_allow_html=True)
@@ -315,7 +314,6 @@ if not st.session_state["logado"]:
         login_senha = st.text_input("Senha", type="password")
         if st.button("Entrar no Sistema"):
             conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-            # Permite login por CPF ou por nome de usuário (para manter compatibilidade com as contas admin criadas)
             user = conn.cursor().execute("SELECT * FROM usuarios WHERE (cpf=? OR usuario=?) AND senha=?", (login_cpf, login_cpf, login_senha)).fetchone()
             conn.close()
             if user:
@@ -346,7 +344,6 @@ if not st.session_state["logado"]:
                 else:
                     try:
                         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-                        # O campo 'usuario' recebe o próprio CPF para manter a integridade dos relacionamentos no banco de dados
                         conn.cursor().execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", (nc_cpf, nc_senha, nc_email, 'usuario', nc_nome, nc_cpf, nc_tel))
                         conn.commit()
                         conn.close()
@@ -562,7 +559,7 @@ else:
                 conn.commit()
                 registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
                 conn.close()
-                st.success(f"Status updated to {novo_status}!")
+                st.success(f"Status atualizado para {novo_status}!")
                 st.rerun()
             else:
                 conn.close()
@@ -612,12 +609,13 @@ else:
         with tab_historico:
             st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'].isin(['PAGO', 'NEGADO'])]), unsafe_allow_html=True)
 
-        # --- PAINEL DE AÇÕES RÁPIDAS ---
+        # --- PAINEL DE AÇÕES RÁPIDAS COM DISPARADOR WHATSAPP ---
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
         st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:20px; font-size:18px;">🕹️ Painel de Ações Rápidas</p>', unsafe_allow_html=True)
         
-        df_acionaveis = df_todos[df_todos['Status'].isin(['PENDENTE', 'APROVADO', 'NEGADO'])].copy()
+        # Adicionado o status PAGO para permitir selecionar e re-enviar WhatsApp caso necessário
+        df_acionaveis = df_todos[df_todos['Status'].isin(['PENDENTE', 'APROVADO', 'NEGADO', 'PAGO'])].copy()
         
         if df_acionaveis.empty:
             st.info("✨ Nenhuma ação pendente no momento.")
@@ -639,6 +637,7 @@ else:
                 conn.close()
                 
                 nome_completo = dados_func[0] if dados_func else usuario_dono
+                telefone_func = dados_func[1] if dados_func else ""
                 
                 st.markdown(f"**Status Atual:** `{status_atual}` | **Colaborador:** {nome_completo}")
                 
@@ -648,6 +647,30 @@ else:
                 elif status_atual == "APROVADO":
                     if st.button("💸 Marcar como PAGO (Liquidar)"):
                         processar_acao_clean(id_target, "PAGO", "PAGOU REEMBOLSO")
+                
+                # 🔥 MÓDULO DE INTEGRAÇÃO DO WHATSAPP DE PAGAMENTO SUCESSO
+                if status_atual == "PAGO":
+                    st.success("🎉 Este reembolso já foi liquidado no sistema!")
+                    if telefone_func:
+                        # Limpa o telefone removendo caracteres especiais para a URL
+                        tel_limpo = "".join(filter(str.isdigit, telefone_func))
+                        if not tel_limpo.startswith("55") and len(tel_limpo) >= 10:
+                            tel_limpo = "55" + tel_limpo
+                        
+                        # Monta a mensagem padrão corporativa em negrito do WhatsApp
+                        msg_wa = (
+                            f"Olá, *{nome_completo}*!\n\n"
+                            f"Informamos que a sua solicitação de reembolso *#{id_target}* (*{row_sel['Descrição']}*) "
+                            f"no valor de *R$ {row_sel['Valor (R$)']:.2f}* foi liquidada e o pagamento já foi efetuado "
+                            f"pela controladoria da *Duarte Gestão*.\n\n"
+                            f"Por favor, confira o saldo em sua conta cadastrada. Obrigado!"
+                        )
+                        msg_encoded = urllib.parse.quote(msg_wa)
+                        link_whatsapp_envio = f"https://wa.me/{tel_limpo}?text={msg_encoded}"
+                        
+                        st.markdown(f'<a href="{link_whatsapp_envio}" target="_blank" class="btn-whatsapp" style="background-color:#25D366; text-align:center;">💬 Enviar Notificação de Pagamento via WhatsApp</a>', unsafe_allow_html=True)
+                    else:
+                        st.warning("⚠️ Não foi possível gerar o link: Telefone não cadastrado para este usuário.")
                 
                 if status_atual in ["PENDENTE", "APROVADO"]:
                     st.write("---")
@@ -670,6 +693,14 @@ else:
                 else:
                     st.info("Nenhum arquivo de comprovante foi anexado a esta solicitação.")
         st.markdown('</div>', unsafe_allow_html=True)
+
+        # --- UTILITÁRIO DE INFRAESTRUTURA: MONITOR DE PRODUÇÃO (CHEFES / CONTAS) ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("👥 [PRODUÇÃO] Lista de Usuários Cadastrados no Sistema"):
+            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+            df_users = pd.read_sql("SELECT cpf as 'CPF Key', nome_completo as 'Nome Completo', email as 'E-mail', telefone as 'Telefone', senha as 'Senha Ativa' FROM usuarios", conn)
+            conn.close()
+            st.dataframe(df_users, use_container_width=True)
 
     # --- ABA: PAINEL EXECUTIVO ---
     elif menu == "📈 Painel Executivo":
