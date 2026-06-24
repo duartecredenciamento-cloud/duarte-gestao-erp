@@ -41,32 +41,7 @@ st.markdown("""
             background-color: #ffffff !important;
             border-right: 1px solid #e2e8f0 !important;
         }
-        /* Logomarca Clássica e Imponente da Duarte Gestão */
-        .logo-container {
-            background: linear-gradient(135deg, #001E57 0%, #002D80 100%);
-            padding: 30px;
-            border-radius: 14px;
-            text-align: center;
-            margin-bottom: 25px;
-            border-bottom: 5px solid #FF9200;
-            box-shadow: 0 10px 25px rgba(0, 30, 87, 0.15);
-            animation: softSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .logo-main {
-            color: #FFFFFF !important;
-            font-size: 32px !important;
-            font-weight: 800 !important;
-            letter-spacing: 1px;
-            margin: 0;
-        }
-        .logo-sub {
-            color: #FF9200 !important;
-            font-size: 13px !important;
-            font-weight: 700 !important;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            margin-top: 6px;
-        }
+        
         .clean-title {
             font-size: 28px !important;
             font-weight: 800 !important;
@@ -156,7 +131,7 @@ st.markdown("""
             border-radius: 8px !important;
         }
         .logo-fallback {
-            font-size: 22px !important;
+            font-size: 20px !important;
             font-weight: 800 !important;
             color: #001E57 !important;
             letter-spacing: -0.5px;
@@ -168,8 +143,6 @@ st.markdown("""
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
-        /* Efeito de transição suave nas linhas da tabela */
         tr {
             transition: background-color 0.2s ease !important;
         }
@@ -231,33 +204,24 @@ def gerar_tabela_premium(df):
         </div>
         """
 
-# --- FUNÇÃO DE RENDERIZAÇÃO DE LOGO CORPORATIVA IMPACÁVEL ---
+# --- FUNÇÃO DE RENDERIZAÇÃO DE LOGO COMPACTA PADRÃO CORPORATIVO ---
 def renderizar_logo(local="sidebar"):
     logo_file = "LOGO DUARTE FUNDO MARINHO - AJUSTADO.JPG"
     
     if os.path.exists(logo_file):
         if local == "sidebar":
-            # Perfeita, pequena e centralizada na barra lateral
-            st.sidebar.image(logo_file, width=150)
+            st.sidebar.image(logo_file, width=130)
             st.sidebar.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
         else:
-            # Layout limpo e imponente na tela de Login externo
-            col, _ = st.columns([1, 2])
-            with col:
-                st.image(logo_file, width=220)
-                st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+            st.image(logo_file, width=140)
+            st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
     else:
-        # Fallback de segurança se a imagem sumir do diretório
-        if local == "main":
-            st.markdown("""
-                <div class="logo-container">
-                    <div class="logo-main">DUARTE GESTÃO</div>
-                    <div class="logo-sub">CONTROLADORIA & FINANÇAS</div>
-                </div>
-            """, unsafe_allow_html=True)
-        else:
-            html_texto = '<div class="logo-fallback">Duarte<span>Gestão</span></div>'
+        # Fallback minimalista sem blocos coloridos gigantes
+        html_texto = '<div class="logo-fallback">Duarte<span>Gestão</span></div>'
+        if local == "sidebar":
             st.sidebar.markdown(html_texto, unsafe_allow_html=True)
+        else:
+            st.markdown(html_texto, unsafe_allow_html=True)
 
 # --- NOTIFICAÇÕES VIA E-MAIL ---
 def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, detalhes_html):
@@ -347,11 +311,12 @@ if not st.session_state["logado"]:
     
     with tab1:
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-        u = st.text_input("Usuário")
-        p = st.text_input("Senha", type="password")
+        login_cpf = st.text_input("CPF")
+        login_senha = st.text_input("Senha", type="password")
         if st.button("Entrar no Sistema"):
             conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-            user = conn.cursor().execute("SELECT * FROM usuarios WHERE usuario=? AND senha=?", (u, p)).fetchone()
+            # Permite login por CPF ou por nome de usuário (para manter compatibilidade com as contas admin criadas)
+            user = conn.cursor().execute("SELECT * FROM usuarios WHERE (cpf=? OR usuario=?) AND senha=?", (login_cpf, login_cpf, login_senha)).fetchone()
             conn.close()
             if user:
                 st.session_state["logado"] = True
@@ -359,39 +324,66 @@ if not st.session_state["logado"]:
                 registrar_log(user[0], "LOGIN SUCESSO")
                 st.rerun()
             else: 
-                st.error("Usuário ou senha inválidos.")
+                st.error("CPF ou senha inválidos.")
         st.markdown('</div>', unsafe_allow_html=True)
             
     with tab2:
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
         with st.form("cad_form", clear_on_submit=True):
-            nu = st.text_input("Username")
-            np = st.text_input("Senha", type="password")
-            nn = st.text_input("Nome Completo")
-            nc = st.text_input("CPF")
-            nt = st.text_input("Telefone (Ex: 11999999999)")
-            ne = st.text_input("E-mail")
+            nc_cpf = st.text_input("CPF (Apenas números ou formatado)")
+            nc_nome = st.text_input("Nome Completo")
+            nc_tel = st.text_input("Telefone (Ex: 11999999999)")
+            nc_email = st.text_input("E-mail")
+            nc_senha = st.text_input("Senha", type="password")
             
             if st.form_submit_button("Cadastrar Profissional"):
-                if not ne or "@" not in ne:    
+                if not nc_cpf.strip():
+                    st.error("O campo CPF é obrigatório.")
+                elif not nc_email or "@" not in nc_email:    
                     st.error("Por favor, informe um e-mail válido.")
-                elif nu and np and nn:
+                elif nc_nome.strip() == "" or nc_senha.strip() == "":
+                    st.error("Nome completo e Senha são obrigatórios.")
+                else:
                     try:
                         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-                        conn.cursor().execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", (nu, np, ne, 'usuario', nn, nc, nt))
+                        # O campo 'usuario' recebe o próprio CPF para manter a integridade dos relacionamentos no banco de dados
+                        conn.cursor().execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", (nc_cpf, nc_senha, nc_email, 'usuario', nc_nome, nc_cpf, nc_tel))
                         conn.commit()
                         conn.close()
-                        st.success("Cadastro efetuado com sucesso!")
+                        st.success("Cadastro efetuado com sucesso! Prossiga para a aba de Acesso.")
                     except Exception as e: 
-                        st.error("Este nome de usuário já está em uso.")
+                        st.error("Este CPF já possui cadastro no sistema.")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with tab3:
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-        st.markdown("### 🔑 Recuperação de Credenciais")
-        st.write("Se esqueceu sua senha ou precisa de suporte direto com a controladoria, acione o canal abaixo:")
+        st.markdown("### 🔑 Alterar Senha (Autoverificação)")
+        st.write("Insira seus dados cadastrados exatamente como no registro para definir uma nova senha:")
         
-        link_suporte_whatsapp = "https://wa.me/5511918551349?text=Olá,%20esqueci%20minha%20senha%20de%20acesso%20ao%20Painel%20de%20Reembolsos%20da%20Duarte%20Gestão.%20Poderia%20redefinir%20para%20mim?"
+        rec_cpf = st.text_input("Informe seu CPF", key="rec_cpf")
+        rec_email = st.text_input("Informe seu E-mail cadastrado", key="rec_email")
+        rec_tel = st.text_input("Informe seu Telefone cadastrado", key="rec_tel")
+        nova_senha = st.text_input("Digite a Nova Senha", type="password", key="nova_senha")
+        
+        if st.button("Validar dados e Alterar Senha"):
+            if rec_cpf and rec_email and rec_tel and nova_senha:
+                conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                cursor = conn.cursor()
+                user = cursor.execute("SELECT * FROM usuarios WHERE (cpf=? OR usuario=?) AND email=? AND telefone=?", (rec_cpf, rec_cpf, rec_email, rec_tel)).fetchone()
+                
+                if user:
+                    cursor.execute("UPDATE usuarios SET senha=? WHERE (cpf=? OR usuario=?)", (nova_senha, rec_cpf, rec_cpf))
+                    conn.commit()
+                    registrar_log(user[0], "ALTERACAO SENHA AUTO")
+                    st.success("🔒 Senha redefinida com sucesso! Você já pode acessar a aba 'Acessar Conta'.")
+                else:
+                    st.error("❌ Os dados informados não conferem com nenhum registro ativo.")
+                conn.close()
+            else:
+                st.warning("Preencha todos os campos para executar a redefinição de segurança.")
+        
+        st.markdown("<br><hr style='border-color:#e2e8f0;'><p style='font-size:13px; color:#64748b;'>Caso não lembre de seus dados cadastrados, solicite ajuda manual:</p>", unsafe_allow_html=True)
+        link_suporte_whatsapp = "https://wa.me/5511918551349?text=Olá,%20não%20consigo%20redefinir%20minha%20senha%20de%20acesso%20ao%20Painel%20de%20Reembolsos%20da%20Duarte%20Gestão.%20Poderia%20me%20auxiliar?"
         st.markdown(f'<a href="{link_suporte_whatsapp}" target="_blank" class="btn-whatsapp">💬 Chamar Suporte Duarte Gestão</a>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -570,7 +562,7 @@ else:
                 conn.commit()
                 registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
                 conn.close()
-                st.success(f"Status atualizado para {novo_status} com sucesso!")
+                st.success(f"Status updated to {novo_status}!")
                 st.rerun()
             else:
                 conn.close()
@@ -620,7 +612,7 @@ else:
         with tab_historico:
             st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'].isin(['PAGO', 'NEGADO'])]), unsafe_allow_html=True)
 
-        # --- PAINEL DE AÇÕES RÁPIDAS COMPLETO E RECUPERADO ---
+        # --- PAINEL DE AÇÕES RÁPIDAS ---
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
         st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:20px; font-size:18px;">🕹️ Painel de Ações Rápidas</p>', unsafe_allow_html=True)
@@ -641,19 +633,15 @@ else:
                 status_atual = row_sel['Status']
                 caminho_comprovante = row_sel['caminho_arquivo']
                 usuario_dono = row_sel['Funcionário']
-                valor_req = row_sel['Valor (R$)']
-                desc_req = row_sel['Descrição']
                 
                 conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                 dados_func = conn.cursor().execute("SELECT nome_completo, telefone FROM usuarios WHERE usuario=?", (usuario_dono,)).fetchone()
                 conn.close()
                 
                 nome_completo = dados_func[0] if dados_func else usuario_dono
-                telefone_func = dados_func[1] if dados_func else ""
                 
                 st.markdown(f"**Status Atual:** `{status_atual}` | **Colaborador:** {nome_completo}")
                 
-                # Botões de fluxo de caixa da empresa
                 if status_atual == "PENDENTE":
                     if st.button("✅ Aprovar Documento"):
                         processar_acao_clean(id_target, "APROVADO", "APROVOU REEMBOLSO")
@@ -661,7 +649,6 @@ else:
                     if st.button("💸 Marcar como PAGO (Liquidar)"):
                         processar_acao_clean(id_target, "PAGO", "PAGOU REEMBOLSO")
                 
-                # Área para Recusa / Inconsistência
                 if status_atual in ["PENDENTE", "APROVADO"]:
                     st.write("---")
                     motivo = st.text_input("Motivo da Recusa (Obrigatório para negar):", key=f"motivo_{id_target}")
@@ -684,7 +671,7 @@ else:
                     st.info("Nenhum arquivo de comprovante foi anexado a esta solicitação.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ABA: PAINEL EXECUTIVO (Fechando o fluxo de rotas) ---
+    # --- ABA: PAINEL EXECUTIVO ---
     elif menu == "📈 Painel Executivo":
         st.markdown('<h1 class="clean-title">Painel Executivo de Controladoria</h1>', unsafe_allow_html=True)
         st.markdown('<div class="premium-card">📊 Métricas de desempenho financeiro e relatórios consolidados da Duarte Gestão.</div>', unsafe_allow_html=True)
