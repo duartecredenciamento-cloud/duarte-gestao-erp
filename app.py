@@ -380,12 +380,43 @@ else:
         st.session_state["user_info"] = None
         st.rerun()
 
-    # --- ABA: INÍCIO ---
+    # --- 🏠 ABA: INÍCIO (MANUAL RESTAURADO) ---
     if menu == "🏠 Início":
         st.markdown('<h1 class="clean-title">Manual de Utilização do Sistema</h1>', unsafe_allow_html=True)
-        st.markdown('<div class="premium-card"><h3 style="color: #001E57; margin-top: 0;">👋 Boas-vindas ao Portal de Reembolsos</h3><p style="color:#334155;">Siga as diretrizes internas para aprovação rápida dos seus comprovantes fiscais.</p></div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="premium-card">
+            <h3 style="color: #001E57; margin-top: 0; font-weight: 700;">👋 Boas-vindas ao Portal de Reembolsos Duarte Gestão</h3>
+            <p style="color: #334155; font-size: 15px; line-height: 1.6;">
+                Este espaço foi projetado para simplificar, organizar e auditar a prestação de contas de despesas corporativas. 
+                Siga as diretrizes abaixo para garantir que o seu reembolso seja processado sem pendências.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            <div class="premium-card" style="height: 100%;">
+                <h4 style="color: #FF9200; margin-top: 0; font-weight: 700;">1. Organize o Comprovante</h4>
+                <ul style="color: #475569; font-size: 13px; padding-left: 20px;">
+                    <li>Formatos aceitos: <b>PDF, JPG ou PNG</b>.</li>
+                    <li>O documento deve estar <b>totalmente legível</b>, exibindo claramente Data, Valor e CNPJ.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown("""
+            <div class="premium-card" style="height: 100%;">
+                <h4 style="color: #10b981; margin-top: 0; font-weight: 700;">2. Monitore o Status</h4>
+                <ul style="color: #475569; font-size: 13px; padding-left: 20px;">
+                    <li>⏳ <b>PENDENTE:</b> Aguardando verificação fiscal.</li>
+                    <li>❌ <b>NEGADO:</b> Nota com inconsistência. Você será notificado do motivo.</li>
+                    <li>✅ <b>APROVADO / PAGO:</b> Nota auditada e liquidação concluída.</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # --- ABA: SOLICITAR REEMBOLSO ---
+    # --- 💸 ABA: SOLICITAR REEMBOLSO ---
     elif menu == "💸 Solicitar Reembolso":
         st.markdown('<h1 class="clean-title">Nova Solicitação de Reembolso</h1>', unsafe_allow_html=True)
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
@@ -408,19 +439,76 @@ else:
                     st.success("Solicitação salva com sucesso!")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ABA: MEUS PEDIDOS ---
+    # --- 📋 ABA: MEUS PEDIDOS (COM TELA DE EDIÇÃO ACOPLADA) ---
     elif menu == "📋 Meus Pedidos":
         st.markdown('<h1 class="clean-title">Acompanhamento de Solicitações</h1>', unsafe_allow_html=True)
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-        df = pd.read_sql(f"SELECT id as 'ID', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data' FROM reembolsos WHERE usuario='{st.session_state['user_info']['user']}' ORDER BY id DESC", conn)
+        df_completo = pd.read_sql(f"SELECT id as 'ID', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data', caminho_arquivo FROM reembolsos WHERE usuario='{st.session_state['user_info']['user']}' ORDER BY id DESC", conn)
         conn.close()
 
-        if df.empty:
+        if df_completo.empty:
             st.markdown('<div class="empty-state-box">✨ Nenhuma solicitação registrada.</div>', unsafe_allow_html=True)
         else:
-            st.markdown(gerar_tabela_premium(df), unsafe_allow_html=True)
+            df_exibir = df_completo.drop(columns=['caminho_arquivo'])
+            st.markdown(gerar_tabela_premium(df_exibir), unsafe_allow_html=True)
 
-    # --- ABA: PAINEL DO ADMIN ---
+            # 🛠️ BLOCO NOVO: CORREÇÃO DE ERROS SÓ EM ITENS PENDENTES OU NEGADOS
+            st.markdown("<br>", unsafe_allow_html=True)
+            df_editaveis = df_completo[df_completo['Status'].isin(['PENDENTE', 'NEGADO'])]
+
+            if not df_editaveis.empty:
+                st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+                st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:15px; font-size:18px;">✏️ Corrigir ou Alterar Solicitação</p>', unsafe_allow_html=True)
+                st.write("Você pode consertar dados de solicitações que estão **Pendentes** ou que foram **Negadas**.")
+                
+                df_editaveis['selector_edit'] = df_editaveis.apply(lambda r: f"#{r['ID']} - {r['Descrição']} (R$ {r['Valor (R$)']:.2f}) [{r['Status']}]", axis=1)
+                item_edit = st.selectbox("Escolha qual lançamento deseja corrigir:", df_editaveis['selector_edit'].tolist())
+                
+                row_edit = df_editaveis[df_editaveis['selector_edit'] == item_edit].iloc[0]
+                id_edit = int(row_edit['ID'])
+                
+                with st.form(f"form_editar_{id_edit}", clear_on_submit=False):
+                    nova_desc = st.text_input("Corrigir Descrição", value=row_edit['Descrição'])
+                    
+                    lista_cats = ["LIMPEZA", "REMUNERAÇÃO SÓCIOS", "ALIMENTAÇÃO", "TELEFONIA E INTERNET", "SOFTWARE E LICENÇAS - INFORMÁTICA", "TRANSPORTES / LOGÍSTICA", "COMBUSTÍVEL", "MATERIAL DE ESCRITÓRIO", "EQUIPAMENTOS DE INFORMÁTICA", "ESTACIONAMENTO", "MÓVEIS E UTENSÍLIOS", "DESPESAS DE VIAGENS", "MÁQUINAS E EQUIPAMENTOS"]
+                    idx_cat = lista_cats.index(row_edit['Categoria']) if row_edit['Categoria'] in lista_cats else 0
+                    nova_cat = st.selectbox("Alterar Categoria", lista_cats, index=idx_cat)
+                    
+                    lista_ccs = ["CREDENCIAMENTO", "REDE", "DIRETORIA", "DUARTE GESTÃO", "MARKETING", "FINANCEIRO"]
+                    idx_cc = lista_ccs.index(row_edit['Centro de Custo']) if row_edit['Centro de Custo'] in lista_ccs else 0
+                    novo_cc = st.selectbox("Alterar Centro de Custo", lista_ccs, index=idx_cc)
+                    
+                    novo_val = st.number_input("Corrigir Valor (R$)", min_value=0.01, step=0.01, value=float(row_edit['Valor (R$)']))
+                    
+                    st.write("Anexar novo comprovante (deixe em branco para manter o comprovante atual):")
+                    novo_arq = st.file_uploader("Substituir Comprovante", type=['jpg', 'png', 'pdf'], key=f"file_edit_{id_edit}")
+                    
+                    if st.form_submit_button("💾 Salvar Alterações e Reenviar"):
+                        if nova_desc and novo_val > 0:
+                            caminho_atual = row_edit['caminho_arquivo']
+                            
+                            if novo_arq:
+                                if caminho_atual and os.path.exists(caminho_atual):
+                                    try: os.remove(caminho_atual)
+                                    except: pass
+                                caminho_atual = f"comprovantes/{datetime.now().strftime('%Y%m%d%H%M%S')}_{novo_arq.name}"
+                                with open(caminho_atual, "wb") as f: f.write(novo_arq.getbuffer())
+                            
+                            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                UPDATE reembolsos 
+                                SET despesa=?, categoria=?, c_custo=?, valor=?, status='PENDENTE', caminho_arquivo=? 
+                                WHERE id=?
+                            """, (nova_desc, nova_cat, novo_cc, novo_val, caminho_atual, id_edit))
+                            conn.commit(); conn.close()
+                            
+                            registrar_log(st.session_state['user_info']['user'], f"EDITOU E REENVIOU REEMBOLSO ID {id_edit}")
+                            st.success(f"Solicitação #{id_edit} atualizada com sucesso! Ela voltou para a fila de análise do Admin.")
+                            st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    # --- 📊 ABA: PAINEL DO ADMIN ---
     elif menu == "📊 Painel do Admin":
         st.markdown('<h1 class="clean-title">Central de Despache Express</h1>', unsafe_allow_html=True)
 
@@ -440,7 +528,7 @@ else:
                 conn.commit()
                 registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
                 conn.close()
-                st.success(f"Status atualizado para {novo_status}!")
+                st.success(f"Status updated to {novo_status}!")
                 st.rerun()
             else:
                 conn.close()
@@ -526,7 +614,7 @@ else:
                 else: st.info("Sem arquivo em anexo.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ABA: PAINEL EXECUTIVO ---
+    # --- 📈 ABA: PAINEL EXECUTIVO ---
     elif menu == "📈 Painel Executivo":
         st.markdown('<h1 class="clean-title">Painel Executivo de Controladoria</h1>', unsafe_allow_html=True)
         st.markdown('<div class="premium-card">📊 Métricas de desempenho financeiro consolidado da Duarte Gestão.</div>', unsafe_allow_html=True)
