@@ -380,7 +380,11 @@ else:
         st.session_state["user_info"] = None
         st.rerun()
 
-    # --- 🏠 ABA: INÍCIO (MANUAL RESTAURADO) ---
+    # --- LISTAS DE CATEGORIAS E CENTROS DE CUSTO (ATUALIZADAS COM HOSPEDAGEM E TI/RH/ADM) ---
+    LISTA_CATEGORIAS = ["LIMPEZA", "REMUNERAÇÃO SÓCIOS", "ALIMENTAÇÃO", "TELEFONIA E INTERNET", "SOFTWARE E LICENÇAS - INFORMÁTICA", "TRANSPORTES / LOGÍSTICA", "COMBUSTÍVEL", "MATERIAL DE ESCRITÓRIO", "EQUIPAMENTOS DE INFORMÁTICA", "ESTACIONAMENTO", "MÓVEIS E UTENSÍLIOS", "DESPESAS DE VIAGENS", "MÁQUINAS E EQUIPAMENTOS", "HOSPEDAGEM", "OUTROS"]
+    LISTA_CENTROS_CUSTO = ["CREDENCIAMENTO", "REDE", "DIRETORIA", "DUARTE GESTÃO", "MARKETING", "FINANCEIRO", "TECNOLOGIA DA INFORMAÇÃO", "RECURSOS HUMANOS - RH", "ADMINISTRATIVO", "OUTROS"]
+
+    # --- 🏠 ABA: INÍCIO ---
     if menu == "🏠 Início":
         st.markdown('<h1 class="clean-title">Manual de Utilização do Sistema</h1>', unsafe_allow_html=True)
         st.markdown("""
@@ -420,23 +424,38 @@ else:
     elif menu == "💸 Solicitar Reembolso":
         st.markdown('<h1 class="clean-title">Nova Solicitação de Reembolso</h1>', unsafe_allow_html=True)
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        
         with st.form("reembolso_form", clear_on_submit=True):
             desc = st.text_input("Descrição Clara da Despesa")
-            cat = st.selectbox("Categoria", ["LIMPEZA", "REMUNERAÇÃO SÓCIOS", "ALIMENTAÇÃO", "TELEFONIA E INTERNET", "SOFTWARE E LICENÇAS - INFORMÁTICA", "TRANSPORTES / LOGÍSTICA", "COMBUSTÍVEL", "MATERIAL DE ESCRITÓRIO", "EQUIPAMENTOS DE INFORMÁTICA", "ESTACIONAMENTO", "MÓVEIS E UTENSÍLIOS", "DESPESAS DE VIAGENS", "MÁQUINAS E EQUIPAMENTOS"])
-            cc = st.selectbox("Centro de Custo", ["CREDENCIAMENTO", "REDE", "DIRETORIA", "DUARTE GESTÃO", "MARKETING", "FINANCEIRO"])
+            
+            c_cat1, c_cat2 = st.columns(2)
+            with c_cat1:
+                cat_sel = st.selectbox("Categoria", LISTA_CATEGORIAS)
+                cat_outros = st.text_input("Se escolheu 'OUTROS' na Categoria, digite aqui qual é:")
+            with c_cat2:
+                cc_sel = st.selectbox("Centro de Custo", LISTA_CENTROS_CUSTO)
+                cc_outros = st.text_input("Se escolheu 'OUTROS' no Centro de Custo, digite aqui qual é:")
+
             val = st.number_input("Valor da Operação (R$)", min_value=0.01, step=0.01)
             arq = st.file_uploader("Upload do Comprovante (PDF, PNG, JPG)", type=['jpg', 'png', 'pdf'])
 
             if st.form_submit_button("Enviar Solicitação"):
+                # Lógica para pegar o "Outros" apenas se ele foi selecionado
+                cat_final = cat_outros.strip().upper() if (cat_sel == "OUTROS" and cat_outros.strip() != "") else cat_sel
+                cc_final = cc_outros.strip().upper() if (cc_sel == "OUTROS" and cc_outros.strip() != "") else cc_sel
+
                 if desc and val > 0:
                     path = f"comprovantes/{datetime.now().strftime('%Y%m%d%H%M%S')}_{arq.name}" if arq else ""
                     if arq:
                         with open(path, "wb") as f: f.write(arq.getbuffer())
+                    
                     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                     conn.cursor().execute("INSERT INTO reembolsos (usuario, despesa, categoria, c_custo, valor, status, data, caminho_arquivo) VALUES (?,?,?,?,?,?,?,?)",
-                                          (st.session_state['user_info']['user'], desc, cat, cc, val, 'PENDENTE', datetime.now().date(), path))
+                                          (st.session_state['user_info']['user'], desc, cat_final, cc_final, val, 'PENDENTE', datetime.now().date(), path))
                     conn.commit(); conn.close()
                     st.success("Solicitação salva com sucesso!")
+                else:
+                    st.error("Por favor, preencha a descrição e o valor corretamente.")
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --- 📋 ABA: MEUS PEDIDOS (COM TELA DE EDIÇÃO ACOPLADA) ---
@@ -452,7 +471,7 @@ else:
             df_exibir = df_completo.drop(columns=['caminho_arquivo'])
             st.markdown(gerar_tabela_premium(df_exibir), unsafe_allow_html=True)
 
-            # 🛠️ BLOCO NOVO: CORREÇÃO DE ERROS SÓ EM ITENS PENDENTES OU NEGADOS
+            # 🛠️ CORREÇÃO DE ERROS SÓ EM ITENS PENDENTES OU NEGADOS
             st.markdown("<br>", unsafe_allow_html=True)
             df_editaveis = df_completo[df_completo['Status'].isin(['PENDENTE', 'NEGADO'])]
 
@@ -470,20 +489,28 @@ else:
                 with st.form(f"form_editar_{id_edit}", clear_on_submit=False):
                     nova_desc = st.text_input("Corrigir Descrição", value=row_edit['Descrição'])
                     
-                    lista_cats = ["LIMPEZA", "REMUNERAÇÃO SÓCIOS", "ALIMENTAÇÃO", "TELEFONIA E INTERNET", "SOFTWARE E LICENÇAS - INFORMÁTICA", "TRANSPORTES / LOGÍSTICA", "COMBUSTÍVEL", "MATERIAL DE ESCRITÓRIO", "EQUIPAMENTOS DE INFORMÁTICA", "ESTACIONAMENTO", "MÓVEIS E UTENSÍLIOS", "DESPESAS DE VIAGENS", "MÁQUINAS E EQUIPAMENTOS"]
-                    idx_cat = lista_cats.index(row_edit['Categoria']) if row_edit['Categoria'] in lista_cats else 0
-                    nova_cat = st.selectbox("Alterar Categoria", lista_cats, index=idx_cat)
-                    
-                    lista_ccs = ["CREDENCIAMENTO", "REDE", "DIRETORIA", "DUARTE GESTÃO", "MARKETING", "FINANCEIRO"]
-                    idx_cc = lista_ccs.index(row_edit['Centro de Custo']) if row_edit['Centro de Custo'] in lista_ccs else 0
-                    novo_cc = st.selectbox("Alterar Centro de Custo", lista_ccs, index=idx_cc)
-                    
+                    c_edit1, c_edit2 = st.columns(2)
+                    with c_edit1:
+                        idx_cat = LISTA_CATEGORIAS.index(row_edit['Categoria']) if row_edit['Categoria'] in LISTA_CATEGORIAS else LISTA_CATEGORIAS.index("OUTROS")
+                        nova_cat = st.selectbox("Alterar Categoria", LISTA_CATEGORIAS, index=idx_cat)
+                        valor_padrao_cat = row_edit['Categoria'] if idx_cat == LISTA_CATEGORIAS.index("OUTROS") else ""
+                        nova_cat_outros = st.text_input("Se 'OUTROS', corrija a categoria aqui:", value=valor_padrao_cat)
+                        
+                    with c_edit2:
+                        idx_cc = LISTA_CENTROS_CUSTO.index(row_edit['Centro de Custo']) if row_edit['Centro de Custo'] in LISTA_CENTROS_CUSTO else LISTA_CENTROS_CUSTO.index("OUTROS")
+                        novo_cc = st.selectbox("Alterar Centro de Custo", LISTA_CENTROS_CUSTO, index=idx_cc)
+                        valor_padrao_cc = row_edit['Centro de Custo'] if idx_cc == LISTA_CENTROS_CUSTO.index("OUTROS") else ""
+                        novo_cc_outros = st.text_input("Se 'OUTROS', corrija o centro de custo aqui:", value=valor_padrao_cc)
+
                     novo_val = st.number_input("Corrigir Valor (R$)", min_value=0.01, step=0.01, value=float(row_edit['Valor (R$)']))
                     
                     st.write("Anexar novo comprovante (deixe em branco para manter o comprovante atual):")
                     novo_arq = st.file_uploader("Substituir Comprovante", type=['jpg', 'png', 'pdf'], key=f"file_edit_{id_edit}")
                     
                     if st.form_submit_button("💾 Salvar Alterações e Reenviar"):
+                        cat_final_edit = nova_cat_outros.strip().upper() if (nova_cat == "OUTROS" and nova_cat_outros.strip() != "") else nova_cat
+                        cc_final_edit = novo_cc_outros.strip().upper() if (novo_cc == "OUTROS" and novo_cc_outros.strip() != "") else novo_cc
+
                         if nova_desc and novo_val > 0:
                             caminho_atual = row_edit['caminho_arquivo']
                             
@@ -500,7 +527,7 @@ else:
                                 UPDATE reembolsos 
                                 SET despesa=?, categoria=?, c_custo=?, valor=?, status='PENDENTE', caminho_arquivo=? 
                                 WHERE id=?
-                            """, (nova_desc, nova_cat, novo_cc, novo_val, caminho_atual, id_edit))
+                            """, (nova_desc, cat_final_edit, cc_final_edit, novo_val, caminho_atual, id_edit))
                             conn.commit(); conn.close()
                             
                             registrar_log(st.session_state['user_info']['user'], f"EDITOU E REENVIOU REEMBOLSO ID {id_edit}")
@@ -528,7 +555,7 @@ else:
                 conn.commit()
                 registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
                 conn.close()
-                st.success(f"Status updated to {novo_status}!")
+                st.success(f"Status atualizado para {novo_status}!")
                 st.rerun()
             else:
                 conn.close()
@@ -587,7 +614,7 @@ else:
                         if motivo.strip(): processar_acao_clean(id_target, "NEGADO", "REJEITOU REEMBOLSO", motivo)
                         else: st.error("Insira o motivo.")
 
-                # 🔥 ZONA DE PERIGO: EXCLUSÃO DEFINITIVA (SÓ APARECE PARA ADMIN)
+                # 🔥 ZONA DE PERIGO: EXCLUSÃO DEFINITIVA
                 st.write("---")
                 st.markdown("<p style='color:#ef4444; font-weight:700; font-size:14px; margin-bottom:5px;'>⚠️ Zona de Perigo</p>", unsafe_allow_html=True)
                 confirmar_exclusao = st.checkbox("Estou ciente de que esta ação apagará permanentemente o registro do banco de dados.", key=f"del_chk_{id_target}")
@@ -613,6 +640,14 @@ else:
                     else: st.image(caminho_comprovante, use_container_width=True)
                 else: st.info("Sem arquivo em anexo.")
         st.markdown('</div>', unsafe_allow_html=True)
+
+        # --- AQUI ESTÁ A RESTAURAÇÃO DA SUA LISTA DE USUÁRIOS NO ADMIN ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("👥 [PRODUÇÃO] Lista de Usuários Cadastrados no Sistema"):
+            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+            df_users = pd.read_sql("SELECT cpf as 'CPF Key', nome_completo as 'Nome Completo', email as 'E-mail', telefone as 'Telefone', senha as 'Senha Ativa' FROM usuarios", conn)
+            conn.close()
+            st.dataframe(df_users, use_container_width=True)
 
     # --- 📈 ABA: PAINEL EXECUTIVO ---
     elif menu == "📈 Painel Executivo":
