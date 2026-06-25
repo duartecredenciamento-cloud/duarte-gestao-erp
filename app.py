@@ -380,7 +380,7 @@ else:
         st.session_state["user_info"] = None
         st.rerun()
 
-    # --- LISTAS DE CATEGORIAS E CENTROS DE CUSTO (ATUALIZADAS COM HOSPEDAGEM E TI/RH/ADM) ---
+    # --- LISTAS DE CATEGORIAS E CENTROS DE CUSTO ---
     LISTA_CATEGORIAS = ["LIMPEZA", "REMUNERAÇÃO SÓCIOS", "ALIMENTAÇÃO", "TELEFONIA E INTERNET", "SOFTWARE E LICENÇAS - INFORMÁTICA", "TRANSPORTES / LOGÍSTICA", "COMBUSTÍVEL", "MATERIAL DE ESCRITÓRIO", "EQUIPAMENTOS DE INFORMÁTICA", "ESTACIONAMENTO", "MÓVEIS E UTENSÍLIOS", "DESPESAS DE VIAGENS", "MÁQUINAS E EQUIPAMENTOS", "HOSPEDAGEM", "OUTROS"]
     LISTA_CENTROS_CUSTO = ["CREDENCIAMENTO", "REDE", "DIRETORIA", "DUARTE GESTÃO", "MARKETING", "FINANCEIRO", "TECNOLOGIA DA INFORMAÇÃO", "RECURSOS HUMANOS - RH", "ADMINISTRATIVO", "OUTROS"]
 
@@ -440,7 +440,6 @@ else:
             arq = st.file_uploader("Upload do Comprovante (PDF, PNG, JPG)", type=['jpg', 'png', 'pdf'])
 
             if st.form_submit_button("Enviar Solicitação"):
-                # Lógica para pegar o "Outros" apenas se ele foi selecionado
                 cat_final = cat_outros.strip().upper() if (cat_sel == "OUTROS" and cat_outros.strip() != "") else cat_sel
                 cc_final = cc_outros.strip().upper() if (cc_sel == "OUTROS" and cc_outros.strip() != "") else cc_sel
 
@@ -458,7 +457,7 @@ else:
                     st.error("Por favor, preencha a descrição e o valor corretamente.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- 📋 ABA: MEUS PEDIDOS (COM TELA DE EDIÇÃO ACOPLADA) ---
+    # --- 📋 ABA: MEUS PEDIDOS ---
     elif menu == "📋 Meus Pedidos":
         st.markdown('<h1 class="clean-title">Acompanhamento de Solicitações</h1>', unsafe_allow_html=True)
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
@@ -471,7 +470,6 @@ else:
             df_exibir = df_completo.drop(columns=['caminho_arquivo'])
             st.markdown(gerar_tabela_premium(df_exibir), unsafe_allow_html=True)
 
-            # 🛠️ CORREÇÃO DE ERROS SÓ EM ITENS PENDENTES OU NEGADOS
             st.markdown("<br>", unsafe_allow_html=True)
             df_editaveis = df_completo[df_completo['Status'].isin(['PENDENTE', 'NEGADO'])]
 
@@ -633,12 +631,28 @@ else:
                     else:
                         st.error("Marque a caixa de confirmação primeiro.")
 
+            # 📥 AQUI ESTÁ O CONSERTO DO DOWNLOAD DA IMAGEM
             with col_preview:
                 if caminho_comprovante and os.path.exists(caminho_comprovante):
+                    st.markdown("**📄 Arquivo em anexo:**")
+                    
                     if caminho_comprovante.lower().endswith('.pdf'):
-                        with open(caminho_comprovante, "rb") as f: st.download_button("📥 Baixar PDF", f, file_name=os.path.basename(caminho_comprovante))
-                    else: st.image(caminho_comprovante, use_container_width=True)
-                else: st.info("Sem arquivo em anexo.")
+                        st.caption("Documento PDF. Clique no botão abaixo para baixar e revisar:")
+                    else:
+                        st.image(caminho_comprovante, use_container_width=True)
+                        st.caption("Imagem do comprovante. Clique no botão abaixo para salvar uma cópia:")
+                    
+                    # O botão de baixar agora aparece SEMPRE, não importa se é imagem ou PDF
+                    with open(caminho_comprovante, "rb") as f:
+                        st.download_button(
+                            label="📥 Baixar Comprovante", 
+                            data=f, 
+                            file_name=os.path.basename(caminho_comprovante),
+                            use_container_width=True
+                        )
+                else: 
+                    st.info("Sem arquivo em anexo.")
+                    
         st.markdown('</div>', unsafe_allow_html=True)
 
         # --- AQUI ESTÁ A RESTAURAÇÃO DA SUA LISTA DE USUÁRIOS NO ADMIN ---
