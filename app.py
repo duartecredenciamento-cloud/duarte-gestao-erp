@@ -10,7 +10,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 import re
 
-# --- CONFIGURAÇÃO INICIAL DA PÁGINA (Deve ser o primeiro comando Streamlit) ---
+# --- CONFIGURAÇÃO INICIAL DA PÁGINA ---
 st.set_page_config(page_title="Duarte Gestão - Financeiro", layout="wide", initial_sidebar_state="expanded")
 
 # --- INICIALIZAÇÃO SEGURA DO SESSION STATE ---
@@ -26,7 +26,7 @@ def verificar_email(email):
 if not os.path.exists("comprovantes"):
     os.makedirs("comprovantes")
 
-# --- 🎯 ARSENAL CSS: IDENTIDADE COMPLETA & ANIMAÇÕES INCRÍVEIS 🎯 ---
+# --- 🎯 ARSENAL CSS: IDENTIDADE COMPLETA & ANIMAÇÕES ---
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=300;400;500;600;700;800&display=swap');
@@ -50,7 +50,6 @@ st.markdown("""
     margin-bottom: 25px;
     animation: softSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
-/* Cards Premium com Animação de Hover Flutuante */
 .premium-card {
     background: #ffffff !important;
     border-radius: 14px !important;
@@ -84,7 +83,7 @@ st.markdown("""
 .val-pago { color: #10b981 !important; }
 .val-pendente { color: #FF9200 !important; }
 .val-negado { color: #ef4444 !important; }
-/* Botões Estilizados e Animados */
+
 div.stButton > button {
     width: 100% !important;
     background-color: #001E57 !important;
@@ -105,7 +104,7 @@ div.stButton > button:hover {
 div.stButton > button:active {
     transform: scale(0.98) !important;
 }
-/* Botão do WhatsApp de Suporte e Disparos */
+
 .btn-whatsapp {
     background-color: #25D366;
     color: white !important;
@@ -138,14 +137,12 @@ div[data-baseweb="input"], div[data-baseweb="select"] {
     margin-bottom: 15px;
 }
 .logo-fallback span { color: #FF9200 !important; }
-/* Keyframes para Entrada Suave (Slide e Opacidade) */
+
 @keyframes softSlideUp {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
 }
-tr {
-    transition: background-color 0.2s ease !important;
-}
+tr { transition: background-color 0.2s ease !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -156,7 +153,7 @@ SMTP_PORT = 587
 EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
 EMAIL_SENHA = "zbvwzhnsjlqperfr"
 
-# --- GERADOR DE TABELAS ULTRA PROFISSIONAIS ---
+# --- GERADOR DE TABELAS REUTILIZÁVEL ---
 def gerar_tabela_premium(df):
     if df.empty:
         return '<div class="empty-state-box">✨ Nenhuma solicitação localizada nesta fila.</div>'
@@ -204,7 +201,6 @@ def gerar_tabela_premium(df):
     </div>
     """
 
-# --- FUNÇÃO DE RENDERIZAÇÃO DE LOGO COMPACTA PADRÃO CORPORATIVO ---
 def renderizar_logo(local="sidebar"):
     logo_file = "LOGO DUARTE FUNDO MARINHO - AJUSTADO.JPG"
     if os.path.exists(logo_file):
@@ -220,48 +216,6 @@ def renderizar_logo(local="sidebar"):
             st.sidebar.markdown(html_texto, unsafe_allow_html=True)
         else:
             st.markdown(html_texto, unsafe_allow_html=True)
-
-# --- NOTIFICAÇÕES VIA E-MAIL ---
-def enviar_notificacao_email(destinatario, assunto, titulo_card, status_pedido, detalhes_html):
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = assunto
-    msg["From"] = f"Duarte Gestão Financeira <{EMAIL_REMETENTE}>"
-    msg["To"] = destinatario
-    cor_status = "#001E57"
-    if "PENDENTE" in status_pedido: cor_status = "#FF9200"
-    elif "APROVADO" in status_pedido or "PAGO" in status_pedido: cor_status = "#10b981"
-    elif "NEGADO" in status_pedido or "REJEITADO" in status_pedido: cor_status = "#ef4444"
-    html = f"""
-    <html>
-    <body style="font-family: 'Segoe UI', sans-serif; background-color: #f8fafc; padding: 30px; margin: 0;">
-        <div style="max-width: 600px; background-color: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; margin: 0 auto; overflow: hidden; box-shadow: 0 4px 12px rgba(0,30,87,0.03);">
-            <div style="background-color: #001E57; padding: 30px; text-align: center;">
-                <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">DUARTE GESTÃO</h2>
-                <p style="color: #FF9200; margin: 5px 0 0 0; font-size: 12px; font-weight: 600; text-transform: uppercase;">Controladoria & Finanças</p>
-            </div>
-            <div style="padding: 30px; color: #334155;">
-                <h3 style="color: #001E57; margin-top: 0; font-size: 18px; font-weight: 700;">{titulo_card}</h3>
-                <div style="display: inline-block; background-color: {cor_status}; color: #ffffff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 25px; text-transform: uppercase;">
-                    Status: {status_pedido}
-                </div>
-                <div style="background-color: #f1f5f9; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">{detalhes_html}</table>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    msg.attach(MIMEText(html, "html"))
-    try:
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
-        server.login(EMAIL_REMETENTE, EMAIL_SENHA)
-        server.sendmail(EMAIL_REMETENTE, destinatario, msg.as_string())
-        server.quit()
-        return True
-    except:
-        return False
 
 # --- 🚀 ESTRUTURA DO BANCO DE DADOS BLINDADA (SQLITE) ---
 def inicializar_banco():
@@ -283,22 +237,19 @@ def inicializar_banco():
                    (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT, mensagem TEXT,
                    lida INTEGER, data_hora TEXT)""")
 
-    # 🔒 ADMINISTRADORES (Acesso Total ao Painel e Backup)
-    # Ordem: usuario(login), senha, email, nivel, nome_completo, cpf, telefone
+    # 🔒 LISTA DE ADMINS (Acesso total)
     lista_admins = [
         ('admin', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'ADMINISTRADOR PRINCIPAL', '000.000.000-00', '(00) 00000-0000'),
         ('operacional', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'OPERACIONAL ADMINISTRATIVO', '000.000.000-00', '(00) 00000-0000'),
         ('financeiro', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'FINANCEIRO DIRETORIA', '000.000.000-00', '(00) 00000-0000')
     ]
     
-    # 👤 USUÁRIOS COMUNS (Acesso Restrito - Cris e Be)
-    # Repare que o nível delas está marcado exatamente como 'usuario'
+    # 👤 LISTA DE USUÁRIOS COMUNS (Acesso Restrito)
     lista_usuarios_comuns = [
         ('15413186843', '090573', 'diretoria@duartegestao.com.br', 'usuario', 'Cristiane A Duarte', '15413186843', '11959353330'),
         ('26218440818', 'Bb240977*', 'bethania.duarte@duartegestao.com.br', 'usuario', 'Bethania Duarte', '26218440818', '11949957937')
     ]
 
-    # Inserindo todo mundo no banco de dados de uma vez
     for u in lista_admins + lista_usuarios_comuns: 
         cursor.execute("INSERT OR REPLACE INTO usuarios VALUES (?,?,?,?,?,?,?)", u)
         
@@ -315,11 +266,10 @@ def registrar_log(user, acao):
 inicializar_banco()
 
 # =================================================================
-# FASE 1: USUÁRIO DESLOGADO -> EXIBE LOGIN / CADASTRO
+# FASE 1: LOGIN / CADASTRO
 # =================================================================
 if not st.session_state["logado"]:
     renderizar_logo(local="main")
-
     tab1, tab2, tab3 = st.tabs(["🔐 Acessar Conta", "📝 Novo Cadastro", "🛠️ Suporte & Senha"])
 
     with tab1:
@@ -342,38 +292,32 @@ if not st.session_state["logado"]:
     with tab2:
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
         with st.form("cad_form", clear_on_submit=True):
-            nc_cpf = st.text_input("CPF (Apenas números ou formatado)")
+            nc_cpf = st.text_input("CPF (Apenas números)")
             nc_nome = st.text_input("Nome Completo")
             nc_tel = st.text_input("Telefone (Ex: 11999999999)")
             nc_email = st.text_input("E-mail")
             nc_senha = st.text_input("Senha", type="password")
 
             if st.form_submit_button("Cadastrar Profissional"):
-                if not nc_cpf.strip():
-                    st.error("O campo CPF é obrigatório.")
-                elif not nc_email or "@" not in nc_email:
-                    st.error("Por favor, informe um e-mail válido.")
-                elif nc_nome.strip() == "" or nc_senha.strip() == "":
-                    st.error("Nome completo e Senha são obrigatórios.")
+                if not nc_cpf.strip() or not nc_email or "@" not in nc_email or nc_nome.strip() == "" or nc_senha.strip() == "":
+                    st.error("Por favor, preencha todos os campos corretamente.")
                 else:
                     try:
                         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                         conn.cursor().execute("INSERT INTO usuarios VALUES (?,?,?,?,?,?,?)", (nc_cpf, nc_senha, nc_email, 'usuario', nc_nome, nc_cpf, nc_tel))
                         conn.commit()
                         conn.close()
-                        st.success("Cadastro efetuado com sucesso! Prossiga para a aba de Acesso.")
-                    except Exception as e:
-                        st.error("Este CPF já possui cadastro no sistema.")
+                        st.success("Cadastro efetuado! Prossiga para a aba de Acesso.")
+                    except:
+                        st.error("Este CPF já possui cadastro.")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with tab3:
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
         st.markdown("### 🔑 Alterar Senha (Autoverificação)")
-        st.write("Insira seus dados cadastrados exatamente como no registro para definir uma nova senha:")
-
         rec_cpf = st.text_input("Informe seu CPF", key="rec_cpf")
-        rec_email = st.text_input("Informe seu E-mail cadastrado", key="rec_email")
-        rec_tel = st.text_input("Informe seu Telefone cadastrado", key="rec_tel")
+        rec_email = st.text_input("Informe seu E-mail", key="rec_email")
+        rec_tel = st.text_input("Informe seu Telefone", key="rec_tel")
         nova_senha = st.text_input("Digite a Nova Senha", type="password", key="nova_senha")
 
         if st.button("Validar dados e Alterar Senha"):
@@ -381,71 +325,46 @@ if not st.session_state["logado"]:
                 conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                 cursor = conn.cursor()
                 user = cursor.execute("SELECT * FROM usuarios WHERE (cpf=? OR usuario=?) AND email=? AND telefone=?", (rec_cpf, rec_cpf, rec_email, rec_tel)).fetchone()
-
                 if user:
                     cursor.execute("UPDATE usuarios SET senha=? WHERE (cpf=? OR usuario=?)", (nova_senha, rec_cpf, rec_cpf))
                     conn.commit()
-                    registrar_log(user[0], "ALTERACAO SENHA AUTO")
-                    st.success("🔒 Senha redefinida com sucesso! Você já pode acessar a aba 'Acessar Conta'.")
+                    st.success("🔒 Senha redefinida com sucesso!")
                 else:
-                    st.error("❌ Os dados informados não conferem com nenhum registro ativo.")
+                    st.error("❌ Os dados informados não conferem.")
                 conn.close()
-            else:
-                st.warning("Preencha todos os campos para executar a redefinição de segurança.")
-
-        st.markdown("<br><hr style='border-color:#e2e8f0;'><p style='font-size:13px; color:#64748b;'>Caso não lembre de seus dados cadastrados, solicite ajuda manual:</p>", unsafe_allow_html=True)
-        link_suporte_whatsapp = "https://wa.me/5511918551349?text=Olá,%20não%20consigo%20redefinir%20minha%20senha%20de%20acesso%20ao%20Painel%20de%20Reembolsos%20da%20Duarte%20Gestão.%20Poderia%20me%20auxiliar?"
+        st.markdown("<br><hr>", unsafe_allow_html=True)
+        link_suporte_whatsapp = "https://wa.me/5511918551349?text=Olá,%20não%20consigo%20redefinir%20minha%20senha."
         st.markdown(f'<a href="{link_suporte_whatsapp}" target="_blank" class="btn-whatsapp">💬 Chamar Suporte Duarte Gestão</a>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # =================================================================
-# FASE 2: AMBIENTE INTERNO LOGADO
+# FASE 2: AMBIENTE LOGADO
 # =================================================================
 else:
     renderizar_logo(local="sidebar")
+    nome_usuario = st.session_state["user_info"].get("nome", "Usuário")
+    usuario_id = st.session_state["user_info"].get("user")
 
-    if st.session_state.get("user_info") is not None:
-        nome_usuario = st.session_state["user_info"].get("nome", "Usuário")
-        usuario_id = st.session_state["user_info"].get("user")
+    st.sidebar.markdown(f'<div style="padding: 12px 0; border-top: 1px solid #f1f5f9; margin-top: 15px;"><p style="margin:0; font-size:14px; font-weight:700; color:#001E57;">{nome_usuario}</p><span style="color:#FF9200; font-size:11px; font-weight:600; text-transform:uppercase;">Painel Ativo</span></div>', unsafe_allow_html=True)
 
-        st.sidebar.markdown(
-            f'<div style="padding: 12px 0; border-top: 1px solid #f1f5f9; margin-top: 15px;">'
-            f'<p style="margin:0; font-size:14px; font-weight:700; color:#001E57;">{nome_usuario}</p>'
-            f'<span style="color:#FF9200; font-size:11px; font-weight:600; text-transform:uppercase;">Painel Ativo</span>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-
-    # --- 🔔 ENGINE DO SININHO DE NOTIFICAÇÕES ---
+    # --- ENGINE DE NOTIFICAÇÕES (SININHO) ---
     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
     n_pendentes = conn.cursor().execute("SELECT COUNT(*) FROM notificacoes WHERE usuario=? AND lida=0", (usuario_id,)).fetchone()[0]
     conn.close()
-
     txt_sininho = f"🔔 Notificações ({n_pendentes})" if n_pendentes > 0 else "🔔 Notificações"
 
     with st.sidebar.popover(txt_sininho, use_container_width=True):
-        st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:10px; font-size:14px;">Centro de Notificações</p>', unsafe_allow_html=True)
-
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
         lista_notif = conn.cursor().execute("SELECT id, mensagem, data_hora, lida FROM notificacoes WHERE usuario=? ORDER BY id DESC LIMIT 5", (usuario_id,)).fetchall()
-
         if not lista_notif:
-            st.markdown('<div style="color:#64748b; font-size:12px; text-align:center; padding:10px;">Nenhum aviso recente por aqui.</div>', unsafe_allow_html=True)
+            st.markdown('<div style="color:#64748b; font-size:12px; text-align:center;">Nenhum aviso recente.</div>', unsafe_allow_html=True)
         else:
             for notif_id, msg_texto, dt_notif, status_lida in lista_notif:
                 borda_estilo = "2px solid #FF9200" if status_lida == 0 else "1px solid #e2e8f0"
-                fundo_estilo = "#fff7ed" if status_lida == 0 else "#ffffff"
-                st.markdown(f"""
-                <div style="background: {fundo_estilo}; padding: 10px; border-radius: 8px; border: {borda_estilo}; margin-bottom: 8px;">
-                    <p style="margin: 0; font-size: 12px; color: #001E57; font-weight: 500;">{msg_texto}</p>
-                    <span style="font-size: 10px; color: #94a3b8;">{dt_notif[:16]}</span>
-                </div>
-                """, unsafe_allow_html=True)
-
-            if st.button("🧹 Marcar todas como lidas"):
+                st.markdown(f'<div style="background:#fff7ed; padding:10px; border-radius:8px; border:{borda_estilo}; margin-bottom:8px;"><p style="margin:0; font-size:12px; color:#001E57;">{msg_texto}</p></div>', unsafe_allow_html=True)
+            if st.button("🧹 Limpar Notificações"):
                 conn.cursor().execute("UPDATE notificacoes SET lida=1 WHERE usuario=?", (usuario_id,))
                 conn.commit()
-                conn.close()
                 st.rerun()
         conn.close()
 
@@ -464,38 +383,7 @@ else:
     # --- ABA: INÍCIO ---
     if menu == "🏠 Início":
         st.markdown('<h1 class="clean-title">Manual de Utilização do Sistema</h1>', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="premium-card">
-            <h3 style="color: #001E57; margin-top: 0; font-weight: 700;">👋 Boas-vindas ao Portal de Reembolsos Duarte Gestão</h3>
-            <p style="color: #334155; font-size: 15px; line-height: 1.6;">
-            Este espaço foi projetado para simplificar, organizar e auditar a prestação de contas de despesas corporativas.
-            Siga as diretrizes abaixo para garantir que o seu reembolso seja processado sem pendências.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""
-            <div class="premium-card" style="height: 100%;">
-                <h4 style="color: #FF9200; margin-top: 0; font-weight: 700;">1. Organize o Comprovante</h4>
-                <ul style="color: #475569; font-size: 13px; padding-left: 20px;">
-                    <li>Formatos aceitos: <b>PDF, JPG ou PNG</b>.</li>
-                    <li>O documento deve estar **totalmente legível**, exibindo claramente Data, Valor e CNPJ.</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        with col2:
-            st.markdown("""
-            <div class="premium-card" style="height: 100%;">
-                <h4 style="color: #10b981; margin-top: 0; font-weight: 700;">2. Monitore o Status</h4>
-                <ul style="color: #475569; font-size: 13px; padding-left: 20px;">
-                    <li>⏳ <b>PENDENTE:</b> Aguardando verificação fiscal.</li>
-                    <li>❌ <b>NEGADO:</b> Nota com inconsistência. Você será notificado do motivo.</li>
-                    <li>✅ <b>APROVADO / PAGO:</b> Nota auditada e liquidação concluída.</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown('<div class="premium-card"><h3 style="color: #001E57; margin-top: 0;">👋 Boas-vindas ao Portal de Reembolsos</h3><p style="color:#334155;">Siga as diretrizes internas para aprovação rápida dos seus comprovantes fiscais.</p></div>', unsafe_allow_html=True)
 
     # --- ABA: SOLICITAR REEMBOLSO ---
     elif menu == "💸 Solicitar Reembolso":
@@ -503,10 +391,10 @@ else:
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
         with st.form("reembolso_form", clear_on_submit=True):
             desc = st.text_input("Descrição Clara da Despesa")
-            cat = st.selectbox("Categoria", ["LIMPEZA", "REMUNERAÇÃO SÓCIOS", "ALIMENTAÇÃO", "TELEFONIA E INTERNET", "SOFTWARE E LICENÇAS - INFORMÁTICA", "TRANSPORTES / LOGÍSTICA", "COMBUSTÍVEL", "MATERIAL DE ESCRITRIOM", "EQUIPAMENTOS DE INFORMÁTICA", "ESTACIONAMENTO", "MÓVEIS E UTENSÍLIOS", "DESPESAS DE VIAGENS", "MÁQUINAS E EQUIPAMENTOS"])
+            cat = st.selectbox("Categoria", ["LIMPEZA", "REMUNERAÇÃO SÓCIOS", "ALIMENTAÇÃO", "TELEFONIA E INTERNET", "SOFTWARE E LICENÇAS - INFORMÁTICA", "TRANSPORTES / LOGÍSTICA", "COMBUSTÍVEL", "MATERIAL DE ESCRITÓRIO", "EQUIPAMENTOS DE INFORMÁTICA", "ESTACIONAMENTO", "MÓVEIS E UTENSÍLIOS", "DESPESAS DE VIAGENS", "MÁQUINAS E EQUIPAMENTOS"])
             cc = st.selectbox("Centro de Custo", ["CREDENCIAMENTO", "REDE", "DIRETORIA", "DUARTE GESTÃO", "MARKETING", "FINANCEIRO"])
             val = st.number_input("Valor da Operação (R$)", min_value=0.01, step=0.01)
-            arq = st.file_uploader("Upload do Comprovante", type=['jpg', 'png', 'pdf'])
+            arq = st.file_uploader("Upload do Comprovante (PDF, PNG, JPG)", type=['jpg', 'png', 'pdf'])
 
             if st.form_submit_button("Enviar Solicitação"):
                 if desc and val > 0:
@@ -517,31 +405,19 @@ else:
                     conn.cursor().execute("INSERT INTO reembolsos (usuario, despesa, categoria, c_custo, valor, status, data, caminho_arquivo) VALUES (?,?,?,?,?,?,?,?)",
                                           (st.session_state['user_info']['user'], desc, cat, cc, val, 'PENDENTE', datetime.now().date(), path))
                     conn.commit(); conn.close()
-                    st.success("Solicitação salva e enviada para a fila de aprovação!")
+                    st.success("Solicitação salva com sucesso!")
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --- ABA: MEUS PEDIDOS ---
     elif menu == "📋 Meus Pedidos":
         st.markdown('<h1 class="clean-title">Acompanhamento de Solicitações</h1>', unsafe_allow_html=True)
-
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
         df = pd.read_sql(f"SELECT id as 'ID', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data' FROM reembolsos WHERE usuario='{st.session_state['user_info']['user']}' ORDER BY id DESC", conn)
         conn.close()
 
         if df.empty:
-            st.markdown('<div class="empty-state-box">✨ Você ainda não possui nenhuma solicitação registrada.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="empty-state-box">✨ Nenhuma solicitação registrada.</div>', unsafe_allow_html=True)
         else:
-            m_pend = df[df['Status'] == 'PENDENTE']['Valor (R$)'].sum()
-            m_aprov = df[df['Status'] == 'APROVADO']['Valor (R$)'].sum()
-            m_pago = df[df['Status'] == 'PAGO']['Valor (R$)'].sum()
-            m_neg = df[df['Status'] == 'NEGADO']['Valor (R$)'].sum()
-
-            c1, c2, c3, c4 = st.columns(4)
-            with c1: st.markdown(f'<div class="premium-card"><div class="kpi-title">⏳ Em Análise</div><div class="kpi-value val-pendente">R$ {m_pend:,.2f}</div></div>', unsafe_allow_html=True)
-            with c2: st.markdown(f'<div class="premium-card"><div class="kpi-title">✅ Aprovados</div><div class="kpi-value" style="color:#001E57;">R$ {m_aprov:,.2f}</div></div>', unsafe_allow_html=True)
-            with c3: st.markdown(f'<div class="premium-card"><div class="kpi-title">💸 Pagos</div><div class="kpi-value val-pago">R$ {m_pago:,.2f}</div></div>', unsafe_allow_html=True)
-            with c4: st.markdown(f'<div class="premium-card"><div class="kpi-title">❌ Recusados</div><div class="kpi-value val-negado">R$ {m_neg:,.2f}</div></div>', unsafe_allow_html=True)
-            
             st.markdown(gerar_tabela_premium(df), unsafe_allow_html=True)
 
     # --- ABA: PAINEL DO ADMIN ---
@@ -551,26 +427,16 @@ else:
         def processar_acao_clean(id_target, novo_status, log_msg, motivo_rejeicao=""):
             conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
             cursor = conn.cursor()
-
-            query = (
-                "SELECT r.despesa, r.valor, r.categoria, r.c_custo, r.data, u.email, u.nome_completo, r.usuario "
-                "FROM reembolsos r "
-                "JOIN usuarios u ON r.usuario = u.usuario "
-                "WHERE r.id = ?"
-            )
-            pedido = cursor.execute(query, (id_target,)).fetchone()
+            pedido = cursor.execute("SELECT r.despesa, u.usuario FROM reembolsos r JOIN usuarios u ON r.usuario = u.usuario WHERE r.id = ?", (id_target,)).fetchone()
 
             if pedido:
-                despesa, valor, categoria, c_custo, data, email_colaborador, nome_usuario, usuario_dono = pedido
+                despesa, usuario_dono = pedido
                 cursor.execute("UPDATE reembolsos SET status=? WHERE id=?", (novo_status, id_target))
-
                 msg_notif = f"Sua solicitação #{id_target} ({despesa}) foi alterada para {novo_status}."
-                if novo_status == "NEGADO" and motivo_rejeicao:
-                    msg_notif += f" Motivo: {motivo_rejeicao}"
-
+                if novo_status == "NEGADO" and motivo_rejeicao: msg_notif += f" Motivo: {motivo_rejeicao}"
+                
                 cursor.execute("INSERT INTO notificacoes (usuario, mensagem, lida, data_hora) VALUES (?, ?, 0, ?)",
                                (usuario_dono, msg_notif, datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
-
                 conn.commit()
                 registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
                 conn.close()
@@ -578,7 +444,6 @@ else:
                 st.rerun()
             else:
                 conn.close()
-                st.error("Erro: ID não localizado.")
 
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
         df_todos = pd.read_sql("SELECT id as 'ID', usuario as 'Funcionário', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data Lançamento', caminho_arquivo FROM reembolsos ORDER BY id DESC", conn)
@@ -586,60 +451,24 @@ else:
 
         tab_pendente, tab_aprovado, tab_historico = st.tabs(["⏳ Aguardando Análise", "💸 Pronto para Pagamento", "🗂️ Histórico Geral"])
 
-        with tab_pendente:
-            st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'] == 'PENDENTE']), unsafe_allow_html=True)
+        with tab_pendente: st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'] == 'PENDENTE']), unsafe_allow_html=True)
+        with tab_aprovado: st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'] == 'APROVADO']), unsafe_allow_html=True)
+        with tab_historico: st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'].isin(['PAGO', 'NEGADO'])]), unsafe_allow_html=True)
 
-        with tab_aprovado:
-            st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'] == 'APROVADO']), unsafe_allow_html=True)
-
-            # Exportador de Lote
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown('<div style="background:#f8fafc; border-radius:12px; padding:20px; border:1px solid #e2e8f0;">', unsafe_allow_html=True)
-            st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:10px; font-size:16px;">📅 Exportação de Lote Mensal para o Banco</p>', unsafe_allow_html=True)
-
-            meses_nome = {1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"}
-            c_mes, c_ano, c_btn = st.columns([1.5, 1, 1.5])
-            with c_mes: mes_sel = st.selectbox("Mês Competência", list(meses_nome.keys()), format_func=lambda x: meses_nome[x], index=datetime.now().month - 1)
-            with c_ano: ano_sel = st.selectbox("Ano Competência", [2025, 2026, 2027], index=1)
-
-            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-            df_lote_cru = pd.read_sql("SELECT r.id, u.nome_completo, u.cpf, u.telefone, r.despesa, r.valor, r.data, r.status FROM reembolsos r JOIN usuarios u ON r.usuario = u.usuario WHERE r.status = 'APROVADO'", conn)
-            conn.close()
-
-            with c_btn:
-                st.write("<div style='height:28px;'></div>", unsafe_allow_html=True)
-                if not df_lote_cru.empty:
-                    df_lote_cru['dt_parsed'] = pd.to_datetime(df_lote_cru['data'], errors='coerce')
-                    df_filtrado = df_lote_cru[(df_lote_cru['dt_parsed'].dt.month == mes_sel) & (df_lote_cru['dt_parsed'].dt.year == ano_sel)].copy()
-                    if not df_filtrado.empty:
-                        buffer_lote = io.BytesIO()
-                        with pd.ExcelWriter(buffer_lote, engine='openpyxl') as writer:
-                            df_filtrado.drop(columns=['dt_parsed', 'data']).to_excel(writer, sheet_name='LOTE MENSAL', index=False)
-                        buffer_lote.seek(0)
-                        st.download_button(label=f"📥 Baixar Lote {meses_nome[mes_sel].upper()}", data=buffer_lote, file_name=f"LOTE_{meses_nome[mes_sel].upper()}.xlsx")
-                    else: st.button("⚠️ Sem itens este mês", disabled=True)
-                else: st.button("✨ Fila Limpa", disabled=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with tab_historico:
-            st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'].isin(['PAGO', 'NEGADO'])]), unsafe_allow_html=True)
-
-        # --- PAINEL DE AÇÕES RÁPIDAS COM DISPARADOR WHATSAPP ---
+        # PAINEL DE AÇÕES RÁPIDAS
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
         st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:20px; font-size:18px;">🕹️ Painel de Ações Rápidas</p>', unsafe_allow_html=True)
 
-        df_acionaveis = df_todos[df_todos['Status'].isin(['PENDENTE', 'APROVADO', 'NEGADO', 'PAGO'])].copy()
-
-        if df_acionaveis.empty:
-            st.info("✨ Nenhuma ação pendente no momento.")
+        if df_todos.empty:
+            st.info("Nenhum lançamento no sistema.")
         else:
-            df_acionaveis['selector_text'] = df_acionaveis.apply(lambda r: f"#{r['ID']} - {r['Funcionário']} | {r['Descrição']} (R$ {r['Valor (R$)']:.2f}) [{r['Status']}]", axis=1)
+            df_todos['selector_text'] = df_todos.apply(lambda r: f"#{r['ID']} - {r['Funcionário']} | {r['Descrição']} (R$ {r['Valor (R$)']:.2f}) [{r['Status']}]", axis=1)
             col_ctrl, col_preview = st.columns([1.3, 1])
 
             with col_ctrl:
-                item_selecionado = st.selectbox("Selecione o lançamento para despachar:", df_acionaveis['selector_text'].tolist())
-                row_sel = df_acionaveis[df_acionaveis['selector_text'] == item_selecionado].iloc[0]
+                item_selecionado = st.selectbox("Selecione o lançamento para despachar:", df_todos['selector_text'].tolist())
+                row_sel = df_todos[df_todos['selector_text'] == item_selecionado].iloc[0]
 
                 id_target = int(row_sel['ID'])
                 status_atual = row_sel['Status']
@@ -653,75 +482,58 @@ else:
                 nome_completo = dados_func[0] if dados_func else usuario_dono
                 telefone_func = dados_func[1] if dados_func else ""
 
-                st.markdown(f"**Status Atual:** `{status_atual}` | **Colaborador:** {nome_completo}")
-
                 if status_atual == "PENDENTE":
-                    if st.button("✅ Aprovar Documento"):
-                        processar_acao_clean(id_target, "APROVADO", "APROVOU REEMBOLSO")
+                    if st.button("✅ Aprovar Documento"): processar_acao_clean(id_target, "APROVADO", "APROVOU REEMBOLSO")
                 elif status_atual == "APROVADO":
-                    if st.button("💸 Marcar como PAGO (Liquidar)"):
-                        processar_acao_clean(id_target, "PAGO", "PAGOU REEMBOLSO")
+                    if st.button("💸 Marcar como PAGO (Liquidar)"): processar_acao_clean(id_target, "PAGO", "PAGOU REEMBOLSO")
 
-                # 🔥 MÓDULO DE INTEGRAÇÃO DO WHATSAPP DE PAGAMENTO SUCESSO
-                if status_atual == "PAGO":
-                    st.success("🎉 Este reembolso já foi liquidado no sistema!")
-                    if telefone_func:
-                        tel_limpo = "".join(filter(str.isdigit, telefone_func))
-                        if not tel_limpo.startswith("55") and len(tel_limpo) >= 10:
-                            tel_limpo = "55" + tel_limpo
-
-                        msg_wa = (
-                            f"Olá, *{nome_completo}*!\n\n"
-                            f"Informamos que a sua solicitação de reembolso *#{id_target}* (*{row_sel['Descrição']}*) "
-                            f"no valor de *R$ {row_sel['Valor (R$)']:.2f}* foi liquidada e o pagamento já foi efetuado "
-                            f"pela controladoria da *Duarte Gestão*.\n\n"
-                            f"Por favor, confira o saldo em sua conta cadastrada. Obrigado!"
-                        )
-                        msg_encoded = urllib.parse.quote(msg_wa)
-                        link_whatsapp_envio = f"https://wa.me/{tel_limpo}?text={msg_encoded}"
-
-                        st.markdown(f'<a href="{link_whatsapp_envio}" target="_blank" class="btn-whatsapp" style="background-color:#25D366; text-align:center;">💬 Enviar Notificação de Pagamento via WhatsApp</a>', unsafe_allow_html=True)
-                    else:
-                        st.warning("⚠️ Não foi possível gerar o link: Telefone não cadastrado para este usuário.")
+                if status_atual == "PAGO" and telefone_func:
+                    tel_limpo = "".join(filter(str.isdigit, telefone_func))
+                    if not tel_limpo.startswith("55") and len(tel_limpo) >= 10: tel_limpo = "55" + tel_limpo
+                    msg_wa = f"Olá, *{nome_completo}*!\n\nSua solicitação de reembolso *#{id_target}* (*{row_sel['Descrição']}*) de *R$ {row_sel['Valor (R$)']:.2f}* foi paga com sucesso!"
+                    st.markdown(f'<a href="https://wa.me/{tel_limpo}?text={urllib.parse.quote(msg_wa)}" target="_blank" class="btn-whatsapp">💬 Enviar Notificação via WhatsApp</a>', unsafe_allow_html=True)
 
                 if status_atual in ["PENDENTE", "APROVADO"]:
-                    st.write("---")
-                    motivo = st.text_input("Motivo da Recusa (Obrigatório para negar):", key=f"motivo_{id_target}")
+                    motivo = st.text_input("Motivo da Recusa:", key=f"motivo_{id_target}")
                     if st.button("❌ Negar Reembolso"):
-                        if motivo.strip():
-                            processar_acao_clean(id_target, "NEGADO", "REJEITOU REEMBOLSO", motivo)
-                        else:
-                            st.error("Insira o motivo da recusa antes de clicar.")
+                        if motivo.strip(): processar_acao_clean(id_target, "NEGADO", "REJEITOU REEMBOLSO", motivo)
+                        else: st.error("Insira o motivo.")
+
+                # 🔥 ZONA DE PERIGO: EXCLUSÃO DEFINITIVA (SÓ APARECE PARA ADMIN)
+                st.write("---")
+                st.markdown("<p style='color:#ef4444; font-weight:700; font-size:14px; margin-bottom:5px;'>⚠️ Zona de Perigo</p>", unsafe_allow_html=True)
+                confirmar_exclusao = st.checkbox("Estou ciente de que esta ação apagará permanentemente o registro do banco de dados.", key=f"del_chk_{id_target}")
+                
+                if st.button("🗑️ Excluir Lançamento Permanente", key=f"del_btn_{id_target}"):
+                    if confirmar_exclusao:
+                        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                        cursor = conn.cursor()
+                        if caminho_comprovante and os.path.exists(caminho_comprovante):
+                            try: os.remove(caminho_comprovante)
+                            except: pass
+                        cursor.execute("DELETE FROM reembolsos WHERE id=?", (id_target,))
+                        conn.commit(); conn.close()
+                        st.success(f"Lançamento #{id_target} apagado!")
+                        st.rerun()
+                    else:
+                        st.error("Marque a caixa de confirmação primeiro.")
 
             with col_preview:
-                st.markdown("**📄 Comprovante Digitalizado**")
                 if caminho_comprovante and os.path.exists(caminho_comprovante):
                     if caminho_comprovante.lower().endswith('.pdf'):
-                        st.caption("Documento PDF. Clique para baixar e revisar:")
-                        with open(caminho_comprovante, "rb") as f:
-                            st.download_button("📥 Baixar PDF", f, file_name=os.path.basename(caminho_comprovante))
-                    else:
-                        st.image(caminho_comprovante, use_container_width=True)
-                else:
-                    st.info("Nenhum arquivo de comprovante foi anexado a esta solicitação.")
+                        with open(caminho_comprovante, "rb") as f: st.download_button("📥 Baixar PDF", f, file_name=os.path.basename(caminho_comprovante))
+                    else: st.image(caminho_comprovante, use_container_width=True)
+                else: st.info("Sem arquivo em anexo.")
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # --- UTILITÁRIO DE INFRAESTRUTURA: MONITOR DE PRODUÇÃO (CHEFES / CONTAS) ---
-        st.markdown("<br>", unsafe_allow_html=True)
-        with st.expander("👥 [PRODUÇÃO] Lista de Usuários Cadastrados no Sistema"):
-            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-            df_users = pd.read_sql("SELECT cpf as 'CPF Key', nome_completo as 'Nome Completo', email as 'E-mail', telefone as 'Telefone', senha as 'Senha Ativa' FROM usuarios", conn)
-            conn.close()
-            st.dataframe(df_users, use_container_width=True)
-
-    # --- ABA: PAINEL EXECUTIVO (COM BOTÃO DE BACKUP DE EMERGÊNCIA) ---
+    # --- ABA: PAINEL EXECUTIVO ---
     elif menu == "📈 Painel Executivo":
         st.markdown('<h1 class="clean-title">Painel Executivo de Controladoria</h1>', unsafe_allow_html=True)
-        st.markdown('<div class="premium-card">📊 Métricas de desempenho financeiro e relatórios consolidados da Duarte Gestão.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="premium-card">📊 Métricas de desempenho financeiro consolidado da Duarte Gestão.</div>', unsafe_allow_html=True)
         
         st.markdown("---")
         st.markdown("### 📥 Backup de Segurança Total (Botão de Pânico)")
-        st.write("Use esta função para baixar uma cópia completa de todos os dados de reembolsos do banco. É recomendável baixar essa planilha frequentemente por motivos de segurança no servidor.")
+        st.write("Baixe a cópia de segurança completa de todos os dados salvos no sistema para salvaguarda externa:")
         
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
         df_backup = pd.read_sql("SELECT * FROM reembolsos", conn)
