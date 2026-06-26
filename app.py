@@ -5,6 +5,7 @@ import os
 import smtplib
 import io
 import urllib.parse
+import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -18,6 +19,8 @@ if "logado" not in st.session_state:
     st.session_state["logado"] = False
 if "user_info" not in st.session_state:
     st.session_state["user_info"] = None
+if "app_loaded" not in st.session_state:
+    st.session_state["app_loaded"] = False
 
 def verificar_email(email):
     padrao = r'^[\w\.-]+@[\w\.-]+\.\w+$'
@@ -138,10 +141,29 @@ div[data-baseweb="input"], div[data-baseweb="select"] {
 }
 .logo-fallback span { color: #FF9200 !important; }
 
-@keyframes softSlideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+/* TELA DE CARREGAMENTO */
+.loader-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 80vh;
+    animation: fadeOut 0.5s ease-in-out forwards;
+    animation-delay: 2s;
 }
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #001E57;
+    border-right: 4px solid #FF9200;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+@keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
+@keyframes softSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 tr { transition: background-color 0.2s ease !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -152,6 +174,19 @@ SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
 EMAIL_SENHA = "zbvwzhnsjlqperfr"
+
+# --- TELA DE CARREGAMENTO DUARTE ---
+if not st.session_state["app_loaded"]:
+    st.markdown("""
+        <div class="loader-container">
+            <div class="spinner"></div>
+            <h2 style="color: #001E57; font-weight: 800;">Duarte<span style="color: #FF9200;">Gestão</span></h2>
+            <p style="color: #64748b; font-size: 14px;">Inicializando ambiente seguro...</p>
+        </div>
+    """, unsafe_allow_html=True)
+    time.sleep(2.5) # Tempo da animação
+    st.session_state["app_loaded"] = True
+    st.rerun()
 
 # --- GERADOR DE TABELAS REUTILIZÁVEL ---
 def gerar_tabela_premium(df):
@@ -558,8 +593,24 @@ else:
             else:
                 conn.close()
 
+        # 🔥 AQUI ESTÁ O LEFT JOIN PARA APARECER O NOME DO FUNCIONÁRIO
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-        df_todos = pd.read_sql("SELECT id as 'ID', usuario as 'Funcionário', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data Lançamento', caminho_arquivo FROM reembolsos ORDER BY id DESC", conn)
+        query_admin = """
+        SELECT 
+            r.id as 'ID', 
+            u.nome_completo as 'Funcionário', 
+            r.despesa as 'Descrição', 
+            r.categoria as 'Categoria', 
+            r.c_custo as 'Centro de Custo', 
+            r.valor as 'Valor (R$)', 
+            r.status as 'Status', 
+            r.data as 'Data Lançamento', 
+            r.caminho_arquivo 
+        FROM reembolsos r
+        LEFT JOIN usuarios u ON r.usuario = u.usuario
+        ORDER BY r.id DESC
+        """
+        df_todos = pd.read_sql(query_admin, conn)
         conn.close()
 
         tab_pendente, tab_aprovado, tab_historico = st.tabs(["⏳ Aguardando Análise", "💸 Pronto para Pagamento", "🗂️ Histórico Geral"])
@@ -586,14 +637,14 @@ else:
                 id_target = int(row_sel['ID'])
                 status_atual = row_sel['Status']
                 caminho_comprovante = row_sel['caminho_arquivo']
-                usuario_dono = row_sel['Funcionário']
+                usuario_dono_nome = row_sel['Funcionário']
 
+                # Precisamos buscar o usuário (código) real e telefone para o WhatsApp
                 conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-                dados_func = conn.cursor().execute("SELECT nome_completo, telefone FROM usuarios WHERE usuario=?", (usuario_dono,)).fetchone()
+                dados_func = conn.cursor().execute("SELECT telefone FROM usuarios WHERE nome_completo=?", (usuario_dono_nome,)).fetchone()
                 conn.close()
 
-                nome_completo = dados_func[0] if dados_func else usuario_dono
-                telefone_func = dados_func[1] if dados_func else ""
+                telefone_func = dados_func[0] if dados_func else ""
 
                 if status_atual == "PENDENTE":
                     if st.button("✅ Aprovar Documento"): processar_acao_clean(id_target, "APROVADO", "APROVOU REEMBOLSO")
@@ -603,7 +654,7 @@ else:
                 if status_atual == "PAGO" and telefone_func:
                     tel_limpo = "".join(filter(str.isdigit, telefone_func))
                     if not tel_limpo.startswith("55") and len(tel_limpo) >= 10: tel_limpo = "55" + tel_limpo
-                    msg_wa = f"Olá, *{nome_completo}*!\n\nSua solicitação de reembolso *#{id_target}* (*{row_sel['Descrição']}*) de *R$ {row_sel['Valor (R$)']:.2f}* foi paga com sucesso!"
+                    msg_wa = f"Olá, *{usuario_dono_nome}*!\n\nSua solicitação de reembolso *#{id_target}* (*{row_sel['Descrição']}*) de *R$ {row_sel['Valor (R$)']:.2f}* foi paga com sucesso!"
                     st.markdown(f'<a href="https://wa.me/{tel_limpo}?text={urllib.parse.quote(msg_wa)}" target="_blank" class="btn-whatsapp">💬 Enviar Notificação via WhatsApp</a>', unsafe_allow_html=True)
 
                 if status_atual in ["PENDENTE", "APROVADO"]:
@@ -612,7 +663,6 @@ else:
                         if motivo.strip(): processar_acao_clean(id_target, "NEGADO", "REJEITOU REEMBOLSO", motivo)
                         else: st.error("Insira o motivo.")
 
-                # 🔥 ZONA DE PERIGO: EXCLUSÃO DEFINITIVA
                 st.write("---")
                 st.markdown("<p style='color:#ef4444; font-weight:700; font-size:14px; margin-bottom:5px;'>⚠️ Zona de Perigo</p>", unsafe_allow_html=True)
                 confirmar_exclusao = st.checkbox("Estou ciente de que esta ação apagará permanentemente o registro do banco de dados.", key=f"del_chk_{id_target}")
@@ -631,7 +681,7 @@ else:
                     else:
                         st.error("Marque a caixa de confirmação primeiro.")
 
-            # 📥 AQUI ESTÁ O CONSERTO DO DOWNLOAD DA IMAGEM
+            # 📥 DOWNLOAD DO COMPROVANTE CORRIGIDO
             with col_preview:
                 if caminho_comprovante and os.path.exists(caminho_comprovante):
                     st.markdown("**📄 Arquivo em anexo:**")
@@ -642,7 +692,6 @@ else:
                         st.image(caminho_comprovante, use_container_width=True)
                         st.caption("Imagem do comprovante. Clique no botão abaixo para salvar uma cópia:")
                     
-                    # O botão de baixar agora aparece SEMPRE, não importa se é imagem ou PDF
                     with open(caminho_comprovante, "rb") as f:
                         st.download_button(
                             label="📥 Baixar Comprovante", 
@@ -655,7 +704,6 @@ else:
                     
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # --- AQUI ESTÁ A RESTAURAÇÃO DA SUA LISTA DE USUÁRIOS NO ADMIN ---
         st.markdown("<br>", unsafe_allow_html=True)
         with st.expander("👥 [PRODUÇÃO] Lista de Usuários Cadastrados no Sistema"):
             conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
@@ -668,16 +716,64 @@ else:
         st.markdown('<h1 class="clean-title">Painel Executivo de Controladoria</h1>', unsafe_allow_html=True)
         st.markdown('<div class="premium-card">📊 Métricas de desempenho financeiro consolidado da Duarte Gestão.</div>', unsafe_allow_html=True)
         
-        st.markdown("---")
+        # --- ENGINE DO DASHBOARD ---
+        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+        df_dash = pd.read_sql("SELECT * FROM reembolsos", conn)
+        conn.close()
+
+        if df_dash.empty:
+            st.info("Ainda não há lançamentos suficientes para gerar os indicadores.")
+        else:
+            df_pago = df_dash[df_dash['status'] == 'PAGO']
+            df_pend = df_dash[df_dash['status'] == 'PENDENTE']
+            df_neg  = df_dash[df_dash['status'] == 'NEGADO']
+
+            tot_geral = df_dash['valor'].sum()
+            tot_pago = df_pago['valor'].sum()
+            tot_pend = df_pend['valor'].sum()
+            tot_neg = df_neg['valor'].sum()
+
+            def formata_brl(valor):
+                return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+            st.markdown("### 🎯 Visão Geral de Lançamentos")
+            c1, c2, c3, c4 = st.columns(4)
+
+            with c1:
+                st.markdown(f'<div class="premium-card"><div class="kpi-title">Volume Solicitado</div><div class="kpi-value val-total">{formata_brl(tot_geral)}</div></div>', unsafe_allow_html=True)
+            with c2:
+                st.markdown(f'<div class="premium-card"><div class="kpi-title">Total Liquidado (Pago)</div><div class="kpi-value val-pago">{formata_brl(tot_pago)}</div></div>', unsafe_allow_html=True)
+            with c3:
+                st.markdown(f'<div class="premium-card"><div class="kpi-title">Fila Pendente</div><div class="kpi-value val-pendente">{formata_brl(tot_pend)}</div></div>', unsafe_allow_html=True)
+            with c4:
+                st.markdown(f'<div class="premium-card"><div class="kpi-title">Total Negado</div><div class="kpi-value val-negado">{formata_brl(tot_neg)}</div></div>', unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("### 📊 Distribuição de Custos (Liquidados)")
+            g1, g2 = st.columns(2)
+
+            with g1:
+                st.markdown("**Por Centro de Custo**")
+                if not df_pago.empty:
+                    df_cc = df_pago.groupby('c_custo')['valor'].sum().sort_values(ascending=False)
+                    st.bar_chart(df_cc, color="#001E57") 
+                else:
+                    st.write("Aguardando pagamentos para gerar o gráfico.")
+
+            with g2:
+                st.markdown("**Por Categoria da Despesa**")
+                if not df_pago.empty:
+                    df_cat = df_pago.groupby('categoria')['valor'].sum().sort_values(ascending=False)
+                    st.bar_chart(df_cat, color="#FF9200") 
+                else:
+                    st.write("Aguardando pagamentos para gerar o gráfico.")
+
+        st.markdown("<br><hr>", unsafe_allow_html=True)
         st.markdown("### 📥 Backup de Segurança Total (Botão de Pânico)")
         st.write("Baixe a cópia de segurança completa de todos os dados salvos no sistema para salvaguarda externa:")
         
-        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-        df_backup = pd.read_sql("SELECT * FROM reembolsos", conn)
-        conn.close()
-
-        if not df_backup.empty:
-            csv_backup = df_backup.to_csv(index=False).encode('utf-8')
+        if not df_dash.empty:
+            csv_backup = df_dash.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 BAIXAR HISTÓRICO COMPLETO (CSV)",
                 data=csv_backup,
