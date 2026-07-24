@@ -282,7 +282,8 @@ def inicializar_banco():
     # 👤 LISTA DE USUÁRIOS COMUNS (Acesso Restrito)
     lista_usuarios_comuns = [
         ('15413186843', '090573', 'diretoria@duartegestao.com.br', 'usuario', 'Cristiane A Duarte', '15413186843', '11959353330'),
-        ('26218440818', 'Bb240977*', 'bethania.duarte@duartegestao.com.br', 'usuario', 'Bethania Duarte', '26218440818', '11949957937')
+        ('26218440818', 'Bb240977*', 'bethania.duarte@duartegestao.com.br', 'usuario', 'Bethania Duarte', '26218440818', '11949957937'),
+        ('11286836875', 'Atos1034', 'abraaossantos@gmail.com', 'usuario', 'Abraao S. Santos', '11286836875', '11972061000')
     ]
 
     for u in lista_admins + lista_usuarios_comuns: 
