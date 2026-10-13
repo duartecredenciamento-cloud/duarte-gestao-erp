@@ -26,154 +26,59 @@ def verificar_email(email):
     padrao = r'^[\w\.-]+@[\w\.-]+\.\w+$'
     return bool(re.match(padrao, email))
 
-if not os.path.exists("comprovantes"):
-    os.makedirs("comprovantes")
+DB_PATH = os.environ.get("REEMBOLSO_DB_PATH", "reembolso.db")
+COMPROVANTES_DIR = os.environ.get("REEMBOLSO_UPLOAD_DIR", "comprovantes")
+os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
+os.makedirs(COMPROVANTES_DIR, exist_ok=True)
+
+def resolver_caminho_comprovante(caminho):
+    """Resolve referências legadas relativas para o diretório configurado de anexos."""
+    if not caminho:
+        return ""
+    nome = os.path.basename(str(caminho).replace("\\", "/"))
+    if nome in ("", ".", ".."):
+        return ""
+    return os.path.join(COMPROVANTES_DIR, nome)
 
 # --- 🎯 ARSENAL CSS: IDENTIDADE COMPLETA & ANIMAÇÕES ---
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=300;400;500;600;700;800&display=swap');
-
-* { font-family: 'Plus Jakarta Sans', sans-serif; }
-[data-testid="stAppViewContainer"] {
-    background-color: #f8fafc !important;
-    color: #001E57 !important;
-}
-
-[data-testid="stSidebar"] {
-    background-color: #ffffff !important;
-    border-right: 1px solid #e2e8f0 !important;
-}
-
-.clean-title {
-    font-size: 28px !important;
-    font-weight: 800 !important;
-    color: #001E57 !important;
-    letter-spacing: -0.5px;
-    margin-bottom: 25px;
-    animation: softSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.premium-card {
-    background: #ffffff !important;
-    border-radius: 14px !important;
-    padding: 24px !important;
-    border: 1px solid #e2e8f0 !important;
-    box-shadow: 0 4px 12px rgba(0, 30, 87, 0.02) !important;
-    margin-bottom: 20px;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    animation: softSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.premium-card:hover {
-    transform: translateY(-4px) !important;
-    box-shadow: 0 12px 24px rgba(0, 30, 87, 0.06) !important;
-    border-color: #001E57 !important;
-}
-.empty-state-box {
-    background: #ffffff !important;
-    border: 2px dashed #e2e8f0 !important;
-    border-radius: 14px !important;
-    padding: 40px 20px !important;
-    text-align: center !important;
-    color: #64748b !important;
-    font-size: 15px !important;
-    font-weight: 500 !important;
-    margin-bottom: 20px;
-    animation: softSlideUp 0.5s ease-out;
-}
-.kpi-title { color: #64748b !important; font-size: 12px !important; font-weight: 600 !important; text-transform: uppercase; letter-spacing: 0.5px; }
-.kpi-value { font-size: 24px !important; font-weight: 800 !important; margin-top: 4px; }
-.val-total { color: #001E57 !important; }
-.val-pago { color: #10b981 !important; }
-.val-pendente { color: #FF9200 !important; }
-.val-negado { color: #ef4444 !important; }
-
-div.stButton > button {
-    width: 100% !important;
-    background-color: #001E57 !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 10px !important;
-    padding: 12px 24px !important;
-    font-weight: 600 !important;
-    font-size: 14px !important;
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-div.stButton > button:hover {
-    background-color: #FF9200 !important;
-    color: #ffffff !important;
-    transform: scale(1.02) !important;
-    box-shadow: 0 6px 20px rgba(255, 146, 0, 0.25) !important;
-}
-div.stButton > button:active {
-    transform: scale(0.98) !important;
-}
-
-.btn-whatsapp {
-    background-color: #25D366;
-    color: white !important;
-    padding: 14px 28px;
-    border-radius: 10px;
-    text-decoration: none;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 15px;
-    width: 100%;
-    box-sizing: border-box;
-    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.2);
-    transition: all 0.25s ease !important;
-}
-.btn-whatsapp:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 8px 24px rgba(37, 211, 102, 0.35) !important;
-}
-div[data-baseweb="input"], div[data-baseweb="select"] {
-    border-radius: 8px !important;
-}
-.logo-fallback {
-    font-size: 20px !important;
-    font-weight: 800 !important;
-    color: #001E57 !important;
-    letter-spacing: -0.5px;
-    margin-bottom: 15px;
-}
-.logo-fallback span { color: #FF9200 !important; }
-
-/* TELA DE CARREGAMENTO */
-.loader-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 80vh;
-    animation: fadeOut 0.5s ease-in-out forwards;
-    animation-delay: 2s;
-}
-.spinner {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #001E57;
-    border-right: 4px solid #FF9200;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    animation: spin 1s linear infinite;
-    margin-bottom: 20px;
-}
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-@keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
-@keyframes softSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-tr { transition: background-color 0.2s ease !important; }
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+:root { --navy:#173b70; --navy-deep:#102e5c; --blue:#36b7e5; --orange:#ff9d16; --ink:#172b4d; --muted:#65758b; --line:#e5ebf3; --canvas:#f5f8fc; }
+html, body, [class*="css"] { font-family:'Plus Jakarta Sans',sans-serif; }
+[data-testid="stAppViewContainer"] { background:var(--canvas); color:var(--ink); }
+[data-testid="stHeader"] { background:rgba(245,248,252,.92); }
+[data-testid="stSidebar"] { background:#fff; border-right:1px solid var(--line); }
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { color:var(--ink); }
+.block-container { padding-top:1.8rem; padding-bottom:3rem; max-width:1440px; }
+.clean-title { font-size:clamp(1.7rem,3vw,2.15rem)!important; font-weight:800!important; color:var(--navy-deep)!important; letter-spacing:-.045em; margin:0 0 1.1rem; }
+.premium-card { background:#fff; border:1px solid var(--line); border-radius:18px; padding:24px; box-shadow:0 8px 24px rgba(23,59,112,.045); margin-bottom:18px; }
+.premium-card:hover { border-color:#cfdeef; box-shadow:0 12px 28px rgba(23,59,112,.075); }
+.empty-state-box { background:#fff; border:1px dashed #c9d6e6; border-radius:18px; padding:38px 20px; text-align:center; color:var(--muted); font-size:15px; margin:14px 0; }
+.kpi-title { color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; }
+.kpi-value { font-size:clamp(1.25rem,2vw,1.65rem); font-weight:800; margin-top:7px; letter-spacing:-.04em; }
+.val-total { color:var(--navy); } .val-pago { color:#13805e; } .val-pendente { color:#c46a00; } .val-negado { color:#bd3c43; }
+div.stButton > button, [data-testid="stDownloadButton"] button, div[data-testid="stFormSubmitButton"] button { min-height:2.7rem; border-radius:11px; border:1px solid var(--navy); background:var(--navy); color:#fff; font-weight:700; transition:all .18s ease; }
+div.stButton > button:hover, [data-testid="stDownloadButton"] button:hover, div[data-testid="stFormSubmitButton"] button:hover { background:var(--navy-deep); border-color:var(--navy-deep); color:#fff; transform:translateY(-1px); box-shadow:0 7px 16px rgba(23,59,112,.15); }
+div[data-baseweb="input"], div[data-baseweb="select"] { border-radius:10px; }
+[data-testid="stTextInput"] input, [data-testid="stNumberInput"] input, [data-testid="stDateInput"] input { border-radius:10px; }
+[data-testid="stTabs"] button { font-weight:700; }
+[data-testid="stExpander"] { border:1px solid var(--line); border-radius:14px; background:#fff; }
+.logo-fallback { font-size:22px; font-weight:800; color:var(--navy); letter-spacing:-.04em; margin:4px 0 16px; }
+.logo-fallback span { color:var(--blue); }
+.announcement { display:flex; gap:12px; align-items:center; padding:13px 18px; margin:0 0 22px; border-radius:14px; color:#fff; background:linear-gradient(105deg,#173b70 0%,#214e86 72%,#267bb0 100%); box-shadow:0 8px 20px rgba(23,59,112,.12); }
+.announcement-mark { width:9px; height:9px; flex:0 0 9px; border-radius:50%; background:var(--orange); box-shadow:0 0 0 5px rgba(255,157,22,.16); }
+.announcement strong { display:block; font-size:13px; letter-spacing:.01em; }
+.announcement span { display:block; color:#dce9f8; font-size:12px; margin-top:2px; }
+.btn-whatsapp { background:#1ca765; color:white!important; padding:13px 20px; border-radius:11px; text-decoration:none; font-weight:700; display:flex; justify-content:center; margin-top:14px; }
+.loader-container { display:flex; flex-direction:column; align-items:center; justify-content:center; height:75vh; animation:fadeOut .5s ease-in-out forwards; animation-delay:2s; }
+.spinner { border:4px solid #e8eef5; border-top:4px solid var(--navy); border-right:4px solid var(--orange); border-radius:50%; width:46px; height:46px; animation:spin 1s linear infinite; margin-bottom:18px; }
+@keyframes spin { to { transform:rotate(360deg); } } @keyframes fadeOut { to { opacity:0; visibility:hidden; } }
+@media (max-width:640px) { .block-container { padding-left:1rem; padding-right:1rem; } .premium-card { padding:18px; border-radius:15px; } .announcement { align-items:flex-start; } }
 </style>
 """, unsafe_allow_html=True)
 
-DB_PATH = "reembolso.db"
 DB_TIMEOUT = 30.0
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
-EMAIL_SENHA = os.getenv("EMAIL_SENHA", "")
 
 # --- TELA DE CARREGAMENTO DUARTE ---
 if not st.session_state["app_loaded"]:
@@ -237,7 +142,7 @@ def gerar_tabela_premium(df):
     """
 
 def renderizar_logo(local="sidebar"):
-    logo_file = "LOGO DUARTE FUNDO MARINHO - AJUSTADO.JPG"
+    logo_file = os.path.join("assets", "logo.png")
     if os.path.exists(logo_file):
         if local == "sidebar":
             st.sidebar.image(logo_file, width=130)
@@ -273,21 +178,26 @@ def inicializar_banco():
                    lida INTEGER, data_hora TEXT)""")
 
     # 🔒 LISTA DE ADMINS (Acesso total)
-    lista_admins = [
-        ('admin', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'ADMINISTRADOR PRINCIPAL', '000.000.000-00', '(00) 00000-0000'),
-        ('operacional', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'OPERACIONAL ADMINISTRATIVO', '000.000.000-00', '(00) 00000-0000'),
-        ('financeiro', 'Duarte1234#', 'financeiro.duartegestao@gmail.com', 'admin', 'FINANCEIRO DIRETORIA', '000.000.000-00', '(00) 00000-0000')
-    ]
-    
-    # 👤 LISTA DE USUÁRIOS COMUNS (Acesso Restrito)
+    # Credencial inicial configurada pelo administrador no ambiente; nunca sobrescreve usuários existentes.
+    senha_admin_inicial = os.environ.get("ADMIN_BOOTSTRAP_PASSWORD", "")
+    lista_admins = []
+    if senha_admin_inicial:
+        lista_admins = [
+            ('admin', senha_admin_inicial, os.environ.get("ADMIN_BOOTSTRAP_EMAIL", ""), 'admin', 'ADMINISTRADOR PRINCIPAL', '', ''),
+            ('operacional', senha_admin_inicial, os.environ.get("ADMIN_BOOTSTRAP_EMAIL", ""), 'admin', 'OPERACIONAL ADMINISTRATIVO', '', ''),
+            ('financeiro', senha_admin_inicial, os.environ.get("ADMIN_BOOTSTRAP_EMAIL", ""), 'admin', 'FINANCEIRO DIRETORIA', '', '')
+        ]
+
+    # Contas legadas preservadas para permitir redefinição da senha pelo fluxo de suporte.
+    # A senha vazia só é usada na criação inicial; usuários existentes nunca são alterados.
     lista_usuarios_comuns = [
-        ('15413186843', '090573', 'diretoria@duartegestao.com.br', 'usuario', 'Cristiane A Duarte', '15413186843', '11959353330'),
-        ('26218440818', 'Bb240977*', 'bethania.duarte@duartegestao.com.br', 'usuario', 'Bethania Duarte', '26218440818', '11949957937'),
-        ('11286836875', 'Atos1034', 'abraaossantos@gmail.com', 'usuario', 'Abraao S. Santos', '11286836875', '11972061000')
+        ('15413186843', '', 'diretoria@duartegestao.com.br', 'usuario', 'Cristiane A Duarte', '15413186843', '11959353330'),
+        ('26218440818', '', 'bethania.duarte@duartegestao.com.br', 'usuario', 'Bethania Duarte', '26218440818', '11949957937'),
+        ('11286836875', '', 'abraaossantos@gmail.com', 'usuario', 'Abraao S. Santos', '11286836875', '11972061000')
     ]
 
-    for u in lista_admins + lista_usuarios_comuns: 
-        cursor.execute("INSERT OR REPLACE INTO usuarios VALUES (?,?,?,?,?,?,?)", u)
+    for u in lista_admins + lista_usuarios_comuns:
+        cursor.execute("INSERT OR IGNORE INTO usuarios VALUES (?,?,?,?,?,?,?)", u)
         
     conn.commit()
     conn.close()
@@ -300,6 +210,14 @@ def registrar_log(user, acao):
     conn.close()
 
 inicializar_banco()
+
+st.markdown("""
+<div class="announcement">
+  <div class="announcement-mark"></div>
+  <div><strong>Atualização 2.0 do sistema de reembolsos</strong>
+  <span>Mais clareza para acompanhar solicitações e reforço nas rotinas de segurança.</span></div>
+</div>
+""", unsafe_allow_html=True)
 
 # =================================================================
 # FASE 1: LOGIN / CADASTRO
@@ -407,6 +325,8 @@ else:
     opcoes_menu = ["🏠 Início", "💸 Solicitar Reembolso", "📋 Meus Pedidos"]
     if st.session_state['user_info']['nivel'] == 'admin':
         opcoes_menu += ["📊 Painel do Admin", "📈 Painel Executivo"]
+        if DB_PATH == "reembolso.db":
+            st.sidebar.warning("Armazenamento padrão ativo. Para preservar os dados entre implantações, configure um volume persistente e REEMBOLSO_DB_PATH.")
 
     menu = st.sidebar.radio("Navegação", opcoes_menu)
 
@@ -480,9 +400,11 @@ else:
                 cc_final = cc_outros.strip().upper() if (cc_sel == "OUTROS" and cc_outros.strip() != "") else cc_sel
 
                 if desc and val > 0:
-                    path = f"comprovantes/{datetime.now().strftime('%Y%m%d%H%M%S')}_{arq.name}" if arq else ""
+                    nome_seguro = os.path.basename(arq.name) if arq else ""
+                    nome_arquivo = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{nome_seguro}" if arq else ""
+                    path = f"comprovantes/{nome_arquivo}" if arq else ""
                     if arq:
-                        with open(path, "wb") as f: f.write(arq.getbuffer())
+                        with open(os.path.join(COMPROVANTES_DIR, nome_arquivo), "wb") as f: f.write(arq.getbuffer())
                     
                     conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                     conn.cursor().execute("INSERT INTO reembolsos (usuario, despesa, categoria, c_custo, valor, status, data, caminho_arquivo) VALUES (?,?,?,?,?,?,?,?)",
@@ -497,7 +419,7 @@ else:
     elif menu == "📋 Meus Pedidos":
         st.markdown('<h1 class="clean-title">Acompanhamento de Solicitações</h1>', unsafe_allow_html=True)
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-        df_completo = pd.read_sql(f"SELECT id as 'ID', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data', caminho_arquivo FROM reembolsos WHERE usuario='{st.session_state['user_info']['user']}' ORDER BY id DESC", conn)
+        df_completo = pd.read_sql_query("SELECT id as 'ID', despesa as 'Descrição', categoria as 'Categoria', c_custo as 'Centro de Custo', valor as 'Valor (R$)', status as 'Status', data as 'Data', caminho_arquivo FROM reembolsos WHERE usuario=? ORDER BY id DESC", conn, params=(st.session_state['user_info']['user'],))
         conn.close()
 
         if df_completo.empty:
@@ -549,11 +471,13 @@ else:
                             caminho_atual = row_edit['caminho_arquivo']
                             
                             if novo_arq:
-                                if caminho_atual and os.path.exists(caminho_atual):
-                                    try: os.remove(caminho_atual)
+                                if caminho_atual and os.path.exists(resolver_caminho_comprovante(caminho_atual)):
+                                    try: os.remove(resolver_caminho_comprovante(caminho_atual))
                                     except: pass
-                                caminho_atual = f"comprovantes/{datetime.now().strftime('%Y%m%d%H%M%S')}_{novo_arq.name}"
-                                with open(caminho_atual, "wb") as f: f.write(novo_arq.getbuffer())
+                                nome_seguro = os.path.basename(novo_arq.name)
+                                nome_arquivo = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{nome_seguro}"
+                                caminho_atual = f"comprovantes/{nome_arquivo}"
+                                with open(os.path.join(COMPROVANTES_DIR, nome_arquivo), "wb") as f: f.write(novo_arq.getbuffer())
                             
                             conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                             cursor = conn.cursor()
@@ -571,216 +495,146 @@ else:
 
     # --- 📊 ABA: PAINEL DO ADMIN ---
     elif menu == "📊 Painel do Admin":
-        if st.session_state.get("user_info", {}).get("nivel") != "admin":
-            st.error("Acesso restrito ao administrador.")
-            st.stop()
+        st.markdown('<h1 class="clean-title">Central de Despache Express</h1>', unsafe_allow_html=True)
 
-        st.markdown('<h1 class="clean-title">Central de Despacho</h1>', unsafe_allow_html=True)
-        st.caption("Localize solicitações com filtros e atualize cada registro individualmente.")
+        def processar_acao_clean(id_target, novo_status, log_msg, motivo_rejeicao=""):
+            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+            cursor = conn.cursor()
+            pedido = cursor.execute("SELECT r.despesa, u.usuario FROM reembolsos r JOIN usuarios u ON r.usuario = u.usuario WHERE r.id = ?", (id_target,)).fetchone()
 
+            if pedido:
+                despesa, usuario_dono = pedido
+                cursor.execute("UPDATE reembolsos SET status=? WHERE id=?", (novo_status, id_target))
+                msg_notif = f"Sua solicitação #{id_target} ({despesa}) foi alterada para {novo_status}."
+                if novo_status == "NEGADO" and motivo_rejeicao: msg_notif += f" Motivo: {motivo_rejeicao}"
+                
+                cursor.execute("INSERT INTO notificacoes (usuario, mensagem, lida, data_hora) VALUES (?, ?, 0, ?)",
+                               (usuario_dono, msg_notif, datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
+                conn.commit()
+                registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
+                conn.close()
+                st.success(f"Status atualizado para {novo_status}!")
+                st.rerun()
+            else:
+                conn.close()
+
+        # 🔥 AQUI ESTÁ O LEFT JOIN PARA APARECER O NOME DO FUNCIONÁRIO
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-        status_rows = conn.execute("SELECT status, COUNT(*), COALESCE(SUM(valor), 0) FROM reembolsos GROUP BY status").fetchall()
-        status_totais = {status: (int(qtd), float(total or 0)) for status, qtd, total in status_rows}
-        usuarios_rows = conn.execute("SELECT usuario, COALESCE(nome_completo, usuario) FROM usuarios WHERE nivel != 'admin' ORDER BY nome_completo").fetchall()
-        categorias = [r[0] for r in conn.execute("SELECT DISTINCT categoria FROM reembolsos WHERE categoria IS NOT NULL AND categoria != '' ORDER BY categoria").fetchall()]
-
-        k1, k2, k3, k4 = st.columns(4)
-        for col, titulo, status in [
-            (k1, "Aguardando análise", "PENDENTE"),
-            (k2, "Pronto para pagar", "APROVADO"),
-            (k3, "Pagos", "PAGO"),
-            (k4, "Negados", "NEGADO"),
-        ]:
-            qtd, total = status_totais.get(status, (0, 0.0))
-            col.metric(titulo, f"{qtd} solicitações", f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-        st.markdown("### Filtros")
-        f1, f2, f3 = st.columns([1.5, 1, 1])
-        nomes_usuarios = {f"{nome} · {login}": login for login, nome in usuarios_rows}
-        opcoes_usuario = ["Todos os funcionários"] + list(nomes_usuarios)
-        filtro_usuario = f1.selectbox("Funcionário", opcoes_usuario)
-        status_ui = {
-            "Todos os status": None,
-            "Pendente": "PENDENTE",
-            "Pronto para pagar": "APROVADO",
-            "Pago": "PAGO",
-            "Negado": "NEGADO",
-        }
-        filtro_status_label = f2.selectbox("Status", list(status_ui))
-        filtro_categoria = f3.selectbox("Categoria", ["Todas as categorias"] + categorias)
-
-        f4, f5, f6 = st.columns([2, 1, 1])
-        busca = f4.text_input("Busca", placeholder="Descrição, centro de custo ou ID")
-        periodo = f5.selectbox("Período", ["Todo o período", "Personalizado"])
-        ordenar = f6.selectbox("Ordenar por", ["Mais recentes", "Mais antigos", "Maior valor", "Menor valor"])
-        data_inicio = data_fim = None
-        if periodo == "Personalizado":
-            d1, d2 = st.columns(2)
-            data_inicio = d1.date_input("Data inicial", value=None)
-            data_fim = d2.date_input("Data final", value=None)
-
-        where = []
-        params = []
-        if filtro_usuario != "Todos os funcionários":
-            where.append("r.usuario = ?")
-            params.append(nomes_usuarios[filtro_usuario])
-        if status_ui[filtro_status_label]:
-            where.append("r.status = ?")
-            params.append(status_ui[filtro_status_label])
-        if filtro_categoria != "Todas as categorias":
-            where.append("r.categoria = ?")
-            params.append(filtro_categoria)
-        if busca.strip():
-            termo = f"%{busca.strip()}%"
-            where.append("(r.despesa LIKE ? OR r.c_custo LIKE ? OR CAST(r.id AS TEXT) LIKE ?)")
-            params.extend([termo, termo, termo])
-        if data_inicio:
-            where.append("date(r.data) >= date(?)")
-            params.append(data_inicio.isoformat())
-        if data_fim:
-            where.append("date(r.data) <= date(?)")
-            params.append(data_fim.isoformat())
-        where_sql = (" WHERE " + " AND ".join(where)) if where else ""
-        sort_sql = {
-            "Mais recentes": "r.data DESC, r.id DESC",
-            "Mais antigos": "r.data ASC, r.id ASC",
-            "Maior valor": "r.valor DESC, r.id DESC",
-            "Menor valor": "r.valor ASC, r.id DESC",
-        }[ordenar]
-        resultado_total = conn.execute(
-            "SELECT COUNT(*) FROM reembolsos r LEFT JOIN usuarios u ON r.usuario = u.usuario" + where_sql,
-            params,
-        ).fetchone()[0]
-        por_pagina = 50
-        paginas = max(1, (resultado_total + por_pagina - 1) // por_pagina)
-        pagina = st.selectbox("Página de resultados", range(1, paginas + 1), format_func=lambda n: f"{n} de {paginas}")
-        query = """
-            SELECT r.id AS 'ID', u.nome_completo AS 'Funcionário', r.despesa AS 'Descrição',
-                   r.categoria AS 'Categoria', r.c_custo AS 'Centro de Custo', r.valor AS 'Valor (R$)',
-                   r.status AS 'Status', r.data AS 'Data', r.caminho_arquivo, r.usuario AS _usuario
-            FROM reembolsos r LEFT JOIN usuarios u ON r.usuario = u.usuario
-        """ + where_sql + f" ORDER BY {sort_sql} LIMIT ? OFFSET ?"
-        df_todos = pd.read_sql_query(query, conn, params=(*params, por_pagina, (pagina - 1) * por_pagina))
+        query_admin = """
+        SELECT 
+            r.id as 'ID', 
+            u.nome_completo as 'Funcionário', 
+            r.despesa as 'Descrição', 
+            r.categoria as 'Categoria', 
+            r.c_custo as 'Centro de Custo', 
+            r.valor as 'Valor (R$)', 
+            r.status as 'Status', 
+            r.data as 'Data Lançamento', 
+            r.caminho_arquivo 
+        FROM reembolsos r
+        LEFT JOIN usuarios u ON r.usuario = u.usuario
+        ORDER BY r.id DESC
+        """
+        df_todos = pd.read_sql(query_admin, conn)
         conn.close()
 
-        st.caption(f"{resultado_total} solicitação(ões) encontrada(s); exibindo até {por_pagina} por página.")
+        tab_pendente, tab_aprovado, tab_historico = st.tabs(["⏳ Aguardando Análise", "💸 Pronto para Pagamento", "🗂️ Histórico Geral"])
+
+        with tab_pendente: st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'] == 'PENDENTE']), unsafe_allow_html=True)
+        with tab_aprovado: st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'] == 'APROVADO']), unsafe_allow_html=True)
+        with tab_historico: st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'].isin(['PAGO', 'NEGADO'])]), unsafe_allow_html=True)
+
+        # PAINEL DE AÇÕES RÁPIDAS
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
+        st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:20px; font-size:18px;">🕹️ Painel de Ações Rápidas</p>', unsafe_allow_html=True)
+
         if df_todos.empty:
-            st.info("Nenhuma solicitação corresponde aos filtros. Limpe ou ajuste os critérios de busca.")
+            st.info("Nenhum lançamento no sistema.")
         else:
-            st.dataframe(
-                df_todos.drop(columns=["caminho_arquivo", "_usuario"]),
-                use_container_width=True,
-                hide_index=True,
-                column_config={"Valor (R$)": st.column_config.NumberColumn(format="R$ %.2f")},
-            )
+            df_todos['selector_text'] = df_todos.apply(lambda r: f"#{r['ID']} - {r['Funcionário']} | {r['Descrição']} (R$ {r['Valor (R$)']:.2f}) [{r['Status']}]", axis=1)
+            col_ctrl, col_preview = st.columns([1.3, 1])
 
-            st.markdown("### Ação individual")
-            opcoes_registro = {
-                f"#{int(r['ID'])} · {r['Funcionário'] or r['_usuario']} · {r['Descrição']} · R$ {float(r['Valor (R$)']):.2f} · {r['Status']}": r
-                for _, r in df_todos.iterrows()
-            }
-            label_sel = st.selectbox("Selecione a solicitação para revisar", list(opcoes_registro))
-            row_sel = opcoes_registro[label_sel]
-            id_target = int(row_sel["ID"])
-            status_atual = row_sel["Status"]
-            caminho_comprovante = row_sel["caminho_arquivo"]
-            usuario_dono = row_sel["_usuario"]
-            usuario_dono_nome = row_sel["Funcionário"] or usuario_dono
+            with col_ctrl:
+                item_selecionado = st.selectbox("Selecione o lançamento para despachar:", df_todos['selector_text'].tolist())
+                row_sel = df_todos[df_todos['selector_text'] == item_selecionado].iloc[0]
 
-            if status_atual == "PENDENTE":
-                if st.button("Aprovar solicitação", key=f"aprovar_{id_target}"):
-                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE reembolsos SET status='APROVADO' WHERE id=? AND status='PENDENTE'", (id_target,))
-                    if cursor.rowcount:
-                        cursor.execute("INSERT INTO notificacoes (usuario, mensagem, lida, data_hora) VALUES (?, ?, 0, ?)", (usuario_dono, f"Sua solicitação #{id_target} foi alterada para APROVADO.", datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
-                        conn.commit()
-                        conn.close()
-                        registrar_log(st.session_state['user_info']['user'], f"APROVOU REEMBOLSO ID {id_target}")
-                        st.success("Solicitação aprovada.")
-                        st.rerun()
-                    conn.close()
-                    st.warning("O status mudou antes da atualização. Recarregue a lista.")
-            elif status_atual == "APROVADO":
-                if st.button("Marcar como pago", key=f"pagar_{id_target}"):
-                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE reembolsos SET status='PAGO' WHERE id=? AND status='APROVADO'", (id_target,))
-                    if cursor.rowcount:
-                        cursor.execute("INSERT INTO notificacoes (usuario, mensagem, lida, data_hora) VALUES (?, ?, 0, ?)", (usuario_dono, f"Sua solicitação #{id_target} foi alterada para PAGO.", datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
-                        conn.commit()
-                        conn.close()
-                        registrar_log(st.session_state['user_info']['user'], f"PAGOU REEMBOLSO ID {id_target}")
-                        st.success("Pagamento registrado.")
-                        st.rerun()
-                    conn.close()
-                    st.warning("O status mudou antes da atualização. Recarregue a lista.")
+                id_target = int(row_sel['ID'])
+                status_atual = row_sel['Status']
+                caminho_comprovante = row_sel['caminho_arquivo']
+                usuario_dono_nome = row_sel['Funcionário']
 
-            if status_atual in ["PENDENTE", "APROVADO"]:
-                motivo = st.text_input("Motivo da recusa", key=f"motivo_{id_target}")
-                if st.button("Negar solicitação", key=f"negar_{id_target}"):
-                    if not motivo.strip():
-                        st.error("Informe o motivo da recusa.")
-                    else:
-                        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-                        cursor = conn.cursor()
-                        cursor.execute("UPDATE reembolsos SET status='NEGADO' WHERE id=? AND status=?", (id_target, status_atual))
-                        if cursor.rowcount:
-                            cursor.execute("INSERT INTO notificacoes (usuario, mensagem, lida, data_hora) VALUES (?, ?, 0, ?)", (usuario_dono, f"Sua solicitação #{id_target} foi alterada para NEGADO. Motivo: {motivo.strip()}", datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
-                            conn.commit()
-                            conn.close()
-                            registrar_log(st.session_state['user_info']['user'], f"REJEITOU REEMBOLSO ID {id_target}")
-                            st.success("Solicitação negada e usuário notificado.")
-                            st.rerun()
-                        conn.close()
-                        st.warning("O status mudou antes da atualização. Recarregue a lista.")
-
-            if status_atual == "PAGO":
+                # Precisamos buscar o usuário (código) real e telefone para o WhatsApp
                 conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-                dados_func = conn.execute("SELECT telefone FROM usuarios WHERE usuario=?", (usuario_dono,)).fetchone()
+                dados_func = conn.cursor().execute("SELECT telefone FROM usuarios WHERE nome_completo=?", (usuario_dono_nome,)).fetchone()
                 conn.close()
-                telefone_func = dados_func[0] if dados_func else ""
-                if telefone_func:
-                    tel_limpo = "".join(filter(str.isdigit, telefone_func))
-                    if not tel_limpo.startswith("55") and len(tel_limpo) >= 10:
-                        tel_limpo = "55" + tel_limpo
-                    msg_wa = f"Olá, *{usuario_dono_nome}*!\n\nSua solicitação de reembolso *#{id_target}* (*{row_sel['Descrição']}*) de *R$ {float(row_sel['Valor (R$)']):.2f}* foi paga com sucesso!"
-                    st.link_button("Abrir WhatsApp com mensagem pronta", f"https://wa.me/{tel_limpo}?text={urllib.parse.quote(msg_wa)}")
-                    st.caption("O link abre uma mensagem pré-preenchida; o sistema não confirma se ela foi enviada.")
 
-            with st.expander("Comprovante e exclusão", expanded=False):
-                if caminho_comprovante and os.path.exists(caminho_comprovante):
-                    if caminho_comprovante.lower().endswith(".pdf"):
-                        st.caption("Comprovante em PDF disponível para download.")
-                    else:
-                        st.image(caminho_comprovante, use_container_width=True)
-                    with open(caminho_comprovante, "rb") as f:
-                        st.download_button("Baixar comprovante", f, file_name=os.path.basename(caminho_comprovante), key=f"download_{id_target}")
-                else:
-                    st.warning("Comprovante ausente neste ambiente; a referência no banco não garante que o arquivo exista.")
-                confirmar_exclusao = st.checkbox("Confirmo que desejo excluir permanentemente este registro.", key=f"del_chk_{id_target}")
-                if st.button("Excluir solicitação", key=f"del_btn_{id_target}"):
-                    if not confirmar_exclusao:
-                        st.error("Marque a confirmação antes de excluir.")
-                    else:
+                telefone_func = dados_func[0] if dados_func else ""
+
+                if status_atual == "PENDENTE":
+                    if st.button("✅ Aprovar Documento"): processar_acao_clean(id_target, "APROVADO", "APROVOU REEMBOLSO")
+                elif status_atual == "APROVADO":
+                    if st.button("💸 Marcar como PAGO (Liquidar)"): processar_acao_clean(id_target, "PAGO", "PAGOU REEMBOLSO")
+
+                if status_atual == "PAGO" and telefone_func:
+                    tel_limpo = "".join(filter(str.isdigit, telefone_func))
+                    if not tel_limpo.startswith("55") and len(tel_limpo) >= 10: tel_limpo = "55" + tel_limpo
+                    msg_wa = f"Olá, *{usuario_dono_nome}*!\n\nSua solicitação de reembolso *#{id_target}* (*{row_sel['Descrição']}*) de *R$ {row_sel['Valor (R$)']:.2f}* foi paga com sucesso!"
+                    st.markdown(f'<a href="https://wa.me/{tel_limpo}?text={urllib.parse.quote(msg_wa)}" target="_blank" class="btn-whatsapp">💬 Enviar Notificação via WhatsApp</a>', unsafe_allow_html=True)
+
+                if status_atual in ["PENDENTE", "APROVADO"]:
+                    motivo = st.text_input("Motivo da Recusa:", key=f"motivo_{id_target}")
+                    if st.button("❌ Negar Reembolso"):
+                        if motivo.strip(): processar_acao_clean(id_target, "NEGADO", "REJEITOU REEMBOLSO", motivo)
+                        else: st.error("Insira o motivo.")
+
+                st.write("---")
+                st.markdown("<p style='color:#ef4444; font-weight:700; font-size:14px; margin-bottom:5px;'>⚠️ Zona de Perigo</p>", unsafe_allow_html=True)
+                confirmar_exclusao = st.checkbox("Estou ciente de que esta ação apagará permanentemente o registro do banco de dados.", key=f"del_chk_{id_target}")
+                
+                if st.button("🗑️ Excluir Lançamento Permanente", key=f"del_btn_{id_target}"):
+                    if confirmar_exclusao:
                         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                         cursor = conn.cursor()
-                        if caminho_comprovante and os.path.exists(caminho_comprovante):
-                            try:
-                                os.remove(caminho_comprovante)
-                            except OSError:
-                                pass
+                        if caminho_comprovante and os.path.exists(resolver_caminho_comprovante(caminho_comprovante)):
+                            try: os.remove(resolver_caminho_comprovante(caminho_comprovante))
+                            except: pass
                         cursor.execute("DELETE FROM reembolsos WHERE id=?", (id_target,))
-                        conn.commit()
-                        conn.close()
-                        st.success(f"Solicitação #{id_target} excluída.")
+                        conn.commit(); conn.close()
+                        st.success(f"Lançamento #{id_target} apagado!")
                         st.rerun()
+                    else:
+                        st.error("Marque a caixa de confirmação primeiro.")
 
-        with st.expander("Usuários cadastrados (dados limitados)"):
+            # 📥 DOWNLOAD DO COMPROVANTE CORRIGIDO
+            with col_preview:
+                if caminho_comprovante and os.path.exists(resolver_caminho_comprovante(caminho_comprovante)):
+                    st.markdown("**📄 Arquivo em anexo:**")
+                    
+                    if caminho_comprovante.lower().endswith('.pdf'):
+                        st.caption("Documento PDF. Clique no botão abaixo para baixar e revisar:")
+                    else:
+                        st.image(resolver_caminho_comprovante(caminho_comprovante), use_container_width=True)
+                        st.caption("Imagem do comprovante. Clique no botão abaixo para salvar uma cópia:")
+                    
+                    with open(resolver_caminho_comprovante(caminho_comprovante), "rb") as f:
+                        st.download_button(
+                            label="📥 Baixar Comprovante", 
+                            data=f, 
+                            file_name=os.path.basename(caminho_comprovante),
+                            use_container_width=True
+                        )
+                else: 
+                    st.info("Sem arquivo em anexo.")
+                    
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("👥 [PRODUÇÃO] Lista de Usuários Cadastrados no Sistema"):
             conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-            df_users = pd.read_sql_query("SELECT usuario AS 'Login', nome_completo AS 'Nome', nivel AS 'Perfil' FROM usuarios ORDER BY nome_completo", conn)
+            df_users = pd.read_sql("SELECT usuario as 'Login', nome_completo as 'Nome Completo', nivel as 'Perfil', email as 'E-mail', telefone as 'Telefone' FROM usuarios", conn)
             conn.close()
-            st.dataframe(df_users, use_container_width=True, hide_index=True)
+            st.dataframe(df_users, use_container_width=True)
 
     # --- 📈 ABA: PAINEL EXECUTIVO ---
     elif menu == "📈 Painel Executivo":
@@ -853,3 +707,116 @@ else:
             )
         else:
             st.info("Nenhum dado financeiro para exportar no momento.")
+
+        st.markdown("### 🛡️ Importar backup de solicitações (CSV)")
+        st.caption("A importação só é liberada quando ainda não há solicitações no banco. Ela não substitui usuários, anexos ou outros dados; primeiro gera uma cópia local do banco atual.")
+        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+        qtd_atual = conn.execute("SELECT COUNT(*) FROM reembolsos").fetchone()[0]
+        conn.close()
+        if qtd_atual:
+            st.warning(f"Importação bloqueada: o banco já possui {qtd_atual} solicitação(ões). Isso evita duplicações e sobrescritas acidentais.")
+        else:
+            st.info("O banco de solicitações está vazio. Envie um backup CSV para conferir a prévia antes de confirmar.")
+
+        arquivo_backup = st.file_uploader("Selecionar backup CSV", type=["csv"], key="importar_backup_csv")
+        if arquivo_backup is not None:
+            try:
+                dados_bytes = arquivo_backup.getvalue()
+                try:
+                    df_import = pd.read_csv(io.BytesIO(dados_bytes), dtype=str, keep_default_na=False, encoding="utf-8-sig")
+                except UnicodeDecodeError:
+                    df_import = pd.read_csv(io.BytesIO(dados_bytes), dtype=str, keep_default_na=False, encoding="latin-1")
+
+                obrigatorias = ["id", "usuario", "despesa", "categoria", "c_custo", "valor", "status", "data"]
+                faltantes = [c for c in obrigatorias if c not in df_import.columns]
+                if faltantes:
+                    st.error("CSV não reconhecido. Colunas obrigatórias ausentes: " + ", ".join(faltantes))
+                elif df_import.empty:
+                    st.error("O CSV não contém solicitações para importar.")
+                else:
+                    erros_import = []
+                    linhas_import = []
+                    ids_vistos = set()
+                    for numero_linha, linha in df_import.iterrows():
+                        linha_num = numero_linha + 2
+                        try:
+                            id_registro = int(str(linha["id"]).strip())
+                            if id_registro <= 0 or id_registro in ids_vistos:
+                                raise ValueError("ID inválido ou repetido no próprio CSV")
+                            ids_vistos.add(id_registro)
+                            usuario_csv = str(linha["usuario"]).strip()
+                            despesa_csv = str(linha["despesa"]).strip()
+                            categoria_csv = str(linha["categoria"]).strip()
+                            centro_csv = str(linha["c_custo"]).strip()
+                            status_csv = str(linha["status"]).strip().upper()
+                            if not usuario_csv or not despesa_csv or not categoria_csv or not centro_csv:
+                                raise ValueError("há campo obrigatório vazio")
+                            if status_csv not in {"PENDENTE", "APROVADO", "PAGO", "NEGADO"}:
+                                raise ValueError("status não reconhecido")
+                            valor_txt = str(linha["valor"]).strip().replace("R$", "").replace(" ", "")
+                            if "," in valor_txt and "." not in valor_txt:
+                                valor_txt = valor_txt.replace(",", ".")
+                            valor_csv = float(valor_txt)
+                            if valor_csv < 0 or not pd.notna(valor_csv):
+                                raise ValueError("valor inválido")
+                            data_txt = str(linha["data"]).strip()
+                            data_csv = None
+                            for fmt_data in ("%Y-%m-%d", "%d/%m/%Y"):
+                                try:
+                                    data_csv = datetime.strptime(data_txt, fmt_data).date().isoformat()
+                                    break
+                                except ValueError:
+                                    pass
+                            if data_csv is None:
+                                raise ValueError("data inválida (use AAAA-MM-DD ou DD/MM/AAAA)")
+                            anexo_csv = str(linha.get("caminho_arquivo", "")).strip()
+                            if anexo_csv:
+                                anexo_norm = anexo_csv.replace("\\", "/")
+                                if anexo_norm.startswith("/") or ":" in anexo_norm or ".." in anexo_norm.split("/") or not anexo_norm.startswith("comprovantes/"):
+                                    raise ValueError("caminho de comprovante inseguro ou fora da pasta comprovantes")
+                                anexo_csv = "comprovantes/" + os.path.basename(anexo_norm)
+                            linhas_import.append((id_registro, usuario_csv, despesa_csv, categoria_csv, centro_csv, valor_csv, status_csv, data_csv, anexo_csv))
+                        except Exception as erro_linha:
+                            erros_import.append(f"Linha {linha_num}: {erro_linha}")
+
+                    st.markdown(f"**Prévia:** {len(df_import)} linha(s) no arquivo · **{len(linhas_import)} válida(s)** · {sum(1 for x in linhas_import if x[8])} com referência a comprovante.")
+                    st.caption("Os arquivos de comprovante não estão dentro do CSV; referências só voltarão a abrir se os arquivos também existirem na pasta persistente de anexos.")
+                    if erros_import:
+                        with st.expander(f"Ver problemas encontrados ({len(erros_import)})"):
+                            for erro in erros_import[:30]:
+                                st.write("• " + erro)
+                            if len(erros_import) > 30:
+                                st.caption(f"Mais {len(erros_import) - 30} problema(s) não exibido(s).")
+                    if len(linhas_import) == len(df_import) and not erros_import:
+                        st.warning("Confirme apenas se este é o backup correto. A operação adiciona todas as linhas em uma única transação; se falhar, nenhuma linha é importada.")
+                        confirma_import = st.text_input("Digite IMPORTAR para habilitar a restauração", key="confirmar_importacao_csv")
+                        if st.button("Restaurar solicitações deste CSV", type="primary", key="botao_importar_csv"):
+                            if confirma_import.strip() != "IMPORTAR":
+                                st.error("Digite IMPORTAR exatamente para confirmar.")
+                            else:
+                                copia_path = ""
+                                try:
+                                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                                    conn.execute("BEGIN IMMEDIATE")
+                                    if conn.execute("SELECT COUNT(*) FROM reembolsos").fetchone()[0] != 0:
+                                        raise RuntimeError("O banco deixou de estar vazio; importação cancelada sem alterações.")
+                                    os.makedirs("backups", exist_ok=True)
+                                    copia_path = os.path.join("backups", f"reembolso_pre_importacao_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sqlite3")
+                                    destino = sqlite3.connect(copia_path)
+                                    conn.backup(destino)
+                                    destino.close()
+                                    conn.executemany("INSERT INTO reembolsos (id, usuario, despesa, categoria, c_custo, valor, status, data, caminho_arquivo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", linhas_import)
+                                    conn.commit()
+                                    conn.close()
+                                    registrar_log(st.session_state['user_info']['user'], f"IMPORTOU BACKUP CSV ({len(linhas_import)} solicitações)")
+                                    st.success(f"Importação concluída: {len(linhas_import)} solicitações restauradas. Uma cópia local do banco anterior foi criada antes da operação.")
+                                    st.rerun()
+                                except Exception as erro_import:
+                                    try:
+                                        conn.rollback()
+                                        conn.close()
+                                    except Exception:
+                                        pass
+                                    st.error(f"Importação cancelada; o banco não foi alterado: {erro_import}")
+            except Exception as erro_csv:
+                st.error(f"Não foi possível ler este CSV: {erro_csv}")
