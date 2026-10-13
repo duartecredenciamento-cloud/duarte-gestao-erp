@@ -177,16 +177,37 @@ def inicializar_banco():
                    (id INTEGER PRIMARY KEY AUTOINCREMENT, usuario TEXT, mensagem TEXT,
                    lida INTEGER, data_hora TEXT)""")
 
-    # 🔒 LISTA DE ADMINS (Acesso total)
-    # Credencial inicial configurada pelo administrador no ambiente; nunca sobrescreve usuários existentes.
-    senha_admin_inicial = os.environ.get("ADMIN_BOOTSTRAP_PASSWORD", "")
-    lista_admins = []
+    # Conta administrativa de recuperação: usa senha definida fora do código.
+    # O bootstrap é aplicado uma única vez por banco para não redefinir a senha
+    # em cada reinicialização. Login: admin.
+    cursor.execute("""CREATE TABLE IF NOT EXISTS app_config
+                   (chave TEXT PRIMARY KEY, valor TEXT)""")
+    senha_admin_inicial = os.environ.get("ADMIN_BOOTSTRAP_PASSWORD", "").strip()
     if senha_admin_inicial:
-        lista_admins = [
-            ('admin', senha_admin_inicial, os.environ.get("ADMIN_BOOTSTRAP_EMAIL", ""), 'admin', 'ADMINISTRADOR PRINCIPAL', '', ''),
-            ('operacional', senha_admin_inicial, os.environ.get("ADMIN_BOOTSTRAP_EMAIL", ""), 'admin', 'OPERACIONAL ADMINISTRATIVO', '', ''),
-            ('financeiro', senha_admin_inicial, os.environ.get("ADMIN_BOOTSTRAP_EMAIL", ""), 'admin', 'FINANCEIRO DIRETORIA', '', '')
-        ]
+        bootstrap_feito = cursor.execute(
+            "SELECT valor FROM app_config WHERE chave = ?", ("admin_bootstrap_done",)
+        ).fetchone()
+        if not bootstrap_feito:
+            admin_existente = cursor.execute(
+                "SELECT usuario FROM usuarios WHERE usuario = ?", ("admin",)
+            ).fetchone()
+            email_admin = os.environ.get("ADMIN_BOOTSTRAP_EMAIL", "")
+            if admin_existente:
+                cursor.execute(
+                    "UPDATE usuarios SET senha = ?, email = ?, nivel = 'admin', "
+                    "nome_completo = ? WHERE usuario = ?",
+                    (senha_admin_inicial, email_admin, "ADMINISTRADOR PRINCIPAL", "admin"),
+                )
+            else:
+                cursor.execute(
+                    "INSERT INTO usuarios (usuario, senha, email, nivel, nome_completo, cpf, telefone) "
+                    "VALUES (?, ?, ?, 'admin', ?, '', '')",
+                    ("admin", senha_admin_inicial, email_admin, "ADMINISTRADOR PRINCIPAL"),
+                )
+            cursor.execute(
+                "INSERT INTO app_config (chave, valor) VALUES (?, ?)",
+                ("admin_bootstrap_done", "1"),
+            )
 
     # Contas legadas preservadas para permitir redefinição da senha pelo fluxo de suporte.
     # A senha vazia só é usada na criação inicial; usuários existentes nunca são alterados.
@@ -196,7 +217,7 @@ def inicializar_banco():
         ('11286836875', '', 'abraaossantos@gmail.com', 'usuario', 'Abraao S. Santos', '11286836875', '11972061000')
     ]
 
-    for u in lista_admins + lista_usuarios_comuns:
+    for u in lista_usuarios_comuns:
         cursor.execute("INSERT OR IGNORE INTO usuarios VALUES (?,?,?,?,?,?,?)", u)
         
     conn.commit()
