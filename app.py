@@ -173,7 +173,7 @@ DB_TIMEOUT = 30.0
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 EMAIL_REMETENTE = "financeiro.duartegestao@gmail.com"
-EMAIL_SENHA = "zbvwzhnsjlqperfr"
+EMAIL_SENHA = os.getenv("EMAIL_SENHA", "")
 
 # --- TELA DE CARREGAMENTO DUARTE ---
 if not st.session_state["app_loaded"]:
@@ -571,146 +571,216 @@ else:
 
     # --- 📊 ABA: PAINEL DO ADMIN ---
     elif menu == "📊 Painel do Admin":
-        st.markdown('<h1 class="clean-title">Central de Despache Express</h1>', unsafe_allow_html=True)
+        if st.session_state.get("user_info", {}).get("nivel") != "admin":
+            st.error("Acesso restrito ao administrador.")
+            st.stop()
 
-        def processar_acao_clean(id_target, novo_status, log_msg, motivo_rejeicao=""):
-            conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-            cursor = conn.cursor()
-            pedido = cursor.execute("SELECT r.despesa, u.usuario FROM reembolsos r JOIN usuarios u ON r.usuario = u.usuario WHERE r.id = ?", (id_target,)).fetchone()
+        st.markdown('<h1 class="clean-title">Central de Despacho</h1>', unsafe_allow_html=True)
+        st.caption("Localize solicitações com filtros e atualize cada registro individualmente.")
 
-            if pedido:
-                despesa, usuario_dono = pedido
-                cursor.execute("UPDATE reembolsos SET status=? WHERE id=?", (novo_status, id_target))
-                msg_notif = f"Sua solicitação #{id_target} ({despesa}) foi alterada para {novo_status}."
-                if novo_status == "NEGADO" and motivo_rejeicao: msg_notif += f" Motivo: {motivo_rejeicao}"
-                
-                cursor.execute("INSERT INTO notificacoes (usuario, mensagem, lida, data_hora) VALUES (?, ?, 0, ?)",
-                               (usuario_dono, msg_notif, datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
-                conn.commit()
-                registrar_log(st.session_state['user_info']['user'], f"{log_msg} ID {id_target}")
-                conn.close()
-                st.success(f"Status atualizado para {novo_status}!")
-                st.rerun()
-            else:
-                conn.close()
-
-        # 🔥 AQUI ESTÁ O LEFT JOIN PARA APARECER O NOME DO FUNCIONÁRIO
         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-        query_admin = """
-        SELECT 
-            r.id as 'ID', 
-            u.nome_completo as 'Funcionário', 
-            r.despesa as 'Descrição', 
-            r.categoria as 'Categoria', 
-            r.c_custo as 'Centro de Custo', 
-            r.valor as 'Valor (R$)', 
-            r.status as 'Status', 
-            r.data as 'Data Lançamento', 
-            r.caminho_arquivo 
-        FROM reembolsos r
-        LEFT JOIN usuarios u ON r.usuario = u.usuario
-        ORDER BY r.id DESC
-        """
-        df_todos = pd.read_sql(query_admin, conn)
+        status_rows = conn.execute("SELECT status, COUNT(*), COALESCE(SUM(valor), 0) FROM reembolsos GROUP BY status").fetchall()
+        status_totais = {status: (int(qtd), float(total or 0)) for status, qtd, total in status_rows}
+        usuarios_rows = conn.execute("SELECT usuario, COALESCE(nome_completo, usuario) FROM usuarios WHERE nivel != 'admin' ORDER BY nome_completo").fetchall()
+        categorias = [r[0] for r in conn.execute("SELECT DISTINCT categoria FROM reembolsos WHERE categoria IS NOT NULL AND categoria != '' ORDER BY categoria").fetchall()]
+
+        k1, k2, k3, k4 = st.columns(4)
+        for col, titulo, status in [
+            (k1, "Aguardando análise", "PENDENTE"),
+            (k2, "Pronto para pagar", "APROVADO"),
+            (k3, "Pagos", "PAGO"),
+            (k4, "Negados", "NEGADO"),
+        ]:
+            qtd, total = status_totais.get(status, (0, 0.0))
+            col.metric(titulo, f"{qtd} solicitações", f"R$ {total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        st.markdown("### Filtros")
+        f1, f2, f3 = st.columns([1.5, 1, 1])
+        nomes_usuarios = {f"{nome} · {login}": login for login, nome in usuarios_rows}
+        opcoes_usuario = ["Todos os funcionários"] + list(nomes_usuarios)
+        filtro_usuario = f1.selectbox("Funcionário", opcoes_usuario)
+        status_ui = {
+            "Todos os status": None,
+            "Pendente": "PENDENTE",
+            "Pronto para pagar": "APROVADO",
+            "Pago": "PAGO",
+            "Negado": "NEGADO",
+        }
+        filtro_status_label = f2.selectbox("Status", list(status_ui))
+        filtro_categoria = f3.selectbox("Categoria", ["Todas as categorias"] + categorias)
+
+        f4, f5, f6 = st.columns([2, 1, 1])
+        busca = f4.text_input("Busca", placeholder="Descrição, centro de custo ou ID")
+        periodo = f5.selectbox("Período", ["Todo o período", "Personalizado"])
+        ordenar = f6.selectbox("Ordenar por", ["Mais recentes", "Mais antigos", "Maior valor", "Menor valor"])
+        data_inicio = data_fim = None
+        if periodo == "Personalizado":
+            d1, d2 = st.columns(2)
+            data_inicio = d1.date_input("Data inicial", value=None)
+            data_fim = d2.date_input("Data final", value=None)
+
+        where = []
+        params = []
+        if filtro_usuario != "Todos os funcionários":
+            where.append("r.usuario = ?")
+            params.append(nomes_usuarios[filtro_usuario])
+        if status_ui[filtro_status_label]:
+            where.append("r.status = ?")
+            params.append(status_ui[filtro_status_label])
+        if filtro_categoria != "Todas as categorias":
+            where.append("r.categoria = ?")
+            params.append(filtro_categoria)
+        if busca.strip():
+            termo = f"%{busca.strip()}%"
+            where.append("(r.despesa LIKE ? OR r.c_custo LIKE ? OR CAST(r.id AS TEXT) LIKE ?)")
+            params.extend([termo, termo, termo])
+        if data_inicio:
+            where.append("date(r.data) >= date(?)")
+            params.append(data_inicio.isoformat())
+        if data_fim:
+            where.append("date(r.data) <= date(?)")
+            params.append(data_fim.isoformat())
+        where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+        sort_sql = {
+            "Mais recentes": "r.data DESC, r.id DESC",
+            "Mais antigos": "r.data ASC, r.id ASC",
+            "Maior valor": "r.valor DESC, r.id DESC",
+            "Menor valor": "r.valor ASC, r.id DESC",
+        }[ordenar]
+        resultado_total = conn.execute(
+            "SELECT COUNT(*) FROM reembolsos r LEFT JOIN usuarios u ON r.usuario = u.usuario" + where_sql,
+            params,
+        ).fetchone()[0]
+        por_pagina = 50
+        paginas = max(1, (resultado_total + por_pagina - 1) // por_pagina)
+        pagina = st.selectbox("Página de resultados", range(1, paginas + 1), format_func=lambda n: f"{n} de {paginas}")
+        query = """
+            SELECT r.id AS 'ID', u.nome_completo AS 'Funcionário', r.despesa AS 'Descrição',
+                   r.categoria AS 'Categoria', r.c_custo AS 'Centro de Custo', r.valor AS 'Valor (R$)',
+                   r.status AS 'Status', r.data AS 'Data', r.caminho_arquivo, r.usuario AS _usuario
+            FROM reembolsos r LEFT JOIN usuarios u ON r.usuario = u.usuario
+        """ + where_sql + f" ORDER BY {sort_sql} LIMIT ? OFFSET ?"
+        df_todos = pd.read_sql_query(query, conn, params=(*params, por_pagina, (pagina - 1) * por_pagina))
         conn.close()
 
-        tab_pendente, tab_aprovado, tab_historico = st.tabs(["⏳ Aguardando Análise", "💸 Pronto para Pagamento", "🗂️ Histórico Geral"])
-
-        with tab_pendente: st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'] == 'PENDENTE']), unsafe_allow_html=True)
-        with tab_aprovado: st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'] == 'APROVADO']), unsafe_allow_html=True)
-        with tab_historico: st.markdown(gerar_tabela_premium(df_todos[df_todos['Status'].isin(['PAGO', 'NEGADO'])]), unsafe_allow_html=True)
-
-        # PAINEL DE AÇÕES RÁPIDAS
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-        st.markdown('<p style="font-weight:700; color:#001E57; margin-bottom:20px; font-size:18px;">🕹️ Painel de Ações Rápidas</p>', unsafe_allow_html=True)
-
+        st.caption(f"{resultado_total} solicitação(ões) encontrada(s); exibindo até {por_pagina} por página.")
         if df_todos.empty:
-            st.info("Nenhum lançamento no sistema.")
+            st.info("Nenhuma solicitação corresponde aos filtros. Limpe ou ajuste os critérios de busca.")
         else:
-            df_todos['selector_text'] = df_todos.apply(lambda r: f"#{r['ID']} - {r['Funcionário']} | {r['Descrição']} (R$ {r['Valor (R$)']:.2f}) [{r['Status']}]", axis=1)
-            col_ctrl, col_preview = st.columns([1.3, 1])
+            st.dataframe(
+                df_todos.drop(columns=["caminho_arquivo", "_usuario"]),
+                use_container_width=True,
+                hide_index=True,
+                column_config={"Valor (R$)": st.column_config.NumberColumn(format="R$ %.2f")},
+            )
 
-            with col_ctrl:
-                item_selecionado = st.selectbox("Selecione o lançamento para despachar:", df_todos['selector_text'].tolist())
-                row_sel = df_todos[df_todos['selector_text'] == item_selecionado].iloc[0]
+            st.markdown("### Ação individual")
+            opcoes_registro = {
+                f"#{int(r['ID'])} · {r['Funcionário'] or r['_usuario']} · {r['Descrição']} · R$ {float(r['Valor (R$)']):.2f} · {r['Status']}": r
+                for _, r in df_todos.iterrows()
+            }
+            label_sel = st.selectbox("Selecione a solicitação para revisar", list(opcoes_registro))
+            row_sel = opcoes_registro[label_sel]
+            id_target = int(row_sel["ID"])
+            status_atual = row_sel["Status"]
+            caminho_comprovante = row_sel["caminho_arquivo"]
+            usuario_dono = row_sel["_usuario"]
+            usuario_dono_nome = row_sel["Funcionário"] or usuario_dono
 
-                id_target = int(row_sel['ID'])
-                status_atual = row_sel['Status']
-                caminho_comprovante = row_sel['caminho_arquivo']
-                usuario_dono_nome = row_sel['Funcionário']
+            if status_atual == "PENDENTE":
+                if st.button("Aprovar solicitação", key=f"aprovar_{id_target}"):
+                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE reembolsos SET status='APROVADO' WHERE id=? AND status='PENDENTE'", (id_target,))
+                    if cursor.rowcount:
+                        cursor.execute("INSERT INTO notificacoes (usuario, mensagem, lida, data_hora) VALUES (?, ?, 0, ?)", (usuario_dono, f"Sua solicitação #{id_target} foi alterada para APROVADO.", datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
+                        conn.commit()
+                        conn.close()
+                        registrar_log(st.session_state['user_info']['user'], f"APROVOU REEMBOLSO ID {id_target}")
+                        st.success("Solicitação aprovada.")
+                        st.rerun()
+                    conn.close()
+                    st.warning("O status mudou antes da atualização. Recarregue a lista.")
+            elif status_atual == "APROVADO":
+                if st.button("Marcar como pago", key=f"pagar_{id_target}"):
+                    conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE reembolsos SET status='PAGO' WHERE id=? AND status='APROVADO'", (id_target,))
+                    if cursor.rowcount:
+                        cursor.execute("INSERT INTO notificacoes (usuario, mensagem, lida, data_hora) VALUES (?, ?, 0, ?)", (usuario_dono, f"Sua solicitação #{id_target} foi alterada para PAGO.", datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
+                        conn.commit()
+                        conn.close()
+                        registrar_log(st.session_state['user_info']['user'], f"PAGOU REEMBOLSO ID {id_target}")
+                        st.success("Pagamento registrado.")
+                        st.rerun()
+                    conn.close()
+                    st.warning("O status mudou antes da atualização. Recarregue a lista.")
 
-                # Precisamos buscar o usuário (código) real e telefone para o WhatsApp
+            if status_atual in ["PENDENTE", "APROVADO"]:
+                motivo = st.text_input("Motivo da recusa", key=f"motivo_{id_target}")
+                if st.button("Negar solicitação", key=f"negar_{id_target}"):
+                    if not motivo.strip():
+                        st.error("Informe o motivo da recusa.")
+                    else:
+                        conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE reembolsos SET status='NEGADO' WHERE id=? AND status=?", (id_target, status_atual))
+                        if cursor.rowcount:
+                            cursor.execute("INSERT INTO notificacoes (usuario, mensagem, lida, data_hora) VALUES (?, ?, 0, ?)", (usuario_dono, f"Sua solicitação #{id_target} foi alterada para NEGADO. Motivo: {motivo.strip()}", datetime.now().strftime('%d/%m/%Y %H:%M:%S')))
+                            conn.commit()
+                            conn.close()
+                            registrar_log(st.session_state['user_info']['user'], f"REJEITOU REEMBOLSO ID {id_target}")
+                            st.success("Solicitação negada e usuário notificado.")
+                            st.rerun()
+                        conn.close()
+                        st.warning("O status mudou antes da atualização. Recarregue a lista.")
+
+            if status_atual == "PAGO":
                 conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-                dados_func = conn.cursor().execute("SELECT telefone FROM usuarios WHERE nome_completo=?", (usuario_dono_nome,)).fetchone()
+                dados_func = conn.execute("SELECT telefone FROM usuarios WHERE usuario=?", (usuario_dono,)).fetchone()
                 conn.close()
-
                 telefone_func = dados_func[0] if dados_func else ""
-
-                if status_atual == "PENDENTE":
-                    if st.button("✅ Aprovar Documento"): processar_acao_clean(id_target, "APROVADO", "APROVOU REEMBOLSO")
-                elif status_atual == "APROVADO":
-                    if st.button("💸 Marcar como PAGO (Liquidar)"): processar_acao_clean(id_target, "PAGO", "PAGOU REEMBOLSO")
-
-                if status_atual == "PAGO" and telefone_func:
+                if telefone_func:
                     tel_limpo = "".join(filter(str.isdigit, telefone_func))
-                    if not tel_limpo.startswith("55") and len(tel_limpo) >= 10: tel_limpo = "55" + tel_limpo
-                    msg_wa = f"Olá, *{usuario_dono_nome}*!\n\nSua solicitação de reembolso *#{id_target}* (*{row_sel['Descrição']}*) de *R$ {row_sel['Valor (R$)']:.2f}* foi paga com sucesso!"
-                    st.markdown(f'<a href="https://wa.me/{tel_limpo}?text={urllib.parse.quote(msg_wa)}" target="_blank" class="btn-whatsapp">💬 Enviar Notificação via WhatsApp</a>', unsafe_allow_html=True)
+                    if not tel_limpo.startswith("55") and len(tel_limpo) >= 10:
+                        tel_limpo = "55" + tel_limpo
+                    msg_wa = f"Olá, *{usuario_dono_nome}*!\n\nSua solicitação de reembolso *#{id_target}* (*{row_sel['Descrição']}*) de *R$ {float(row_sel['Valor (R$)']):.2f}* foi paga com sucesso!"
+                    st.link_button("Abrir WhatsApp com mensagem pronta", f"https://wa.me/{tel_limpo}?text={urllib.parse.quote(msg_wa)}")
+                    st.caption("O link abre uma mensagem pré-preenchida; o sistema não confirma se ela foi enviada.")
 
-                if status_atual in ["PENDENTE", "APROVADO"]:
-                    motivo = st.text_input("Motivo da Recusa:", key=f"motivo_{id_target}")
-                    if st.button("❌ Negar Reembolso"):
-                        if motivo.strip(): processar_acao_clean(id_target, "NEGADO", "REJEITOU REEMBOLSO", motivo)
-                        else: st.error("Insira o motivo.")
-
-                st.write("---")
-                st.markdown("<p style='color:#ef4444; font-weight:700; font-size:14px; margin-bottom:5px;'>⚠️ Zona de Perigo</p>", unsafe_allow_html=True)
-                confirmar_exclusao = st.checkbox("Estou ciente de que esta ação apagará permanentemente o registro do banco de dados.", key=f"del_chk_{id_target}")
-                
-                if st.button("🗑️ Excluir Lançamento Permanente", key=f"del_btn_{id_target}"):
-                    if confirmar_exclusao:
+            with st.expander("Comprovante e exclusão", expanded=False):
+                if caminho_comprovante and os.path.exists(caminho_comprovante):
+                    if caminho_comprovante.lower().endswith(".pdf"):
+                        st.caption("Comprovante em PDF disponível para download.")
+                    else:
+                        st.image(caminho_comprovante, use_container_width=True)
+                    with open(caminho_comprovante, "rb") as f:
+                        st.download_button("Baixar comprovante", f, file_name=os.path.basename(caminho_comprovante), key=f"download_{id_target}")
+                else:
+                    st.warning("Comprovante ausente neste ambiente; a referência no banco não garante que o arquivo exista.")
+                confirmar_exclusao = st.checkbox("Confirmo que desejo excluir permanentemente este registro.", key=f"del_chk_{id_target}")
+                if st.button("Excluir solicitação", key=f"del_btn_{id_target}"):
+                    if not confirmar_exclusao:
+                        st.error("Marque a confirmação antes de excluir.")
+                    else:
                         conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
                         cursor = conn.cursor()
                         if caminho_comprovante and os.path.exists(caminho_comprovante):
-                            try: os.remove(caminho_comprovante)
-                            except: pass
+                            try:
+                                os.remove(caminho_comprovante)
+                            except OSError:
+                                pass
                         cursor.execute("DELETE FROM reembolsos WHERE id=?", (id_target,))
-                        conn.commit(); conn.close()
-                        st.success(f"Lançamento #{id_target} apagado!")
+                        conn.commit()
+                        conn.close()
+                        st.success(f"Solicitação #{id_target} excluída.")
                         st.rerun()
-                    else:
-                        st.error("Marque a caixa de confirmação primeiro.")
 
-            # 📥 DOWNLOAD DO COMPROVANTE CORRIGIDO
-            with col_preview:
-                if caminho_comprovante and os.path.exists(caminho_comprovante):
-                    st.markdown("**📄 Arquivo em anexo:**")
-                    
-                    if caminho_comprovante.lower().endswith('.pdf'):
-                        st.caption("Documento PDF. Clique no botão abaixo para baixar e revisar:")
-                    else:
-                        st.image(caminho_comprovante, use_container_width=True)
-                        st.caption("Imagem do comprovante. Clique no botão abaixo para salvar uma cópia:")
-                    
-                    with open(caminho_comprovante, "rb") as f:
-                        st.download_button(
-                            label="📥 Baixar Comprovante", 
-                            data=f, 
-                            file_name=os.path.basename(caminho_comprovante),
-                            use_container_width=True
-                        )
-                else: 
-                    st.info("Sem arquivo em anexo.")
-                    
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        with st.expander("👥 [PRODUÇÃO] Lista de Usuários Cadastrados no Sistema"):
+        with st.expander("Usuários cadastrados (dados limitados)"):
             conn = sqlite3.connect(DB_PATH, timeout=DB_TIMEOUT)
-            df_users = pd.read_sql("SELECT cpf as 'CPF Key', nome_completo as 'Nome Completo', email as 'E-mail', telefone as 'Telefone', senha as 'Senha Ativa' FROM usuarios", conn)
+            df_users = pd.read_sql_query("SELECT usuario AS 'Login', nome_completo AS 'Nome', nivel AS 'Perfil' FROM usuarios ORDER BY nome_completo", conn)
             conn.close()
-            st.dataframe(df_users, use_container_width=True)
+            st.dataframe(df_users, use_container_width=True, hide_index=True)
 
     # --- 📈 ABA: PAINEL EXECUTIVO ---
     elif menu == "📈 Painel Executivo":
