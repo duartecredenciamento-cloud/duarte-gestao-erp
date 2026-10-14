@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Duarte Repay — servidor WSGI-free com SQLite, cookies assinados e sessões no banco."""
 from __future__ import annotations
-import os, re, io, csv, json, time, hmac, hashlib, secrets, sqlite3, mimetypes, zipfile, html
+import os, re, io, csv, json, time, hmac, hashlib, secrets, sqlite3, mimetypes, zipfile, html, base64, subprocess, tempfile, shutil
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, quote
@@ -80,7 +81,66 @@ def clean_cpf(v): return ''.join(ch for ch in str(v or '') if ch.isdigit())
 def money(cents): return round(int(cents)/100,2)
 def log(c,actor,action): c.execute('INSERT INTO audit_log(actor,action,created_at) VALUES(?,?,?)',(actor,action,now()))
 def public_user(u): return {'username':u['username'],'name':u['full_name'],'role':u['role'],'email':u['email']}
-def safe_name(name): return Path(str(name).replace('\\','/')).name[:180]
+def safe_name(name): return Path(str(name).replace(chr(92), '/')).name[:180]
+
+def parse_money_token(raw):
+    """Converte um valor monetário reconhecível para centavos, sem arredondar OCR incerto."""
+    s=str(raw or '').strip().replace(' ','').replace('O','0').replace('o','0')
+    s=re.sub(r'(?<=\d)[Il](?=[\d.,]|$)','1',s)
+    s=re.sub(r'(?<=\d)[.,](?=\d{3}(?:\D|$))','',s)
+    m=re.fullmatch(r'(\d+)(?:[.,](\d{1,2}))?',s)
+    if not m:return None
+    whole=int(m.group(1)); frac=(m.group(2) or '0').ljust(2,'0')
+    cents=whole*100+int(frac)
+    return cents if cents>0 else None
+
+def monetary_candidates(text):
+    """Retorna valores encontrados junto a rótulos de valor/total ou moeda."""
+    text=str(text or '').replace('\n',' ')
+    marker=re.compile(r'(?i)(?:VALOR(?:\s+TOTAL)?|VLR\.?\s*TOTAL|TOTAL\s*(?:R\$)?|R\$)')
+    number=re.compile(r'(?<![A-Za-z0-9])([0-9OoIl]{1,7}(?:[., ]+[0-9OoIl]{1,3}){0,2})(?![A-Za-z0-9])')
+    found=set()
+    for mark in marker.finditer(text):
+        window=text[mark.end():mark.end()+42]
+        candidates=[]
+        for m in number.finditer(window):
+            cents=parse_money_token(m.group(1).strip())
+            if cents is not None and cents<=100_000_000:candidates.append((m.start(),cents))
+        if candidates:found.add(min(candidates,key=lambda x:x[0])[1])
+    return found
+
+def read_receipt_amount(filename, content):
+    """OCR local opcional no servidor; retorna centavos somente se o texto for legível."""
+    suffix=Path(filename).suffix.lower()
+    with tempfile.TemporaryDirectory(prefix='duarte-ocr-') as td:
+        source=Path(td)/('receipt'+suffix); source.write_bytes(content)
+        pages=[]
+        if suffix=='.pdf':
+            if not shutil.which('pdftoppm') or not shutil.which('pdftotext'):
+                return None,'ocr_unavailable'
+            try:
+                text=subprocess.run(['pdftotext','-f','1','-l','2','-layout',str(source),'-'],capture_output=True,text=True,timeout=12,check=False).stdout
+            except (subprocess.TimeoutExpired,OSError):text=''
+            values=monetary_candidates(text)
+            if len(values)==1:return next(iter(values)),'read'
+            if len(values)>1:return None,'multiple_values'
+            try:
+                subprocess.run(['pdftoppm','-f','1','-l','2','-r','140','-jpeg','-scale-to','1600',str(source),str(Path(td)/'page')],capture_output=True,timeout=15,check=False)
+                pages=list(Path(td).glob('page-*.jpg'))
+            except (subprocess.TimeoutExpired,OSError):pages=[]
+        elif suffix in ('.jpg','.jpeg','.png'):
+            if not shutil.which('tesseract'):return None,'ocr_unavailable'
+            pages=[source]
+        else:return None,'unsupported'
+        values=set()
+        for page in pages[:2]:
+            try:
+                text=subprocess.run(['tesseract',str(page),'stdout','-l','por+eng','--psm','11'],capture_output=True,text=True,timeout=12,check=False).stdout
+                values.update(monetary_candidates(text))
+            except (subprocess.TimeoutExpired,OSError):continue
+        if len(values)==1:return next(iter(values)),'read'
+        if len(values)>1:return None,'multiple_values'
+        return None,'unreadable'
 
 class App(BaseHTTPRequestHandler):
     server_version='DuarteRepay/1.0'
@@ -304,9 +364,17 @@ class App(BaseHTTPRequestHandler):
             if len(csvs)!=1:raise ValueError('O ZIP deve conter exatamente um CSV do backup.')
             csv_bytes=z.read(csvs[0])
             if sum(info.file_size for info in z.infolist())>150*1024*1024:raise ValueError('Conteúdo descompactado excede 150 MB.')
+            seen_names=set()
             for n in files:
-                if n.lower().endswith(('.jpg','.jpeg','.png','.pdf')):
-                    if z.getinfo(n).file_size<=12*1024*1024:attachments[safe_name(n)]=z.read(n)
+                if n.lower().endswith(('.jpg','.jpeg','.png','.pdf')) and z.getinfo(n).file_size<=12*1024*1024:
+                    key=safe_name(n)
+                    # Não sobrescrever anexos distintos com o mesmo nome-base em diretórios diferentes.
+                    if key in seen_names:raise ValueError('O ZIP contém comprovantes com nomes duplicados; renomeie-os para evitar anexos trocados.')
+                    seen_names.add(key)
+                    raw=z.read(n)
+                    amount_cents,read_status=read_receipt_amount(key,raw)
+                    attachments[key]={'content':raw,'name':key,'amountCents':amount_cents,'readStatus':read_status}
+            if len(attachments)>250:raise ValueError('Limite de 250 comprovantes por ZIP excedido.')
         elif filename.lower().endswith('.csv'):csv_bytes=blob
         else:raise ValueError('Formato aceito: CSV ou ZIP com um CSV e comprovantes opcionais.')
         try:text=csv_bytes.decode('utf-8-sig')
@@ -330,6 +398,46 @@ class App(BaseHTTPRequestHandler):
         if not rows:raise ValueError('O CSV não contém lançamentos.')
         if len(rows)>10000:raise ValueError('Limite de 10.000 lançamentos excedido.')
         return rows,attachments
+    def match_receipts_by_amount(self,rows,files):
+        """Vincula apenas quando há um comprovante e um registro únicos para o valor exato."""
+        receipt_counts={}
+        for receipt in files.values():
+            value=receipt.get('amountCents')
+            if value is not None:receipt_counts[value]=receipt_counts.get(value,0)+1
+        row_counts={}
+        for row in rows:row_counts[row['cents']]=row_counts.get(row['cents'],0)+1
+        matches=[]; used=set(); name_matches=[]; named_mismatches=[]
+        for row in rows:
+            named=row.get('receiptName')
+            if named and named in files:
+                receipt=files[named]
+                # Nome só é aceito quando o conteúdo também confirma exatamente o valor do registro.
+                if receipt.get('amountCents')==row['cents'] and row_counts.get(row['cents'])==1 and receipt_counts.get(row['cents'])==1:
+                    name_matches.append({'line':row['line'],'receipt':named,'matchType':'nome_e_valor_exato','confidence':'exact_amount'})
+                    used.add(row['line'])
+                elif receipt.get('amountCents') is not None and receipt.get('amountCents')!=row['cents']:
+                    named_mismatches.append({'line':row['line'],'receipt':named,'rowCents':row['cents'],'receiptCents':receipt['amountCents']})
+        matches.extend(name_matches)
+        for row in rows:
+            if row['line'] in used:continue
+            candidates=[name for name,receipt in files.items()
+                        if receipt.get('amountCents')==row['cents'] and name not in {m['receipt'] for m in matches}]
+            if len(candidates)==1 and receipt_counts.get(row['cents'])==1 and row_counts.get(row['cents'])==1:
+                matches.append({'line':row['line'],'receipt':candidates[0],'matchType':'valor_unico','confidence':'exact_amount'})
+                used.add(row['line'])
+        used_names={m['receipt'] for m in matches}
+        review=[]
+        for row in rows:
+            if row['line'] in used:continue
+            same=[name for name,receipt in files.items() if receipt.get('amountCents')==row['cents'] and name not in used_names]
+            if same:
+                reason='valor_repetido' if row_counts.get(row['cents'],0)>1 or receipt_counts.get(row['cents'],0)>1 or len(same)>1 else 'nao_unico'
+                review.append({'line':row['line'],'cents':row['cents'],'candidates':same,'reason':reason})
+        unmatched_files=[]
+        for name,receipt in files.items():
+            if name not in used_names:
+                unmatched_files.append({'name':name,'amountCents':receipt.get('amountCents'),'readStatus':receipt.get('readStatus')})
+        return matches,review,unmatched_files,named_mismatches
     def import_preview(self,u):
         if u['role']!='admin':return self.fail(403,'Apenas administrador pode importar backup.')
         try:filename,blob=self.multipart(); rows,files=self.read_backup(filename,blob)
@@ -340,10 +448,10 @@ class App(BaseHTTPRequestHandler):
             users={r['cpf']:r for r in c.execute('SELECT username,cpf,full_name FROM users').fetchall()}
         matched=sum(1 for r in rows if r['cpf'] in users)
         missing=sorted({r['cpf'] for r in rows if r['cpf'] not in users})
-        found=sum(1 for r in rows if r['receiptName'] and r['receiptName'] in files)
-        summary={'filename':filename,'fingerprint':fp,'count':len(rows),'matchedUsers':matched,'unmatchedUsers':missing,'attachmentsFound':found,'attachmentsReferenced':sum(bool(r['receiptName']) for r in rows),'duplicateBatch':bool(prev),'totalCents':sum(r['cents'] for r in rows),'statuses':{s:sum(1 for r in rows if r['status']==s) for s in STATUSES}}
+        receipt_matches,receipt_review,unmatched_files,named_mismatches=self.match_receipts_by_amount(rows,files)
+        summary={'filename':filename,'fingerprint':fp,'count':len(rows),'matchedUsers':matched,'unmatchedUsers':missing,'attachmentsFound':len(receipt_matches),'attachmentsReferenced':len(files),'receiptMatches':receipt_matches,'receiptReview':receipt_review,'unmatchedReceipts':unmatched_files,'namedValueMismatches':named_mismatches,'duplicateBatch':bool(prev),'totalCents':sum(r['cents'] for r in rows),'statuses':{s:sum(1 for r in rows if r['status']==s) for s in STATUSES}}
         if not prev:
-            token=secrets.token_urlsafe(24); (DATA_DIR/(token+'.json')).write_text(json.dumps({'user':u['username'],'fp':fp,'filename':filename,'rows':rows,'files':{k:__import__('base64').b64encode(v).decode() for k,v in files.items()}},ensure_ascii=False),encoding='utf-8');summary['previewToken']=token
+            token=secrets.token_urlsafe(24); (DATA_DIR/(token+'.json')).write_text(json.dumps({'user':u['username'],'fp':fp,'filename':filename,'rows':rows,'receiptMatches':receipt_matches,'files':{k:{'content':base64.b64encode(v['content']).decode(),'amountCents':v.get('amountCents'),'readStatus':v.get('readStatus')} for k,v in files.items()}},ensure_ascii=False),encoding='utf-8');summary['previewToken']=token
         return self.send_json(200,{'preview':summary})
     def import_confirm(self,u,d):
         if u['role']!='admin':return self.fail(403,'Apenas administrador pode importar backup.')
@@ -364,14 +472,18 @@ class App(BaseHTTPRequestHandler):
                 return self.fail(409,'Importação bloqueada: o banco já contém solicitações. Faça a migração em uma base nova e vazia ou revise os registros antes de prosseguir.')
             c.execute('INSERT INTO import_batches(fingerprint,filename,imported_by,imported_at,row_count) VALUES(?,?,?,?,?)',(payload['fp'],payload['filename'],u['username'],now(),len(payload['rows'])))
             count=0
+            matches_by_line={m['line']:m['receipt'] for m in payload.get('receiptMatches',[])}
+            staged_files=[]
             for r in payload['rows']:
                 source=f"{payload['fp']}:{r['sourceId'] or r['line']}"
-                name=r['receiptName']; stored=''
-                encoded=payload.get('files',{}).get(name)
-                if encoded:
-                    import base64
-                    suffix=Path(name).suffix.lower(); dest=UPLOAD_DIR/(secrets.token_hex(16)+suffix); dest.write_bytes(base64.b64decode(encoded)); stored=str(dest)
-                c.execute('INSERT INTO reimbursements(owner,description,category,cost_center,amount_cents,status,date,receipt_name,receipt_path,created_at,updated_at,source_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(users[r['cpf']],r['description'] or 'Reembolso importado',r['category'] or 'OUTROS',r['costCenter'] or 'OUTROS',r['cents'],r['status'],r['date'],name if stored else '',stored,now(),now(),source)); count+=1
+                matched_name=matches_by_line.get(r['line'],''); stored=''; name=''
+                receipt=payload.get('files',{}).get(matched_name) if matched_name else None
+                if receipt:
+                    name=matched_name
+                    raw=base64.b64decode(receipt['content'],validate=True)
+                    suffix=Path(name).suffix.lower(); dest=UPLOAD_DIR/(secrets.token_hex(16)+suffix)
+                    dest.write_bytes(raw); staged_files.append(dest); stored=str(dest)
+                c.execute('INSERT INTO reimbursements(owner,description,category,cost_center,amount_cents,status,date,receipt_name,receipt_path,created_at,updated_at,source_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(users[r['cpf']],r['description'] or 'Reembolso importado',r['category'] or 'OUTROS',r['costCenter'] or 'OUTROS',r['cents'],r['status'],r['date'],name,stored,now(),now(),source)); count+=1
             log(c,u['username'],f'IMPORTOU BACKUP {payload["filename"]}: {count} LANÇAMENTOS')
         path.unlink(missing_ok=True)
         return self.send_json(200,{'ok':True,'imported':count})
