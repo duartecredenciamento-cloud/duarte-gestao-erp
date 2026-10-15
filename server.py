@@ -87,7 +87,6 @@ def parse_money_token(raw):
     """Converte um valor monetário reconhecível para centavos, sem arredondar OCR incerto."""
     s=str(raw or '').strip().replace(' ','').replace('O','0').replace('o','0')
     s=re.sub(r'(?<=\d)[Il](?=[\d.,]|$)','1',s)
-    s=re.sub(r'(?<=\d)[.,](?=\d{3}(?:\D|$))','',s)
     m=re.fullmatch(r'(\d+)(?:[.,](\d{1,2}))?',s)
     if not m:return None
     whole=int(m.group(1)); frac=(m.group(2) or '0').ljust(2,'0')
@@ -98,7 +97,8 @@ def monetary_candidates(text):
     """Retorna valores encontrados junto a rótulos de valor/total ou moeda."""
     text=str(text or '').replace('\n',' ')
     marker=re.compile(r'(?i)(?:VALOR(?:\s+TOTAL)?|VLR\.?\s*TOTAL|TOTAL\s*(?:R\$)?|R\$)')
-    number=re.compile(r'(?<![A-Za-z0-9])([0-9OoIl]{1,7}(?:[., ]+[0-9OoIl]{1,3}){0,2})(?![A-Za-z0-9])')
+    # Exige casas decimais para evitar ler datas e códigos como valores monetários.
+    number=re.compile(r'(?<![A-Za-z0-9])([0-9OoIl]{1,7}\s*[.,]\s*[0-9OoIl]{1,2})(?![A-Za-z0-9])')
     found=set()
     for mark in marker.finditer(text):
         window=text[mark.end():mark.end()+42]
@@ -137,6 +137,18 @@ def read_receipt_amount(filename, content):
             try:
                 text=subprocess.run(['tesseract',str(page),'stdout','-l','por+eng','--psm','11'],capture_output=True,text=True,timeout=12,check=False).stdout
                 values.update(monetary_candidates(text))
+                # Alternativa de segmentação: diferenças só são aceitas se ambas chegarem ao mesmo valor.
+                alternate=subprocess.run(['tesseract',str(page),'stdout','-l','por+eng','--psm','6'],capture_output=True,text=True,timeout=12,check=False).stdout
+                alternate_values=monetary_candidates(alternate)
+                primary_values=monetary_candidates(text)
+                # Divergência entre segmentações vira ambiguidade; só usar valor lido por ambas.
+                if primary_values and alternate_values:
+                    values.update(primary_values & alternate_values)
+                    if not primary_values.intersection(alternate_values):
+                        values.update(primary_values)
+                        values.update(alternate_values)
+                else:
+                    values.update(primary_values or alternate_values)
             except (subprocess.TimeoutExpired,OSError):continue
         if len(values)==1:return next(iter(values)),'read'
         if len(values)>1:return None,'multiple_values'
@@ -372,9 +384,17 @@ class App(BaseHTTPRequestHandler):
                     if key in seen_names:raise ValueError('O ZIP contém comprovantes com nomes duplicados; renomeie-os para evitar anexos trocados.')
                     seen_names.add(key)
                     raw=z.read(n)
-                    amount_cents,read_status=read_receipt_amount(key,raw)
-                    attachments[key]={'content':raw,'name':key,'amountCents':amount_cents,'readStatus':read_status}
+                    attachments[key]={'content':raw,'name':key,'amountCents':None,'readStatus':'pending'}
             if len(attachments)>250:raise ValueError('Limite de 250 comprovantes por ZIP excedido.')
+            # OCR limitado a quatro processos paralelos para manter a análise responsiva.
+            def extract(item):
+                key,receipt=item
+                amount_cents,read_status=read_receipt_amount(key,receipt['content'])
+                return key,amount_cents,read_status
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                for key,amount_cents,read_status in pool.map(extract,attachments.items()):
+                    attachments[key]['amountCents']=amount_cents
+                    attachments[key]['readStatus']=read_status
         elif filename.lower().endswith('.csv'):csv_bytes=blob
         else:raise ValueError('Formato aceito: CSV ou ZIP com um CSV e comprovantes opcionais.')
         try:text=csv_bytes.decode('utf-8-sig')
@@ -448,6 +468,7 @@ class App(BaseHTTPRequestHandler):
             users={r['cpf']:r for r in c.execute('SELECT username,cpf,full_name FROM users').fetchall()}
         matched=sum(1 for r in rows if r['cpf'] in users)
         missing=sorted({r['cpf'] for r in rows if r['cpf'] not in users})
+        # A prévia não grava solicitações nem comprovantes no banco ou na pasta permanente.
         receipt_matches,receipt_review,unmatched_files,named_mismatches=self.match_receipts_by_amount(rows,files)
         summary={'filename':filename,'fingerprint':fp,'count':len(rows),'matchedUsers':matched,'unmatchedUsers':missing,'attachmentsFound':len(receipt_matches),'attachmentsReferenced':len(files),'receiptMatches':receipt_matches,'receiptReview':receipt_review,'unmatchedReceipts':unmatched_files,'namedValueMismatches':named_mismatches,'duplicateBatch':bool(prev),'totalCents':sum(r['cents'] for r in rows),'statuses':{s:sum(1 for r in rows if r['status']==s) for s in STATUSES}}
         if not prev:
@@ -474,17 +495,21 @@ class App(BaseHTTPRequestHandler):
             count=0
             matches_by_line={m['line']:m['receipt'] for m in payload.get('receiptMatches',[])}
             staged_files=[]
-            for r in payload['rows']:
-                source=f"{payload['fp']}:{r['sourceId'] or r['line']}"
-                matched_name=matches_by_line.get(r['line'],''); stored=''; name=''
-                receipt=payload.get('files',{}).get(matched_name) if matched_name else None
-                if receipt:
-                    name=matched_name
-                    raw=base64.b64decode(receipt['content'],validate=True)
-                    suffix=Path(name).suffix.lower(); dest=UPLOAD_DIR/(secrets.token_hex(16)+suffix)
-                    dest.write_bytes(raw); staged_files.append(dest); stored=str(dest)
-                c.execute('INSERT INTO reimbursements(owner,description,category,cost_center,amount_cents,status,date,receipt_name,receipt_path,created_at,updated_at,source_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(users[r['cpf']],r['description'] or 'Reembolso importado',r['category'] or 'OUTROS',r['costCenter'] or 'OUTROS',r['cents'],r['status'],r['date'],name,stored,now(),now(),source)); count+=1
-            log(c,u['username'],f'IMPORTOU BACKUP {payload["filename"]}: {count} LANÇAMENTOS')
+            try:
+                for r in payload['rows']:
+                    source=f"{payload['fp']}:{r['sourceId'] or r['line']}"
+                    matched_name=matches_by_line.get(r['line'],''); stored=''; name=''
+                    receipt=payload.get('files',{}).get(matched_name) if matched_name else None
+                    if receipt:
+                        name=matched_name
+                        raw=base64.b64decode(receipt['content'],validate=True)
+                        suffix=Path(name).suffix.lower(); dest=UPLOAD_DIR/(secrets.token_hex(16)+suffix)
+                        dest.write_bytes(raw); staged_files.append(dest); stored=str(dest)
+                    c.execute('INSERT INTO reimbursements(owner,description,category,cost_center,amount_cents,status,date,receipt_name,receipt_path,created_at,updated_at,source_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(users[r['cpf']],r['description'] or 'Reembolso importado',r['category'] or 'OUTROS',r['costCenter'] or 'OUTROS',r['cents'],r['status'],r['date'],name,stored,now(),now(),source)); count+=1
+                log(c,u['username'],f'IMPORTOU BACKUP {payload["filename"]}: {count} LANÇAMENTOS')
+            except Exception:
+                for staged in staged_files:staged.unlink(missing_ok=True)
+                raise
         path.unlink(missing_ok=True)
         return self.send_json(200,{'ok':True,'imported':count})
 

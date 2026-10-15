@@ -11,12 +11,12 @@ Aplicação web remodelada para controle de reembolsos, com interface HTML/CSS/J
 - Edição/reenvio de pedidos pendentes ou negados, mantendo o comprovante atual.
 - Fluxo validado de status: PENDENTE → APROVADO → PAGO, ou PENDENTE/APROVADO → NEGADO. Recusa exige motivo e gera notificação.
 - Ações administrativas individuais e exclusão com confirmação; exportação CSV.
-- Importação futura do CSV (formato do backup Duarte) ou ZIP com um CSV e comprovantes. A prévia valida usuários, status, valores, datas e duplicidade antes da confirmação. Os arquivos só são anexados quando o nome referenciado pelo CSV corresponde exatamente ao nome do comprovante dentro do ZIP. Não são feitas associações por aparência ou valor.
+- Importação do CSV (formato do backup Duarte) ou ZIP com um CSV e comprovantes. A prévia valida usuários, status, valores, datas e duplicidade. Imagens e PDFs são lidos localmente com Tesseract/Poppler quando disponíveis; só se associa automaticamente quando o valor lido e o valor de uma solicitação são exatamente iguais e únicos. Valores repetidos, divergências e leituras incertas ficam para revisão e não são anexados automaticamente.
 - Banco com WAL, timeout de lock e logs de auditoria.
 
 ## Requisitos
 
-Python 3.11+; não requer pacotes externos.
+Python 3.11+; sem dependências Python externas. Para associação automática em comprovantes: Tesseract com idioma português (`por`) e Poppler (`pdftotext`/`pdftoppm`). Sem esses programas, ou quando a leitura for incerta, os anexos ficam sem associação automática.
 
 ## Executar localmente
 
@@ -67,8 +67,8 @@ Faça backup do volume e teste a restauração antes de atualizações. Nunca ap
 ## Importação futura
 
 1. O administrador abre **Central do Admin → Importar backup**.
-2. Envia o CSV sozinho ou um ZIP privado contendo exatamente um CSV e os comprovantes com os nomes referenciados pela coluna `caminho_arquivo`.
-3. Revisa contagem, total, CPFs sem cadastro, comprovantes encontrados pelo nome e distribuição de status.
+2. Envia o CSV sozinho ou um ZIP privado contendo exatamente um CSV e os comprovantes; nomes genéricos são aceitos.
+3. Revisa contagem, total, CPFs sem cadastro, vínculos por valor exato e único, divergências, valores repetidos, comprovantes ilegíveis e distribuição de status.
 4. Cadastre/regularize os usuários antes de confirmar se algum CPF estiver ausente.
 5. Confirma explicitamente. A importação é bloqueada se o banco já tiver qualquer solicitação, para não misturar históricos; configure uma base vazia, depois de protegida por backup. A mesma cópia exata de backup também é bloqueada contra nova importação.
 
@@ -77,8 +77,8 @@ A importação associa cada solicitação ao cadastro encontrado pelo CPF presen
 ## Limites e validação antes de produção
 
 - Esta é uma implementação nova; não é uma atualização automática do SQLite legado e não se conecta ao Railway atual.
-- Nenhum banco real, backup ou comprovante foi importado automaticamente. A seleção e associação de arquivos só ocorrem no futuro fluxo explícito de importação.
-- O app ainda precisa de validação em ambiente de homologação, HTTPS, volume persistente, política de backup/retensão e teste de recuperação antes de migrar para produção.
+- Nenhum banco real, backup ou comprovante foi importado nesta alteração. A seleção e associação só ocorrem no fluxo explícito de prévia e confirmação.
+- O OCR foi conferido em amostras; não garante leitura de todos os recibos. Antes de importar dados reais, valide uma prévia completa em homologação e revise todos os vínculos automáticos apresentados. O app ainda precisa de validação em ambiente de homologação, HTTPS, volume persistente, política de backup/retensão e teste de recuperação antes de migrar para produção.
 - A recuperação de senha confirma CPF/e-mail/telefone e não envia código externo. Para produção, recomenda-se um fluxo de redefinição por e-mail verificado e limitação de tentativas.
 - O cadastro público cria apenas perfil colaborador. O primeiro administrador é criado somente pela configuração de bootstrap.
 - A interface executiva exibe totais e distribuição pagos; não substitui conferência contábil.
