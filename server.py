@@ -266,12 +266,13 @@ class App(BaseHTTPRequestHandler):
             where='' if u['role']=='admin' else ' WHERE owner=?'; params=() if u['role']=='admin' else (u['username'],)
             rows=c.execute('SELECT status,COUNT(*) n,COALESCE(SUM(amount_cents),0) cents FROM reimbursements'+where+' GROUP BY status',params).fetchall()
             unread=c.execute('SELECT COUNT(*) FROM notifications WHERE username=? AND is_read=0',(u['username'],)).fetchone()[0]
+            own_count=c.execute('SELECT COUNT(*) FROM reimbursements WHERE owner=?',(u['username'],)).fetchone()[0]
             totals={x:{'count':0,'cents':0} for x in STATUSES}
             for r in rows: totals[r['status']]={'count':r['n'],'cents':r['cents']}
-            return self.send_json(200,{'totals':totals,'unread':unread,'role':u['role']})
+            return self.send_json(200,{'totals':totals,'ownCount':own_count,'unread':unread,'role':u['role']})
     def list_reimbursements(self,u,q):
         status=q.get('status',[''])[0].upper(); search=q.get('q',[''])[0][:120]; owner=q.get('owner',[''])[0][:80]
-        sql='SELECT r.*,u.full_name owner_name FROM reimbursements r LEFT JOIN users u ON u.username=r.owner WHERE 1=1'; args=[]
+        sql='SELECT r.*,u.full_name owner_name'+(',u.phone owner_phone' if u['role']=='admin' else '')+' FROM reimbursements r LEFT JOIN users u ON u.username=r.owner WHERE 1=1'; args=[]
         if u['role']!='admin':sql+=' AND r.owner=?';args.append(u['username'])
         elif owner:sql+=' AND (r.owner=? OR u.full_name LIKE ?)';args.extend([owner,'%'+owner+'%'])
         if status in STATUSES:sql+=' AND r.status=?';args.append(status)
@@ -280,7 +281,9 @@ class App(BaseHTTPRequestHandler):
         with db() as c: rows=c.execute(sql,args).fetchall()
         return self.send_json(200,{'items':[self.present(r) for r in rows]})
     def present(self,r):
-        return {'id':r['id'],'owner':r['owner'],'ownerName':r['owner_name'] or r['owner'],'description':r['description'],'category':r['category'],'costCenter':r['cost_center'],'amount':money(r['amount_cents']),'status':r['status'],'date':r['date'],'hasReceipt':bool(r['receipt_path'] and Path(r['receipt_path']).is_file()),'denialReason':r['denial_reason']}
+        item={'id':r['id'],'owner':r['owner'],'ownerName':r['owner_name'] or r['owner'],'description':r['description'],'category':r['category'],'costCenter':r['cost_center'],'amount':money(r['amount_cents']),'status':r['status'],'date':r['date'],'hasReceipt':bool(r['receipt_path'] and Path(r['receipt_path']).is_file()),'denialReason':r['denial_reason']}
+        if 'owner_phone' in r.keys(): item['ownerPhone']=r['owner_phone'] or ''
+        return item
     def notifications(self,u):
         with db() as c:rows=c.execute('SELECT id,message,is_read,created_at FROM notifications WHERE username=? ORDER BY id DESC LIMIT 15',(u['username'],)).fetchall()
         return self.send_json(200,{'items':[dict(r) for r in rows]})

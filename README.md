@@ -1,103 +1,41 @@
 # Duarte Repay
 
-Aplicação web remodelada para controle de reembolsos, com interface HTML/CSS/JavaScript, servidor Python e SQLite. O tema escuro, acentos azul-ciano/laranja e animações sutis foram inspirados na referência Duarte Transcribe informada. A aplicação usa a logo enviada entre os materiais.
+Aplicação web para controle de reembolsos, com interface HTML/CSS/JavaScript, servidor Python e SQLite.
 
 ## O que está incluído
 
-- Acesso por CPF ou login, cadastro de colaborador e recuperação mediante CPF, e-mail e telefone já registrados.
-- Senhas armazenadas com PBKDF2-HMAC-SHA256 e sessões em cookie `HttpOnly`, `SameSite=Lax`.
-- Dois perfis: colaborador (somente próprios pedidos) e administrador (central administrativa e painel executivo).
-- Solicitação com descrição, categoria, centro de custo, valor, data e comprovante PDF/JPG/PNG.
-- Edição/reenvio de pedidos pendentes ou negados, mantendo o comprovante atual.
-- Fluxo validado de status: PENDENTE → APROVADO → PAGO, ou PENDENTE/APROVADO → NEGADO. Recusa exige motivo e gera notificação.
-- Ações administrativas individuais e exclusão com confirmação; exportação CSV.
-- Importação do CSV (formato do backup Duarte) ou ZIP com um CSV e comprovantes. A prévia valida usuários, status, valores, datas e duplicidade. Imagens e PDFs são lidos localmente com Tesseract/Poppler quando disponíveis; só se associa automaticamente quando o valor lido e o valor de uma solicitação são exatamente iguais e únicos. Valores repetidos, divergências e leituras incertas ficam para revisão e não são anexados automaticamente.
-- Banco com WAL, timeout de lock e logs de auditoria.
-
-## Requisitos
-
-Python 3.11+; sem dependências Python externas. Para associação automática em comprovantes: Tesseract com idioma português (`por`) e Poppler (`pdftotext`/`pdftoppm`). Sem esses programas, ou quando a leitura for incerta, os anexos ficam sem associação automática.
+- Acesso por CPF/login, cadastro de colaboradores e perfil administrativo.
+- Solicitações com descrição, categoria, centro de custo, valor, data e comprovante PDF/JPG/PNG.
+- Fluxo de aprovação, notificações, edição de solicitações elegíveis e exportação CSV.
+- **WhatsApp:** em cada detalhe existe uma mensagem preparada que pode ser revisada; o botão abre a conversa (para administradores, o número cadastrado do colaborador quando disponível). O envio continua manual, feito pela pessoa no WhatsApp.
+- **Meus pedidos:** contador do total de solicitações, independente dos filtros selecionados.
+- **Painel executivo:** cartões reorganizados e gráficos responsivos para centros de custo e categorias, com rótulos e valores legíveis.
+- Importação controlada de CSV/ZIP e ferramentas de OCR locais opcionais.
 
 ## Executar localmente
 
-```bash
-python server.py
-```
-
-Abra `http://localhost:8080`.
-
-Na primeira configuração, defina credenciais próprias antes de iniciar. Exemplo em macOS/Linux:
+Requer Python 3.11+ e não usa dependências Python externas.
 
 ```bash
-export SESSION_SECRET="uma-chave-aleatoria-longa-e-unica"
-export ADMIN_BOOTSTRAP_PASSWORD="uma-senha-nova-com-ao-menos-10-caracteres"
-export ADMIN_BOOTSTRAP_CPF="cpf-do-administrador-apenas-digitos"
-export ADMIN_BOOTSTRAP_NAME="Nome do administrador"
 python server.py
 ```
 
-PowerShell:
+Acesse `http://localhost:8080`. Para criar o primeiro administrador, configure `SESSION_SECRET`, `ADMIN_BOOTSTRAP_PASSWORD`, `ADMIN_BOOTSTRAP_CPF` e `ADMIN_BOOTSTRAP_NAME` antes do primeiro início. Não use credenciais de exemplo em produção.
 
-```powershell
-$env:SESSION_SECRET="uma-chave-aleatoria-longa-e-unica"
-$env:ADMIN_BOOTSTRAP_PASSWORD="uma-senha-nova-com-ao-menos-10-caracteres"
-$env:ADMIN_BOOTSTRAP_CPF="cpf-do-administrador-apenas-digitos"
-$env:ADMIN_BOOTSTRAP_NAME="Nome do administrador"
-python server.py
-```
+Para execução em HTTPS, mantenha `COOKIE_SECURE=1`. Em testes locais com HTTP, use `COOKIE_SECURE=0`.
 
-As variáveis de bootstrap criam o primeiro admin somente se ainda não existir nenhum administrador. Não use senha conhecida, exemplo literal nem credencial antiga do sistema. A senha não vem incluída no código. `ADMIN_BOOTSTRAP_EMAIL` e `ADMIN_BOOTSTRAP_PHONE` são opcionais.
-
-## Persistência e deploy
-
-No Railway, execute este app como serviço Python (não como site estático) e conecte **um volume persistente ao serviço da aplicação**, montado, por exemplo, em `/data`. Configure:
-
-- `DATA_DIR=/data`
-- `REEMBOLSO_DB_PATH=/data/duarte_repay.sqlite3`
-- `REEMBOLSO_UPLOAD_DIR=/data/comprovantes`
-- `SESSION_SECRET` (chave longa e aleatória)
-- `COOKIE_SECURE=1` (padrão para produção com HTTPS)
-- `ADMIN_BOOTSTRAP_PASSWORD`, `ADMIN_BOOTSTRAP_CPF` e `ADMIN_BOOTSTRAP_NAME` no primeiro arranque seguro.
-- Start command: `python server.py` (ou `python3 server.py`).
-
-Faça backup do volume e teste a restauração antes de atualizações. Nunca aponte este serviço para o Postgres de outro produto nem publique CSV, comprovantes, segredos, banco SQLite ou arquivos `.env` no GitHub. Use repositório privado e revise permissões/acesso.
-
-`PORT` é fornecida pela plataforma. Se executar localmente em HTTP, defina `COOKIE_SECURE=0`; não desligue essa proteção em produção HTTPS.
-
-## Importação futura
-
-1. O administrador abre **Central do Admin → Importar backup**.
-2. Envia o CSV sozinho ou um ZIP privado contendo exatamente um CSV e os comprovantes; nomes genéricos são aceitos.
-3. Revisa contagem, total, CPFs sem cadastro, vínculos por valor exato e único, divergências, valores repetidos, comprovantes ilegíveis e distribuição de status.
-4. Cadastre/regularize os usuários antes de confirmar se algum CPF estiver ausente.
-5. Confirma explicitamente. A importação é bloqueada se o banco já tiver qualquer solicitação, para não misturar históricos; configure uma base vazia, depois de protegida por backup. A mesma cópia exata de backup também é bloqueada contra nova importação.
-
-A importação associa cada solicitação ao cadastro encontrado pelo CPF presente na coluna `usuario`. Ela **não importa nem descobre senhas existentes**. O modo de prévia não grava os lançamentos; a confirmação importa todas as linhas em transação SQLite. Faça cópia integral do banco e da pasta de comprovantes antes de migrar dados reais. CSVs/ZIPs podem conter dados pessoais/financeiros: use apenas conexão confiável, acesso administrativo e armazenamento privado.
-
-## Limites e validação antes de produção
-
-- Esta é uma implementação nova; não é uma atualização automática do SQLite legado e não se conecta ao Railway atual.
-- Nenhum banco real, backup ou comprovante foi importado nesta alteração. A seleção e associação só ocorrem no fluxo explícito de prévia e confirmação.
-- O OCR foi conferido em amostras; não garante leitura de todos os recibos. Antes de importar dados reais, valide uma prévia completa em homologação e revise todos os vínculos automáticos apresentados. O app ainda precisa de validação em ambiente de homologação, HTTPS, volume persistente, política de backup/retensão e teste de recuperação antes de migrar para produção.
-- A recuperação de senha confirma CPF/e-mail/telefone e não envia código externo. Para produção, recomenda-se um fluxo de redefinição por e-mail verificado e limitação de tentativas.
-- O cadastro público cria apenas perfil colaborador. O primeiro administrador é criado somente pela configuração de bootstrap.
-- A interface executiva exibe totais e distribuição pagos; não substitui conferência contábil.
-
-## Executar a verificação local
-
-Na pasta do projeto, rode:
+## Testes
 
 ```bash
 python tests/smoke_test.py
 ```
 
-A verificação cria dados descartáveis em uma pasta temporária e cobre login, cadastro, sessão, envio de solicitação, controle de acesso e carregamento dos arquivos estáticos.
+## Deploy e dados
 
-## Arquivos principais
+Antes de publicar, configure uma chave de sessão persistente e um volume persistente para o banco e comprovantes. Faça backup e teste a restauração. **Este pacote é uma atualização do código-fonte, não publica automaticamente a versão no Railway nem migra os dados do sistema atual.** Teste primeiro em homologação e confira o repositório, as variáveis privadas e as permissões antes de substituir o serviço em produção.
 
-- `server.py` — servidor e regras de negócio.
-- `static/index.html` — estrutura da aplicação.
-- `static/app.css` — tema visual, responsividade e animações.
-- `static/app.js` — comportamento da interface.
-- `static/logo.png` — logo Duarte fornecida.
-- `Dockerfile`, `railway.json`, `.gitignore` — empacotamento e configuração inicial de deploy.
+## Principais arquivos
+
+- `server.py` — servidor e regras da aplicação.
+- `static/index.html`, `static/app.css`, `static/app.js` — interface e comportamento.
+- `tests/smoke_test.py` — teste de fumaça.
